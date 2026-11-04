@@ -141,6 +141,11 @@ Khi có từ 2 Page trở lên:
 - **Lịch đăng** ghi tên Page trên từng bài và lọc được theo Page.
 - **Giới hạn an toàn tính riêng cho từng Page** (Facebook giới hạn theo từng Page).
 
+**Kiểm tra kết nối tự động:** ứng dụng thử kết nối từng Page qua API mỗi 6 giờ, và cập nhật ngay mỗi lần đăng
+thành công/thất bại. Nếu một Page mất kết nối (token hết hạn, thiếu quyền, bị Facebook chặn tạm…), mọi trang hiện
+**dải cảnh báo đỏ** kèm cách xử lý, và mục *Page đã kết nối* ghi rõ lỗi. Sửa xong (vd thêm lại Page với token mới)
+thì bấm **Kiểm tra** để xác nhận. Page qua trình duyệt chỉ được kiểm tra khi bạn bấm (vì phải mở trình duyệt).
+
 > Nâng cấp từ bản cũ (một Page): Page đang kết nối tự trở thành Page đầu tiên và là Page mặc định; bài đang chờ
 > được gán vào Page đó. Bạn không cần làm gì.
 
@@ -286,7 +291,7 @@ Facebook được giả lập trong mọi test, **không đăng bài thật**.
 | `tests/test_fb_scheduling.py` | Vòng đời bài hẹn trên Facebook, đối soát, giới hạn an toàn trong luồng nền |
 | `tests/test_app.py` | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt |
 | `tests/test_pages.py` | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page |
-| `tests/test_maintenance.py`, `tests/test_instance.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần |
+| `tests/test_maintenance.py`, `tests/test_instance.py`, `tests/test_health.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần, kiểm tra kết nối |
 | `tests/test_e2e.py` | Giao diện thật bằng trình duyệt tự động (cần `playwright install chromium`; tự bỏ qua nếu chưa cài) |
 
 Kiểm thử bộ tính lịch của Flow (cần Node.js 18+):
@@ -343,6 +348,7 @@ supload/                      Backend (Python, Flask)
   domain/                     Nghiệp vụ thuần, không phụ thuộc Flask/mạng
     posts.py                    vòng đời bài: pending → running/scheduled → done/error
     pages.py                    các Page đã kết nối, chuyển dữ liệu kiểu cũ
+    health.py                   tình trạng kết nối từng Page, lỗi Facebook dễ hiểu
     flows.py  settings.py
     planner.py                  giới hạn an toàn: tính thời điểm đăng thực tế
   integrations/               Giao tiếp bên ngoài
@@ -350,7 +356,8 @@ supload/                      Backend (Python, Flask)
     browser.py                  Playwright
   services/                   Điều phối
     publisher.py                đăng ngay / giao Facebook hẹn giờ / huỷ / đối soát
-    scheduler.py                luồng nền: đối soát → đăng bài đến giờ → giao Facebook
+    scheduler.py                luồng nền: đối soát → đăng bài đến giờ → giao Facebook → kiểm tra kết nối → bảo trì
+    maintenance.py              sao lưu & dọn dữ liệu hằng ngày
   api/                        HTTP, mỗi file một nhóm tài nguyên (Flask blueprint)
     state.py  posts.py  flows.py  pages.py  settings.py
   cli/                        Dòng lệnh (fb_poster.py, browser_poster.py)

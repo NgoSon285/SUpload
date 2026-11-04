@@ -18,10 +18,12 @@ def add_api_page(client, fb_id, name):
 
 
 @pytest.fixture
-def two_pages(client):
+def two_pages(client, svc):
+    from conftest import mark_healthy
     client.post("/api/settings", json={"min_gap": 0, "daily_max": 0})
     a = add_api_page(client, "111", "Tiệm Bánh")
     b = add_api_page(client, "222", "Quán Cà Phê")
+    mark_healthy(svc)
     return a, b
 
 

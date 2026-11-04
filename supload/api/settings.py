@@ -5,6 +5,7 @@ import threading
 
 from flask import Blueprint, jsonify, request
 
+from ..domain import health
 from ..domain import pages as pages_domain
 from ..domain.settings import apply_update
 from ..integrations import facebook
@@ -66,6 +67,7 @@ def select_page():
         page = next((p for p in data["pages"] if p["kind"] == "api" and p["fb_page_id"] == src["id"]), None)
         if page:
             page.update(token=src["access_token"], name=src["name"])
+            health.reset(data, page["id"])  # token mới -> kiểm tra lại
         else:
             page = pages_domain.new_page("api", name=src["name"], fb_page_id=src["id"], token=src["access_token"])
             data["pages"].append(page)

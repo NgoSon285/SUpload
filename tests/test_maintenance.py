@@ -59,7 +59,10 @@ def test_keeps_only_14_backups(connected, svc):
 def test_scheduler_runs_maintenance_once_a_day(connected, svc):
     now = datetime.now()
     assert svc.scheduler.process_one(now=now) is False                      # fixture: vừa bảo trì
-    assert svc.scheduler.process_one(now=now + timedelta(hours=25)) is True  # tới hạn
+    later = now + timedelta(hours=25)
+    assert svc.scheduler.process_one(now=later) is True  # tới hạn (kiểm tra kết nối đi trước, rồi bảo trì)
+    while svc.scheduler.process_one(now=later):
+        pass
     assert len(svc.maintenance.backups()) == 1
     assert svc.scheduler.process_one(now=now + timedelta(hours=26)) is False
 

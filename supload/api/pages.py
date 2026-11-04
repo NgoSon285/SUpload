@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
 
+from datetime import datetime
+
+from ..domain import health
 from ..domain import pages as pages_domain
 from ..integrations import facebook
 from ..storage import add_log
@@ -14,7 +17,7 @@ bp = Blueprint("pages", __name__, url_prefix="/api/pages")
 
 def _list(data: dict) -> list[dict]:
     default = pages_domain.default_page(data)
-    return [pages_domain.public(p, default and default["id"]) for p in data["pages"]]
+    return [{**pages_domain.public(p, default and default["id"]), "health": health.of(data, p["id"])} for p in data["pages"]]
 
 
 @bp.get("")
@@ -54,6 +57,8 @@ def edit_page(page_id):
             pages_domain.update_page(page, {k: body.get(k) for k in ("name", "fb_page_id", "token", "url")})
         except ValueError as e:
             return error(str(e))
+        if body.get("token") or body.get("fb_page_id"):
+            health.reset(data, page_id)
         out = _list(data)
     return jsonify(pages=out)
 
@@ -69,6 +74,7 @@ def delete_page(page_id):
         if waiting:
             return error(f"Page “{page['name']}” còn {len(waiting)} bài chưa đăng. Xoá hoặc chuyển các bài đó sang Page khác trước.", 409)
         data["pages"] = [p for p in data["pages"] if p["id"] != page_id]
+        health.reset(data, page_id)
         if data["settings"].get("default_page") == page_id:
             data["settings"]["default_page"] = data["pages"][0]["id"] if data["pages"] else ""
         for f in data["flows"]:
@@ -100,13 +106,14 @@ def test_page(page_id):
     if page["kind"] == "browser":
         start_browser_job("check")
         return jsonify(ok=True, pending=True, text="Đang kiểm tra đăng nhập trong trình duyệt...")
-    try:
-        info = facebook.page_info(page["fb_page_id"], page["token"])
-    except facebook.FBError as e:
-        return error(str(e))
+    ok, err, code, name = s.publisher.check_page(page)
     with s.store.transaction() as data:
+        health.record(data, page_id, ok, datetime.now(), err, code)
         p = pages_domain.find(data, page_id)
-        if p and info.get("name"):
-            p["name"] = info["name"]
-        add_log(data, "ok", f"Kết nối thành công tới Page: {info.get('name')}")
-    return jsonify(ok=True, text=f"Kết nối tốt tới Page “{info.get('name')}”")
+        if ok and p and name:
+            p["name"] = name
+        if ok:
+            add_log(data, "ok", f"Kết nối thành công tới Page: {name or page['name']}")
+    if not ok:
+        return error(err)
+    return jsonify(ok=True, text=f"Kết nối tốt tới Page “{name or page['name']}”")

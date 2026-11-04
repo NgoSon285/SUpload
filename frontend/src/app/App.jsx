@@ -15,6 +15,7 @@ import FlowPage from "../features/flow/FlowPage";
 import LogPage from "../features/log/LogPage";
 import QueuePage from "../features/queue/QueuePage";
 import SettingsPage from "../features/settings/SettingsPage";
+import { HealthBanner } from "../components";
 import { configured, defaultPage, KIND_LABEL, pageInitial, pagesOf } from "../lib/page";
 import { storage } from "../lib/storage";
 import { AppContext } from "./context";
@@ -53,7 +54,7 @@ function ConnectionCard({ state, onClick }) {
   return (
     <Paper withBorder p="sm" component={UnstyledButton} onClick={onClick} style={{ width: "100%" }}>
       <Group gap="sm" wrap="nowrap">
-        <Indicator color={ok ? "teal" : "gray"} size={10} offset={4} position="bottom-end" withBorder>
+        <Indicator color={!ok ? "gray" : pagesOf(state).some((p) => p.health && !p.health.ok) ? "red" : "teal"} size={10} offset={4} position="bottom-end" withBorder>
           <Avatar color="indigo" radius="xl">{pageInitial(page)}</Avatar>
         </Indicator>
         <div style={{ minWidth: 0 }}>
@@ -157,6 +158,11 @@ export default function App() {
         </AppShell.Navbar>
 
         <AppShell.Main>
+          {state && view !== "settings" && (
+            <div style={view === "flow" ? { padding: "var(--mantine-spacing-md) var(--mantine-spacing-md) 0" } : undefined}>
+              <HealthBanner pages={pagesOf(state)} onFix={() => setView("settings")} />
+            </div>
+          )}
           {!state ? null : view === "compose" ? <ComposePage /> : view === "queue" ? <QueuePage /> : view === "flow" ? <FlowPage /> : view === "log" ? <LogPage /> : <SettingsPage />}
         </AppShell.Main>
       </AppShell>

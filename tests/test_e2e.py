@@ -442,3 +442,24 @@ def test_flow_targets_selected_page(page, svc):
     assert {p["page"] for p in api_state(page)["posts"]} == {cafe}
     assert api_flows(page)[0]["page"] == cafe
     assert page.errors == []
+
+
+def test_health_banner_when_page_loses_connection(page, svc):
+    connect(page)
+    from datetime import datetime
+    from supload.domain import health
+    with svc.store.transaction() as data:
+        health.record(data, data["pages"][0]["id"], False, datetime.now(), health.describe(190, "x"), 190)
+    page.goto(page.base)
+    nav(page, "Lịch đăng")
+    banner = page.get_by_test_id("health-banner")
+    banner.wait_for()
+    assert "Tiệm Bánh" in banner.inner_text() and "Token đã hết hạn" in banner.inner_text()
+    banner.get_by_role("button", name="Mở Cài đặt").click()
+    page.get_by_test_id("health-bad").wait_for()
+    page.get_by_test_id("page-row").get_by_role("button", name="Kiểm tra").click()  # Facebook giả lập trả OK
+    page.get_by_test_id("health-ok").wait_for()
+    nav(page, "Lịch đăng")
+    page.wait_for_timeout(300)
+    assert page.get_by_test_id("health-banner").count() == 0
+    assert page.errors == []

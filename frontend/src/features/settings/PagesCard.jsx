@@ -6,6 +6,17 @@ import { IconDots, IconPencil, IconPlugConnected, IconStar, IconTrash } from "@t
 import { pagesApi } from "../../api/endpoints";
 import { notifyErr, notifyOk } from "../../components";
 import { KIND_LABEL, pageInitial } from "../../lib/page";
+import { when } from "../../lib/time";
+
+function HealthLine({ page }) {
+  const h = page.health;
+  if (!h) {
+    return <Text size="xs" c="dimmed">{page.kind === "api" ? "Chưa kiểm tra kết nối" : "Page qua trình duyệt: bấm Kiểm tra để thử đăng nhập"}</Text>;
+  }
+  return h.ok
+    ? <Text size="xs" c="teal" data-testid="health-ok">● Kết nối tốt · kiểm tra lúc {when(h.checked_at)}</Text>
+    : <Text size="xs" c="red" data-testid="health-bad">● {h.error}</Text>;
+}
 
 /** Danh sách Page đã kết nối và thao tác trên từng Page. */
 export function PagesCard({ pages, perPageToday, dailyMax, onChanged }) {
@@ -55,6 +66,7 @@ export function PagesCard({ pages, perPageToday, dailyMax, onChanged }) {
                   {KIND_LABEL[p.kind]} · {p.kind === "api" ? `ID ${p.fb_page_id}` : p.url}
                   {" · "}hôm nay {perPageToday?.[p.id] ?? 0}{dailyMax ? `/${dailyMax}` : ""} bài
                 </Text>
+                <HealthLine page={p} />
               </div>
             </Group>
             <Group gap={4} wrap="nowrap">

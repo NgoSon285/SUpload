@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request, send_from_directory
 from werkzeug.utils import secure_filename
 
 from ..config import ALLOWED_IMAGE_EXT
+from ..domain import health
 from ..domain import pages as pages_domain
 from ..domain import planner
 from ..domain.posts import DONE, PENDING, SCHEDULED
@@ -77,7 +78,7 @@ def state():
     per_page = {pg["id"]: _used_today([p for p in data["posts"] if key(p) == pg["id"]], now) for pg in data["pages"]}
     return jsonify(
         settings=public_settings(settings), posts=posts, log=data["log"][:100],
-        pages=[pages_domain.public(pg, default and default["id"]) for pg in data["pages"]],
+        pages=[{**pages_domain.public(pg, default and default["id"]), "health": health.of(data, pg["id"])} for pg in data["pages"]],
         worker=s.runtime.worker, login=s.runtime.login,
         limits={"daily_max": settings["daily_max"], "min_gap": settings["min_gap"],
                 "today": per_page.get(default["id"], 0) if default else 0, "per_page": per_page},

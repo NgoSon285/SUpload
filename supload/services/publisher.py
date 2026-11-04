@@ -86,6 +86,17 @@ class Publisher:
             if e.code not in NOT_FOUND_CODES:
                 raise
 
+    # ---------------------------------------------------------------- tình trạng kết nối
+    def check_page(self, page: dict) -> tuple[bool, str, int | None, str]:
+        """Thử kết nối Page qua API. Trả về (ok, lỗi dễ hiểu, mã lỗi, tên Page lấy được)."""
+        from ..domain.health import describe
+
+        try:
+            info = facebook.page_info(page["fb_page_id"], page["token"])
+            return True, "", None, info.get("name", "")
+        except facebook.FBError as e:
+            return False, describe(e.code, str(e)), e.code, ""
+
     # ---------------------------------------------------------------- đối soát
     @staticmethod
     def needs_check(post: dict, now: datetime) -> bool:
