@@ -202,3 +202,12 @@ body {
     display: none;
   }
 }
+.fnode.disabled {
+  opacity: 0.55;
+  border-style: dashed;
+}
+@media (max-width: 62em) {
+  .palette-group {
+    flex-direction: row !important;
+  }
+}

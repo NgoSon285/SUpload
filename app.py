@@ -307,6 +307,7 @@ def api_save_flow(flow_id):
         "name": (body.get("name") or "Flow chưa đặt tên").strip()[:80],
         "nodes": body.get("nodes", []),
         "edges": body.get("edges", []),
+        "seed": str(body.get("seed") or flow_id)[:40],
         "updated_at": now_iso(),
     }
     with lock:

@@ -27,14 +27,25 @@ trong thư mục `web/`, **không cần cài Node.js** để dùng.
 | **Nhật ký** | Lịch sử hoạt động. |
 | **Cài đặt** | Chọn cách đăng (Graph API hoặc Trình duyệt), lấy danh sách Page từ User Token, kiểm tra kết nối, đăng nhập trình duyệt. |
 
-**Các khối trong Flow**
+**Các khối trong Flow** (bảng Thuộc tính bên phải cho phép cấu hình từng khối)
 
-- **Bắt đầu**: chạy ngay khi bấm *Chạy flow*, hoặc từ một thời điểm cụ thể.
-- **Bài viết**: một bài (nội dung, ảnh, link), đăng tại thời điểm hiện tại của chuỗi.
-- **Nhiều bài**: dán nhiều đoạn (cách nhau 1 dòng trống) và/hoặc thả nhiều ảnh, ảnh thứ *i* đi với đoạn thứ *i*;
-  các bài cách nhau X phút/giờ/ngày.
-- **Chờ**: nghỉ một khoảng (vd 2 giờ) hoặc đợi tới giờ cố định lần kế tiếp (vd 08:00).
-- Một khối có thể nối ra nhiều nhánh; mỗi nhánh tự tính giờ từ điểm rẽ.
+| Nhóm | Khối | Cấu hình |
+|---|---|---|
+| Khởi đầu | **Bắt đầu** | Chạy ngay khi bấm *Chạy flow* hoặc từ một thời điểm cụ thể. |
+| Nội dung | **Bài viết** | Nội dung, ảnh, link. Bật *Nhiều phiên bản* (cách nhau bởi dòng `---`) để chọn ngẫu nhiên 1 bản. |
+| | **Nhiều bài** | Dán nhiều bài, tách theo dòng trống / dòng `---` / mỗi dòng; thả nhiều ảnh, chọn số ảnh mỗi bài; khoảng cách giữa các bài; theo thứ tự hoặc xáo trộn; giới hạn số bài. |
+| | **Định dạng** | Thêm phần đầu / cuối (hashtag, chữ ký, hotline) cho mọi bài phía sau. |
+| Thời gian | **Chờ** | Cố định (X phút/giờ/ngày), ngẫu nhiên trong khoảng, đợi tới giờ cố định hằng ngày, hoặc đợi tới thứ trong tuần. |
+| | **Khung giờ** | Chỉ đăng vào ngày và giờ cho phép (vd T2–T6, 08:00–21:00); bài rơi ngoài khung tự lùi sang đầu khung kế tiếp. |
+| | **Lặp lại** | Chạy các khối phía sau N lần, mỗi lần cách nhau X. |
+
+- Mọi khối đều có **Tuỳ chỉnh khối**: tên hiển thị, ghi chú, và **tắt khối** (bỏ qua nhưng vẫn chạy các khối phía sau).
+  Thanh công cụ nhanh (tắt / nhân bản / xoá) hiện phía trên khối đang chọn.
+- Viết `{Chào|Xin chào} {bạn|mọi người}` trong nội dung để chọn ngẫu nhiên một phương án.
+- Lựa chọn ngẫu nhiên được cố định theo flow: **Lịch dự kiến chính là lịch sẽ chạy**. Bấm nút xúc xắc để xáo lại.
+- Một khối có thể rẽ nhiều nhánh; mỗi nhánh tự tính giờ từ điểm rẽ. Khối thiếu cấu hình hoặc chưa nối sẽ có viền cam.
+- Thêm loại khối mới: chỉ cần khai báo trong `frontend/src/lib/nodes.jsx` (trường cấu hình, mặc định, cách tính lịch);
+  bảng Thuộc tính tự sinh giao diện từ khai báo đó.
 
 Lưu ý:
 - Bài hẹn giờ do ứng dụng tự đăng khi tới giờ, nên **phải để ứng dụng chạy** (không tắt cửa sổ dòng lệnh).
