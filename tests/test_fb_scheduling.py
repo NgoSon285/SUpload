@@ -210,3 +210,51 @@ def test_plan_preview_reports_shifts(connected):
 def test_limit_settings_are_validated(client, svc, body, expect):
     client.post("/api/settings", json=body)
     assert svc.store.load()["settings"]["daily_max"] == expect
+
+
+# ---------------------------------------------------------------- chống tái phát các lỗi đã sửa
+def test_due_post_is_published_before_hand_offs(connected, svc, graph):
+    """Lỗi cũ: luồng nền gửi bài hẹn lên Facebook trước khi đăng bài đã đến giờ."""
+    later = add(connected, message="hẹn 2 giờ nữa", scheduled_at=iso(datetime.now() + timedelta(hours=2)))
+    now_post = add(connected, message="đăng ngay")
+    svc.scheduler.process_one()
+    first = graph.by("POST")[0]
+    assert first["data"]["message"] == "đăng ngay" and "scheduled_publish_time" not in first["data"]
+    assert post(connected, now_post["id"])["status"] == "done"
+    assert post(connected, later["id"])["status"] == "pending"   # hẹn giờ để lượt sau
+    svc.scheduler.process_one()
+    assert post(connected, later["id"])["status"] == "scheduled"
+
+
+def test_same_time_posts_keep_creation_order(connected, svc, graph):
+    """Lỗi cũ: bài trùng thời điểm bị chọn theo mã ngẫu nhiên nên thứ tự đăng lộn xộn."""
+    names = [f"bài {i}" for i in range(8)]
+    for n in names:
+        add(connected, message=n)
+    while svc.scheduler.process_one():
+        pass
+    assert [c["data"]["message"] for c in graph.by("POST", "/feed")] == names
+
+
+def test_worker_status_resets_after_each_job(connected, svc, graph):
+    """Lỗi cũ: huy hiệu trạng thái kẹt ở “Đang hẹn giờ trên Facebook…” sau khi xong việc."""
+    add(connected, scheduled_at=iso(datetime.now() + timedelta(hours=2)))   # việc: giao Facebook
+    svc.scheduler.process_one()
+    assert svc.runtime.worker == "Đang rảnh"
+    add(connected, message="đăng ngay")                                       # việc: đăng ngay
+    svc.scheduler.process_one()
+    assert svc.runtime.worker == "Đang rảnh"
+    assert connected.get("/api/state").get_json()["worker"] == "Đang rảnh"
+
+
+def test_worker_status_resets_even_if_job_crashes(connected, svc, graph, monkeypatch):
+    when = (datetime.now() + timedelta(hours=1)).replace(second=0, microsecond=0)
+    q = handed_off(connected, svc, when)
+
+    def boom(*a, **k):
+        raise RuntimeError("lỗi bất ngờ")
+    monkeypatch.setattr(svc.publisher, "check", boom)
+    with pytest.raises(RuntimeError):
+        svc.scheduler.process_one(now=when + timedelta(minutes=3))
+    assert svc.runtime.worker == "Đang rảnh"
+    assert post(connected, q["id"])["status"] == "scheduled"
