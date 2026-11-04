@@ -1,0 +1,107 @@
+"""Cài đặt & kết nối Page (Graph API hoặc trình duyệt)."""
+from __future__ import annotations
+
+import threading
+
+from flask import Blueprint, jsonify, request
+
+from ..domain.settings import apply_update, has_api_credentials
+from ..integrations import facebook
+from ..storage import add_log, find
+from . import error, services
+
+bp = Blueprint("settings", __name__, url_prefix="/api")
+
+
+@bp.post("/settings")
+def save_settings():
+    with services().store.transaction() as data:
+        apply_update(data["settings"], request.get_json(force=True))
+        add_log(data, "info", "Đã lưu cài đặt")
+    services().runtime.notify()
+    return jsonify(ok=True)
+
+
+@bp.post("/test-connection")
+def test_connection():
+    s = services()
+    settings = s.store.load()["settings"]
+    if settings["method"] == "browser":
+        _start_browser_job("check")
+        return jsonify(ok=True, pending=True, text="Đang kiểm tra đăng nhập trong trình duyệt...")
+    if not has_api_credentials(settings):
+        return error("Chưa có Page ID / Page Token")
+    try:
+        info = facebook.page_info(settings["page_id"], settings["page_token"])
+    except facebook.FBError as e:
+        return error(str(e))
+    with s.store.transaction() as data:
+        data["settings"]["page_name"] = info.get("name", "")
+        add_log(data, "ok", f"Kết nối thành công tới Page: {info.get('name')}")
+    return jsonify(ok=True, text=f"Kết nối tốt tới Page “{info.get('name')}”")
+
+
+@bp.post("/fb/pages")
+def fb_pages():
+    """Đổi user token -> danh sách Page kèm Page token dài hạn (token giữ phía máy chủ)."""
+    body = request.get_json(force=True)
+    s = services()
+    settings = s.store.load()["settings"]
+    app_id = body.get("app_id") or settings["app_id"]
+    secret = body.get("app_secret") or settings["app_secret"]
+    if not (app_id and secret and body.get("user_token")):
+        return error("Cần App ID, App Secret và User Token")
+    try:
+        long_token = facebook.exchange_long_lived_user_token(app_id, secret, body["user_token"])
+        pages = facebook.list_pages(long_token)
+    except facebook.FBError as e:
+        return error(str(e))
+    with s.store.transaction() as data:
+        data["settings"]["app_id"], data["settings"]["app_secret"] = app_id, secret
+        data["_pages"] = pages
+    return jsonify(pages=[{"id": p["id"], "name": p["name"]} for p in pages])
+
+
+@bp.post("/fb/select-page")
+def select_page():
+    page_id = request.get_json(force=True).get("id")
+    with services().store.transaction() as data:
+        page = find(data.get("_pages", []), page_id)
+        if not page:
+            return error("Không tìm thấy Page", 404)
+        data["settings"].update(page_id=page["id"], page_token=page["access_token"], page_name=page["name"])
+        add_log(data, "ok", f"Đã chọn Page: {page['name']}")
+    return jsonify(ok=True)
+
+
+def _browser_job(rt, config, action: str) -> None:
+    try:
+        from ..integrations import browser
+    except ImportError:
+        rt.login = "error: chưa cài playwright (pip install playwright && playwright install chromium)"
+        return
+    if not rt.browser_lock.acquire(blocking=False):
+        rt.login = "busy"
+        return
+    try:
+        browser.configure(config.profile_dir, config.screenshot_dir)
+        rt.login = "waiting" if action == "login" else "checking"
+        ok = browser.login_wait() if action == "login" else browser.check_login()
+        rt.login = "yes" if ok else "no"
+    except Exception as e:  # noqa: BLE001
+        rt.login = f"error: {e}"
+    finally:
+        rt.browser_lock.release()
+
+
+def _start_browser_job(action: str) -> None:
+    s = services()
+    threading.Thread(target=_browser_job, args=(s.runtime, s.config, action), daemon=True).start()
+
+
+@bp.post("/browser/<action>")
+def browser_action(action):
+    if action not in ("login", "check"):
+        return error("unknown", 404)
+    _start_browser_job(action)
+    return jsonify(ok=True)

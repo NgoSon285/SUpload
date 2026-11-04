@@ -1,10 +1,11 @@
-"""API của ứng dụng (app.py) và luồng đăng bài nền, với Graph API giả lập."""
+"""API (supload/api) và luồng đăng bài nền (supload/services), với Graph API giả lập."""
 import json
 from datetime import datetime, timedelta
 
 import pytest
 
 from conftest import upload
+from supload.storage import add_log
 
 
 def state(client):
@@ -18,40 +19,40 @@ def add(client, **body):
 
 
 # ---------------------------------------------------------------- cài đặt
-def test_secrets_never_returned_to_browser(connected, appmod):
+def test_secrets_never_returned_to_browser(connected, svc):
     connected.post("/api/settings", json={"app_secret": "SECRET_APP"})
     raw = connected.get("/api/state").get_data(as_text=True)
     assert "SECRET_PAGE_TOKEN" not in raw and "SECRET_APP" not in raw
     s = state(connected)["settings"]
     assert s["page_token_set"] is True and s["app_secret_set"] is True
     # nhưng vẫn được lưu phía máy chủ
-    saved = json.loads(appmod.DATA_FILE.read_text(encoding="utf-8"))["settings"]
+    saved = json.loads(svc.config.data_file.read_text(encoding="utf-8"))["settings"]
     assert saved["page_token"] == "SECRET_PAGE_TOKEN"
 
 
-def test_blank_secret_keeps_existing(connected, appmod):
+def test_blank_secret_keeps_existing(connected, svc):
     connected.post("/api/settings", json={"page_token": "", "page_id": "111"})
-    assert appmod.load()["settings"]["page_token"] == "SECRET_PAGE_TOKEN"
+    assert svc.store.load()["settings"]["page_token"] == "SECRET_PAGE_TOKEN"
 
 
-def test_changing_page_id_clears_stale_name(connected, appmod):
+def test_changing_page_id_clears_stale_name(connected, svc):
     connected.post("/api/test-connection")
-    assert appmod.load()["settings"]["page_name"] == "Page Một"
+    assert svc.store.load()["settings"]["page_name"] == "Page Một"
     connected.post("/api/settings", json={"page_id": "222"})
-    assert appmod.load()["settings"]["page_name"] == ""
+    assert svc.store.load()["settings"]["page_name"] == ""
 
 
-def test_min_gap_is_clamped(client, appmod):
+def test_min_gap_is_clamped(client, svc):
     client.post("/api/settings", json={"min_gap": -50})
-    assert appmod.load()["settings"]["min_gap"] == 0
+    assert svc.store.load()["settings"]["min_gap"] == 0
 
 
-def test_page_picker_keeps_page_tokens_server_side(client, appmod):
+def test_page_picker_keeps_page_tokens_server_side(client, svc):
     r = client.post("/api/fb/pages", json={"app_id": "app", "app_secret": "sec", "user_token": "short"})
     body = r.get_json()
     assert body == {"pages": [{"id": "111", "name": "Page Một"}]}  # không có access_token
     client.post("/api/fb/select-page", json={"id": "111"})
-    s = appmod.load()["settings"]
+    s = svc.store.load()["settings"]
     assert (s["page_id"], s["page_token"], s["page_name"]) == ("111", "PAGE_TOKEN_1", "Page Một")
 
 
@@ -69,22 +70,22 @@ def test_test_connection_without_page(client):
 
 
 # ---------------------------------------------------------------- ảnh
-def test_upload_accepts_images_only(client, appmod):
+def test_upload_accepts_images_only(client, svc):
     name = upload(client, "ảnh đẹp.png")
-    assert (appmod.UPLOAD_DIR / name).is_file()
+    assert (svc.config.upload_dir / name).is_file()
     assert client.get(f"/uploads/{name}").status_code == 200
     import io
     r = client.post("/api/upload", data={"files": (io.BytesIO(b"x"), "virus.exe")}, content_type="multipart/form-data")
     assert r.status_code == 400
 
 
-def test_upload_filename_is_sanitized(client, appmod):
+def test_upload_filename_is_sanitized(client, svc):
     import io
     from conftest import PNG
     r = client.post("/api/upload", data={"files": (io.BytesIO(PNG), "../../evil.png")}, content_type="multipart/form-data")
     name = r.get_json()["files"][0]
     assert "/" not in name and ".." not in name
-    assert (appmod.UPLOAD_DIR / name).is_file()
+    assert (svc.config.upload_dir / name).is_file()
 
 
 # ---------------------------------------------------------------- bài viết
@@ -109,17 +110,17 @@ def test_edit_pending_post(client):
     assert q["message"] == "Đã sửa" and q["scheduled_at"] is None and q["status"] == "pending"
 
 
-def test_cannot_edit_done_post(connected, appmod):
+def test_cannot_edit_done_post(connected, svc):
     p = add(connected)
-    appmod.process_one()
+    svc.scheduler.process_one()
     r = connected.put(f"/api/posts/{p['id']}", json={"message": "x"})
     assert r.status_code == 400
 
 
-def test_delete_and_clear_done(connected, appmod):
+def test_delete_and_clear_done(connected, svc):
     a = add(connected)
     b = add(connected, scheduled_at=(datetime.now() + timedelta(days=1)).isoformat(timespec="minutes"))
-    appmod.process_one()
+    svc.scheduler.process_one()
     connected.post("/api/clear-done")
     ids = [p["id"] for p in state(connected)["posts"]]
     assert ids == [b["id"]]
@@ -129,84 +130,108 @@ def test_delete_and_clear_done(connected, appmod):
 
 
 # ---------------------------------------------------------------- luồng đăng nền
-def test_worker_posts_due_post_via_api(connected, appmod, graph):
+def test_worker_posts_due_post_via_api(connected, svc, graph):
     name = upload(connected)
     add(connected, message="Có ảnh", photos=[name])
-    assert appmod.process_one() is True
+    assert svc.scheduler.process_one() is True
     p = state(connected)["posts"][0]
     assert p["status"] == "done" and p["result"].startswith("id=")
     assert graph.calls[-1]["path"] == "111/photos"
     assert graph.calls[-1]["files"] == ["source"]
-    assert appmod.process_one() is False  # không còn bài
+    assert svc.scheduler.process_one() is False  # không còn bài
 
 
-def test_worker_skips_future_posts(connected, appmod, graph):
+def test_future_post_is_handed_off_to_facebook(connected, svc, graph):
     add(connected, scheduled_at=(datetime.now() + timedelta(hours=1)).isoformat(timespec="minutes"))
-    assert appmod.process_one() is False
+    assert svc.scheduler.process_one() is True
+    feed = graph.by("POST", "/feed")[0]
+    assert feed["data"]["published"] == "false" and feed["data"]["scheduled_publish_time"]
+    p = state(connected)["posts"][0]
+    assert p["status"] == "scheduled" and p["fb_id"] == "111_1"
+
+
+def test_future_post_waits_locally_when_fb_scheduling_off(connected, svc, graph):
+    connected.post("/api/settings", json={"fb_schedule": False})
+    add(connected, scheduled_at=(datetime.now() + timedelta(hours=1)).isoformat(timespec="minutes"))
+    assert svc.scheduler.process_one() is False
     assert graph.calls == []
 
 
-def test_worker_order_scheduled_before_newer(connected, appmod, graph):
+def test_worker_order_scheduled_before_newer(connected, svc, graph):
     add(connected, message="mới", scheduled_at=None)
     add(connected, message="cũ hơn", scheduled_at=(datetime.now() - timedelta(minutes=5)).isoformat(timespec="minutes"))
-    appmod.process_one()
+    svc.scheduler.process_one()
     assert graph.calls[0]["data"]["message"] == "cũ hơn"
 
 
-def test_worker_records_errors_and_retry(connected, appmod, graph):
+def test_worker_records_errors_and_retry(connected, svc, graph):
     graph.fail_on = "LOI"
     p = add(connected, message="LOI đăng")
-    appmod.process_one()
+    svc.scheduler.process_one()
     s = state(connected)
     assert s["posts"][0]["status"] == "error" and "Lỗi giả lập" in s["posts"][0]["error"]
     assert s["log"][0]["level"] == "error"
     graph.fail_on = None
     connected.post(f"/api/posts/{p['id']}/retry")
-    appmod.process_one()
+    svc.scheduler.process_one()
     assert state(connected)["posts"][0]["status"] == "done"
 
 
-def test_worker_without_connection_marks_error(client, appmod):
+def test_worker_without_connection_marks_error(client, svc):
     add(client)
-    appmod.process_one()
+    svc.scheduler.process_one()
     p = state(client)["posts"][0]
     assert p["status"] == "error" and "FB_PAGE_ID" in p["error"]
 
 
-def test_browser_mode_requires_page_url(client, appmod, monkeypatch):
-    import sys, types
-    fake = types.ModuleType("browser_poster")
+@pytest.fixture
+def fake_browser(monkeypatch):
+    """Thay module trình duyệt (Playwright) bằng bản giả ghi lại lời gọi."""
+    import sys
+    import types
+    import supload.integrations as integrations
+
+    seen = {}
+    fake = types.ModuleType("supload.integrations.browser")
 
     class PostError(RuntimeError):
         pass
 
     fake.PostError = PostError
-    fake.post_once = lambda *a, **k: None
-    monkeypatch.setitem(sys.modules, "browser_poster", fake)
+    fake.configure = lambda profile, shots: seen.update(profile=profile)
+    fake.post_once = lambda url, msg, photos, headless: seen.update(url=url, msg=msg, headless=headless)
+    monkeypatch.setitem(sys.modules, "supload.integrations.browser", fake)
+    monkeypatch.setattr(integrations, "browser", fake, raising=False)
+    return seen
+
+
+def test_browser_mode_requires_page_url(client, svc, fake_browser):
     client.post("/api/settings", json={"method": "browser", "page_url": "", "min_gap": 0})
     add(client)
-    appmod.process_one()
+    svc.scheduler.process_one()
     assert "URL của Page" in state(client)["posts"][0]["error"]
 
 
-def test_browser_mode_posts_with_link_appended(client, appmod, monkeypatch):
-    import sys, types
-    seen = {}
-    fake = types.ModuleType("browser_poster")
-    fake.PostError = RuntimeError
-    fake.post_once = lambda url, msg, photos, headless: seen.update(url=url, msg=msg, headless=headless)
-    monkeypatch.setitem(sys.modules, "browser_poster", fake)
+def test_browser_mode_posts_with_link_appended(client, svc, fake_browser):
     client.post("/api/settings", json={"method": "browser", "page_url": "https://www.facebook.com/p", "min_gap": 0, "headless": True})
     add(client, message="Xem", link="https://ex.com")
-    appmod.process_one()
-    assert seen == {"url": "https://www.facebook.com/p", "msg": "Xem\nhttps://ex.com", "headless": True}
+    svc.scheduler.process_one()
+    assert {k: fake_browser[k] for k in ("url", "msg", "headless")} == {"url": "https://www.facebook.com/p", "msg": "Xem\nhttps://ex.com", "headless": True}
+    assert fake_browser["profile"] == svc.config.profile_dir  # dùng đúng thư mục phiên đăng nhập
     assert state(client)["posts"][0]["status"] == "done"
 
 
-def test_recover_running_marks_error(client, appmod):
+def test_browser_mode_never_hands_off_to_facebook(client, svc, fake_browser, graph):
+    client.post("/api/settings", json={"method": "browser", "page_url": "https://www.facebook.com/p", "page_id": "111", "page_token": "t", "min_gap": 0})
+    add(client, scheduled_at=(datetime.now() + timedelta(hours=1)).isoformat(timespec="minutes"))
+    assert svc.scheduler.process_one() is False
+    assert graph.calls == []
+
+
+def test_recover_running_marks_error(client, svc):
     p = add(client)
-    appmod.update_post(p["id"], status="running")
-    appmod.recover_running()
+    svc.store.update_post(p["id"], status="running")
+    svc.scheduler.recover_running()
     assert state(client)["posts"][0]["status"] == "error"
 
 
@@ -221,7 +246,7 @@ def test_flow_crud(client):
     assert client.get("/api/flows").get_json()["flows"] == []
 
 
-def test_flow_run_enqueues_posts(connected, appmod):
+def test_flow_run_enqueues_posts(connected, svc):
     future = (datetime.now() + timedelta(days=1)).isoformat(timespec="minutes")
     past = (datetime.now() - timedelta(hours=1)).isoformat(timespec="minutes")
     r = connected.post("/api/flows/run", json={"name": "CD", "posts": [
@@ -245,10 +270,10 @@ def test_flow_run_is_all_or_nothing(client):
     assert state(client)["posts"] == []
 
 
-def test_log_is_capped(client, appmod):
-    data = appmod.load()
+def test_log_is_capped(client, svc):
+    data = svc.store.load()
     for i in range(400):
-        appmod.add_log(data, "info", str(i))
+        add_log(data, "info", str(i))
     assert len(data["log"]) == 300 and data["log"][0]["text"] == "399"
 
 
@@ -321,11 +346,11 @@ def test_import_requires_start_node(client):
     assert r.status_code == 400 and "Bắt đầu" in r.get_json()["error"]
 
 
-def test_run_tags_posts_and_updates_stats(connected, appmod):
+def test_run_tags_posts_and_updates_stats(connected, svc):
     make_flow(connected)
     connected.post("/api/flows/run", json={"flow_id": "f_a", "name": "Flow A", "posts": [
         {"message": "1"}, {"message": "2", "scheduled_at": (datetime.now() + timedelta(days=1)).isoformat(timespec="minutes")}]})
-    appmod.process_one()
+    svc.scheduler.process_one()
     f = flows(connected)[0]
     assert f["last_run_count"] == 2 and f["last_run_at"]
     assert f["stats"] == {"pending": 1, "done": 1, "error": 0}
@@ -333,10 +358,10 @@ def test_run_tags_posts_and_updates_stats(connected, appmod):
 
 
 @pytest.mark.parametrize("delete_posts,left", [(False, ["chờ", "xong", "khác"]), (True, ["xong", "khác"])])
-def test_delete_flow_optionally_removes_unposted(connected, appmod, delete_posts, left):
+def test_delete_flow_optionally_removes_unposted(connected, svc, delete_posts, left):
     make_flow(connected)
     connected.post("/api/flows/run", json={"flow_id": "f_a", "name": "A", "posts": [{"message": "xong"}]})
-    appmod.process_one()
+    svc.scheduler.process_one()
     future = (datetime.now() + timedelta(days=1)).isoformat(timespec="minutes")
     connected.post("/api/flows/run", json={"flow_id": "f_a", "name": "A", "posts": [{"message": "chờ", "scheduled_at": future}]})
     add(connected, message="khác", scheduled_at=future)  # không thuộc flow

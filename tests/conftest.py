@@ -8,8 +8,8 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import app as app_module  # noqa: E402
-import fb_poster  # noqa: E402
+from supload import Config, create_app  # noqa: E402
+from supload.integrations import facebook  # noqa: E402
 
 # PNG 1x1 hợp lệ
 PNG = bytes.fromhex(
@@ -19,11 +19,14 @@ PNG = bytes.fromhex(
 
 
 class FakeGraph:
-    """Thay cho Graph API thật: ghi lại mọi lời gọi, trả id giả, có thể giả lập lỗi."""
+    """Thay cho Graph API thật: ghi lại mọi lời gọi, trả id giả, giả lập lỗi / bài đã lên / bài bị xoá."""
 
     def __init__(self):
         self.calls = []
-        self.fail_on = None  # chuỗi: nếu xuất hiện trong message -> ném FBError
+        self.fail_on = None       # chuỗi: nếu xuất hiện trong message -> ném FBError
+        self.published = set()    # id bài hẹn mà Facebook "đã đăng"
+        self.missing = set()      # id bài "đã bị xoá trên Facebook"
+        self.fail_delete = False  # giả lập không huỷ được bài hẹn
         self._ids = itertools.count(1)
 
     def __call__(self, method, path, **kwargs):
@@ -33,46 +36,58 @@ class FakeGraph:
         params.pop("access_token", None)
         self.calls.append({"method": method, "path": path, "data": data, "params": params, "files": list((kwargs.get("files") or {}).keys())})
         if self.fail_on and self.fail_on in data.get("message", ""):
-            raise fb_poster.FBError("[200] Lỗi giả lập")
+            raise facebook.FBError("[200] Lỗi giả lập", 200)
         if path == "oauth/access_token":
             return {"access_token": "LONG_USER_TOKEN"}
         if path == "me/accounts":
             return {"data": [{"id": "111", "name": "Page Một", "access_token": "PAGE_TOKEN_1"}]}
+        if path in self.missing:
+            raise facebook.FBError("[100] Unsupported request", 100)
+        if method == "DELETE":
+            if self.fail_delete:
+                raise facebook.FBError("[2] Service temporarily unavailable", 2)
+            return {"success": True}
+        if method == "GET" and params.get("fields") == "is_published":
+            return {"id": path, "is_published": path in self.published}
         if method == "GET":
             return {"id": path, "name": "Page Một"}
         return {"id": f"111_{next(self._ids)}"}
+
+    def by(self, method=None, path_end=None):
+        return [c for c in self.calls if (not method or c["method"] == method) and (not path_end or c["path"].endswith(path_end))]
 
 
 @pytest.fixture
 def graph(monkeypatch):
     g = FakeGraph()
-    monkeypatch.setattr(fb_poster, "_call", g)
+    monkeypatch.setattr(facebook, "call", g)
+    for k in ("FB_PAGE_ID", "FB_PAGE_TOKEN", "FB_APP_ID", "FB_APP_SECRET"):
+        monkeypatch.delenv(k, raising=False)
     return g
 
 
 @pytest.fixture
-def appmod(tmp_path, monkeypatch, graph):
-    """app.py với dữ liệu & thư mục ảnh tách riêng cho từng test."""
-    monkeypatch.setattr(app_module, "DATA_FILE", tmp_path / "data.json")
-    up = tmp_path / "uploads"
-    up.mkdir()
-    monkeypatch.setattr(app_module, "UPLOAD_DIR", up)
-    monkeypatch.setitem(app_module.state, "login", "unknown")
-    monkeypatch.setitem(app_module.state, "worker", "Đang rảnh")
-    for k in ("page_id", "page_token", "page_name", "app_id", "app_secret"):
-        monkeypatch.setitem(app_module.DEFAULT_SETTINGS, k, "")
-    app_module.app.config["TESTING"] = True
-    return app_module
+def app(tmp_path, graph):
+    """Ứng dụng với dữ liệu riêng cho từng test (không chạy luồng nền: test tự gọi process_one)."""
+    a = create_app(Config(base_dir=tmp_path, start_worker=False))
+    a.config["TESTING"] = True
+    return a
 
 
 @pytest.fixture
-def client(appmod):
-    return appmod.app.test_client()
+def svc(app):
+    return app.extensions["supload"]
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
 
 
 @pytest.fixture
 def connected(client):
-    client.post("/api/settings", json={"method": "api", "page_id": "111", "page_token": "SECRET_PAGE_TOKEN"})
+    """Đã kết nối Page qua API; tắt giới hạn an toàn để test hành vi cơ bản (test riêng cho giới hạn)."""
+    client.post("/api/settings", json={"method": "api", "page_id": "111", "page_token": "SECRET_PAGE_TOKEN", "min_gap": 0, "daily_max": 0})
     return client
 
 

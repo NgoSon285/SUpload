@@ -79,8 +79,12 @@ Trình duyệt sẽ tự mở <http://127.0.0.1:5000>. Nếu không tự mở, b
 
 - **Windows**: lần sau chỉ cần bấm đúp `start.bat` (tự dùng môi trường ảo `.venv` nếu có).
 - **macOS / Linux**: lần sau chạy `source .venv/bin/activate` rồi `python app.py`.
-- **Giữ cửa sổ dòng lệnh mở** trong suốt thời gian muốn đăng bài. Bài hẹn giờ chỉ được đăng khi ứng dụng đang chạy.
-  Tắt ứng dụng thì các bài chưa tới giờ vẫn được giữ nguyên và sẽ đăng khi bạn mở lại.
+- **Khi nào phải để ứng dụng chạy?**
+  - Cách **Graph API** + bật *Hẹn giờ trên Facebook* (mặc định): bài hẹn từ 12 phút tới 30 ngày được gửi lên Facebook
+    ngay, **Facebook tự đăng kể cả khi bạn tắt máy**. Chỉ cần mở ứng dụng lúc tạo/sửa lịch (và thỉnh thoảng để
+    ứng dụng đối soát trạng thái *Đã đăng*).
+  - Bài *Đăng ngay*, bài còn dưới 12 phút, bài xa hơn 30 ngày, hoặc cách **Trình duyệt**: ứng dụng tự đăng khi tới giờ,
+    nên cần đang chạy lúc đó. Tắt ứng dụng thì bài chưa tới giờ vẫn được giữ và đăng khi bạn mở lại.
 - Dừng ứng dụng: nhấn `Ctrl + C` trong cửa sổ dòng lệnh.
 
 ## 5. Kết nối Page
@@ -124,18 +128,36 @@ hoặc gỡ quyền của App). User Token bạn dán vào không được lưu 
 2. Nhập địa chỉ Page, ví dụ `https://www.facebook.com/TenPageCuaBan`, rồi bấm **Lưu cài đặt**.
 3. Bấm **Mở trình duyệt để đăng nhập**. Một cửa sổ Chromium mở ra, bạn tự đăng nhập Facebook (kể cả mã 2FA).
    Ứng dụng tự nhận biết khi đăng nhập xong và đóng cửa sổ.
-4. Chọn **giãn cách** giữa 2 bài (mặc định 5 phút). Để tắt “Chạy ẩn trình duyệt” trong vài lần đầu để quan sát.
+4. Để tắt “Chạy ẩn trình duyệt” trong vài lần đầu để quan sát.
 
 > Nếu đăng lỗi, ảnh chụp màn hình lúc lỗi nằm trong thư mục `screenshots/`. Nếu Facebook đổi chữ trên nút,
-> sửa các biểu thức `RE_*` ở đầu file `browser_poster.py`.
+> sửa các biểu thức `RE_*` ở đầu file `supload/integrations/browser.py`.
+
+### Giới hạn an toàn (cả hai cách)
+
+Trang **Cài đặt → Giới hạn an toàn** giúp Page không bị Facebook hạn chế vì đăng quá dày:
+
+| Tuỳ chọn | Mặc định | Ý nghĩa |
+|---|---|---|
+| Số bài tối đa mỗi ngày | 20 | Tính cả bài đã đăng và bài đã hẹn trên Facebook trong ngày. `0` = không giới hạn |
+| Giãn cách tối thiểu giữa 2 bài | 5 phút | Áp cho mọi bài, kể cả bài hẹn trên Facebook |
+
+Bài vượt giới hạn **không bị bỏ**, mà được tự dời sang thời điểm hợp lệ kế tiếp (giãn cách → lùi vài phút;
+đủ bài trong ngày → sang ngày hôm sau cùng giờ). Lịch đăng ghi rõ *“Dời sang … vì …”*; khi soạn bài hoặc chạy flow,
+ứng dụng báo trước nếu có bài bị dời.
 
 ## 6. Đăng bài đầu tiên
 
 1. Trang **Soạn bài** → viết nội dung, kéo thả ảnh (hoặc dán bằng `Ctrl + V`), thêm link nếu muốn.
 2. Chọn **Đăng ngay** hoặc **Hẹn giờ** (có sẵn các mốc: Sau 1 giờ, 20:00 tối nay, 8:00 sáng mai…).
 3. Bấm **Đăng ngay / Lên lịch** (hoặc `Ctrl + Enter`).
-4. Xem trạng thái ở trang **Lịch đăng**: *Đang chờ → Đang đăng → Đã đăng* hoặc *Lỗi* (kèm lý do, có nút **Đăng lại**).
-5. Mở Page trên Facebook để kiểm tra bài.
+4. Xem trạng thái ở trang **Lịch đăng**:
+   - *Đang chờ → Đang đăng → Đã đăng*, hoặc *Lỗi* (kèm lý do, có nút **Đăng lại**).
+   - *Đang chờ → **Đã hẹn trên Facebook** → Đã đăng*: bài hẹn giờ đã được giao cho Facebook. Ứng dụng tự hỏi lại
+     Facebook sau giờ hẹn để chuyển sang *Đã đăng* (hoặc báo *Lỗi* nếu quá 1 giờ mà Facebook chưa đăng).
+   - **Sửa / Xoá** bài *Đã hẹn trên Facebook* sẽ **huỷ bài hẹn trên Facebook** trước. Nếu không huỷ được (mất mạng…),
+     ứng dụng không xoá để tránh đăng trùng và hỏi bạn có muốn tự xoá trên Facebook không.
+5. Mở Page trên Facebook để kiểm tra bài (bài hẹn giờ nằm trong mục *Bài viết đã lên lịch* của Page).
 
 ## 7. Lên lịch hàng loạt bằng Flow
 
@@ -210,10 +232,12 @@ Mẹo:
 | Lỗi `[200] ...` hoặc `[10] ...` | Thiếu quyền: tạo lại token với đủ 3 quyền và nhớ **chọn đúng Page** khi cấp quyền. |
 | Lỗi `[368] ...` | Facebook tạm chặn vì đăng quá dày/nội dung giống spam: giãn lịch đăng, đa dạng nội dung. |
 | “Không có Page nào” khi lấy danh sách | Tài khoản chưa là admin của Page, hoặc khi cấp quyền chưa chọn Page đó. |
-| Bài hẹn giờ không được đăng | Ứng dụng phải đang chạy lúc tới giờ; kiểm tra giờ của máy tính có đúng không. |
+| Bài hẹn giờ không được đăng | Bài *Đang chờ* (chưa *Đã hẹn trên Facebook*) cần ứng dụng đang chạy lúc tới giờ; kiểm tra giờ của máy tính có đúng không. |
+| Bài bị “Dời sang …” | Do **Giới hạn an toàn** (số bài/ngày, giãn cách). Chỉnh trong Cài đặt nếu muốn. |
+| “Không huỷ được bài hẹn trên Facebook” | Kiểm tra mạng rồi thử lại; hoặc chọn *Vẫn xoá khỏi danh sách* rồi tự xoá bài hẹn trong mục *Bài viết đã lên lịch* của Page. |
 | Bài bị đánh dấu Lỗi “Ứng dụng bị tắt khi đang đăng” | Kiểm tra Page xem bài đã lên chưa rồi mới bấm **Đăng lại** để tránh trùng. |
 | Cách Trình duyệt: `chưa cài playwright` | Chạy `pip install -r requirements.txt` rồi `playwright install chromium`. |
-| Cách Trình duyệt: không tìm thấy nút | Xem ảnh trong `screenshots/`; tắt chạy ẩn để quan sát; sửa `RE_*` trong `browser_poster.py`. |
+| Cách Trình duyệt: không tìm thấy nút | Xem ảnh trong `screenshots/`; tắt chạy ẩn để quan sát; sửa `RE_*` trong `supload/integrations/browser.py`. |
 
 Mọi hoạt động và lỗi đều được ghi ở trang **Nhật ký**.
 
@@ -224,8 +248,15 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-- `tests/test_fb_poster.py`, `tests/test_app.py`: API, luồng đăng nền, bảo mật token (Facebook được giả lập, **không đăng bài thật**).
-- `tests/test_e2e.py`: mở giao diện thật bằng trình duyệt tự động (cần `playwright install chromium`; tự bỏ qua nếu chưa cài).
+Facebook được giả lập trong mọi test, **không đăng bài thật**.
+
+| File | Kiểm tra |
+|---|---|
+| `tests/test_planner.py` | Giới hạn an toàn (logic thuần) |
+| `tests/test_facebook.py` | Lớp Graph API: đăng, hẹn giờ, huỷ, kiểm tra trạng thái |
+| `tests/test_fb_scheduling.py` | Vòng đời bài hẹn trên Facebook, đối soát, giới hạn an toàn trong luồng nền |
+| `tests/test_app.py` | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt |
+| `tests/test_e2e.py` | Giao diện thật bằng trình duyệt tự động (cần `playwright install chromium`; tự bỏ qua nếu chưa cài) |
 
 Kiểm thử bộ tính lịch của Flow (cần Node.js 18+):
 
@@ -246,8 +277,8 @@ npm run dev                   # http://localhost:5173, tự tải lại khi sử
 npm run build                 # build ra ../web để python app.py phục vụ
 ```
 
-Thêm loại khối Flow mới: khai báo trong `frontend/src/lib/nodes.jsx` (trường cấu hình, mặc định, cách tính lịch);
-bảng Thuộc tính tự sinh giao diện từ khai báo đó.
+Thêm loại khối Flow mới: khai báo trong `frontend/src/features/flow/engine/nodes.jsx` (trường cấu hình, mặc định,
+cách tính lịch); bảng Thuộc tính tự sinh giao diện từ khai báo đó.
 
 ## 12. Dùng bằng dòng lệnh (không cần giao diện)
 
@@ -269,17 +300,44 @@ python browser_poster.py post --page https://www.facebook.com/TenPage -m "Xin ch
 
 Giá trị trong `.env` (`FB_PAGE_ID`, `FB_PAGE_TOKEN`…) cũng được giao diện dùng làm mặc định khi chưa cấu hình.
 
-## Cấu trúc thư mục
+## 13. Kiến trúc
 
 ```
-app.py              Máy chủ giao diện + luồng đăng bài nền
-fb_poster.py        Đăng qua Graph API (dùng được độc lập bằng dòng lệnh)
-browser_poster.py   Đăng qua trình duyệt (Playwright)
-web/                Giao diện đã build (không sửa trực tiếp)
-frontend/           Mã nguồn giao diện React
-tests/              Kiểm thử Python (pytest)
-start.bat           Mở nhanh trên Windows
+app.py, fb_poster.py, browser_poster.py   Lối vào (chỉ vài dòng, gọi vào package supload/)
+
+supload/                      Backend (Python, Flask)
+  app.py                      create_app(config): ghép các phần lại (application factory)
+  config.py                   Đường dẫn & cài đặt mặc định (không dùng biến toàn cục)
+  storage.py                  Store: đọc/ghi data.json an toàn luồng, transaction
+  domain/                     Nghiệp vụ thuần, không phụ thuộc Flask/mạng
+    posts.py                    vòng đời bài: pending → running/scheduled → done/error
+    flows.py  settings.py
+    planner.py                  giới hạn an toàn: tính thời điểm đăng thực tế
+  integrations/               Giao tiếp bên ngoài
+    facebook.py                 Graph API (đăng, hẹn giờ, huỷ, kiểm tra)
+    browser.py                  Playwright
+  services/                   Điều phối
+    publisher.py                đăng ngay / giao Facebook hẹn giờ / huỷ / đối soát
+    scheduler.py                luồng nền: đối soát → đăng bài đến giờ → giao Facebook
+  api/                        HTTP, mỗi file một nhóm tài nguyên (Flask blueprint)
+    state.py  posts.py  flows.py  settings.py
+  cli/                        Dòng lệnh (fb_poster.py, browser_poster.py)
+
+frontend/src/                 Giao diện (React + Mantine + React Flow)
+  app/                        Khung ứng dụng, context dùng chung
+  api/                        client.js (fetch) + endpoints.js (mọi API, gom theo nhóm)
+  components/                 UI dùng chung: PageHeader, PhotoPicker, PostPreview, EmptyState…
+  features/                   Mỗi tính năng một thư mục
+    compose/  queue/  log/  settings/
+    flow/  FlowPage, FlowList, FlowDialogs, editor/ (bảng vẽ, khối, thuộc tính), engine/ (tính lịch, danh mục khối)
+  lib/                        Tiện ích: thời gian, localStorage, form, Page
+
+web/                          Giao diện đã build (không sửa trực tiếp)
+tests/                        Kiểm thử Python (pytest)
 ```
+
+Nguyên tắc: `api/` chỉ nhận/trả HTTP rồi gọi `domain/` và `services/`; `domain/` không gọi mạng nên test nhanh,
+không cần giả lập; mọi lời gọi Facebook đi qua `integrations/facebook.call` (test thay bằng bản giả).
 
 ## Lưu ý
 

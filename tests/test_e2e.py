@@ -28,10 +28,10 @@ def browser():
 
 
 @pytest.fixture
-def server(appmod):
+def server(app):
     from werkzeug.serving import make_server
 
-    srv = make_server("127.0.0.1", 0, appmod.app, threaded=True)
+    srv = make_server("127.0.0.1", 0, app, threaded=True)
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     t.start()
     yield f"http://127.0.0.1:{srv.server_port}"
@@ -65,7 +65,7 @@ def nav(page, label):
 
 
 def connect(page):
-    page.request.post(page.base + "/api/settings", data={"method": "api", "page_id": "111", "page_token": "tok"})
+    page.request.post(page.base + "/api/settings", data={"method": "api", "page_id": "111", "page_token": "tok", "min_gap": 0, "daily_max": 0})
 
 
 def test_first_run_opens_settings_and_connects(page):
@@ -83,7 +83,7 @@ def test_first_run_opens_settings_and_connects(page):
     assert page.errors == []
 
 
-def test_compose_schedule_and_post_now(page, appmod, tmp_path):
+def test_compose_schedule_and_post_now(page, svc, tmp_path):
     connect(page)
     page.goto(page.base)
     nav(page, "Soạn bài")
@@ -109,7 +109,7 @@ def test_compose_schedule_and_post_now(page, appmod, tmp_path):
     assert posts["Khuyến mãi cuối tuần 🎉"]["scheduled_at"] and len(posts["Khuyến mãi cuối tuần 🎉"]["photos"]) == 1
     assert posts["Đăng liền"]["scheduled_at"] is None
 
-    assert appmod.process_one() is True  # luồng nền đăng bài đến hạn
+    assert svc.scheduler.process_one() is True  # luồng nền đăng bài đến hạn
     nav(page, "Lịch đăng")
     page.get_by_text("Đã đăng (1)").wait_for(timeout=5000)
     assert page.errors == []
@@ -277,3 +277,84 @@ def test_mobile_layout_has_no_horizontal_scroll(browser, server, view):
     assert pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert errors == []
     ctx.close()
+
+
+# ---------------------------------------------------------------- hẹn giờ Facebook & giới hạn an toàn
+def settings(page, **body):
+    assert page.request.post(page.base + "/api/settings", data=body).ok
+
+
+def test_scheduled_post_is_handed_to_facebook_and_cancellable(page, svc, graph):
+    connect(page)
+    page.goto(page.base)
+    nav(page, "Soạn bài")
+    page.get_by_label("Nội dung").fill("Hẹn giờ trên Facebook")
+    page.get_by_text("Hẹn giờ", exact=True).click()
+    page.get_by_test_id("who-posts").get_by_text("Facebook tự đăng", exact=False).wait_for()
+    page.get_by_role("button", name="Lên lịch").click()
+    page.get_by_text("Đã lên lịch").wait_for()
+    assert svc.scheduler.process_one() is True  # giao cho Facebook
+    nav(page, "Lịch đăng")
+    row = page.get_by_test_id("post-row").first
+    row.get_by_text("Đã hẹn trên Facebook").wait_for()
+    assert "Facebook sẽ tự đăng" in row.inner_text()
+    row.get_by_role("button", name="Xoá").click()
+    page.get_by_role("button", name="Huỷ & xoá").click()
+    page.get_by_text("Đã huỷ bài hẹn trên Facebook").wait_for()
+    assert graph.by("DELETE") and api_state(page)["posts"] == []
+    assert page.errors == []
+
+
+def test_safety_limits_settings_and_shift_reason(page, svc):
+    connect(page)
+    page.goto(page.base)
+    nav(page, "Cài đặt")
+    page.get_by_text("Giới hạn an toàn").wait_for()
+    page.get_by_label("Số bài tối đa mỗi ngày").fill("1")
+    save = page.get_by_role("button", name="Lưu cài đặt")
+    save.click()
+    save.wait_for(state="detached")
+    assert svc.store.load()["settings"]["daily_max"] == 1
+    settings(page, fb_schedule=False)
+    for m in ("Bài 1", "Bài 2"):
+        page.request.post(page.base + "/api/posts", data={"message": m})
+    svc.scheduler.process_one()
+    nav(page, "Lịch đăng")
+    page.get_by_test_id("shift-reason").get_by_text("đã đủ 1 bài/ngày", exact=False).wait_for()
+    page.get_by_text("1/1").wait_for()  # thẻ "Bài hôm nay / giới hạn"
+    nav(page, "Cài đặt")
+    assert "Hôm nay: 1 / 1 bài" in page.get_by_test_id("limits-today").inner_text()
+    assert page.errors == []
+
+
+def test_compose_warns_when_post_will_be_shifted(page, svc):
+    connect(page)
+    settings(page, daily_max=1, fb_schedule=False)
+    page.request.post(page.base + "/api/posts", data={"message": "đã đăng"})
+    svc.scheduler.process_one()
+    page.goto(page.base)
+    nav(page, "Soạn bài")
+    page.get_by_label("Nội dung").fill("Bài thứ hai hôm nay")
+    page.get_by_role("button", name="Đăng ngay").last.click()
+    page.get_by_text("Bài sẽ được dời giờ").wait_for()
+    assert "đã đủ 1 bài/ngày" in page.locator(".mantine-Modal-body").inner_text()
+    page.get_by_role("button", name="Đồng ý").click()
+    page.get_by_text("Đã lên lịch").wait_for()
+    assert len(api_state(page)["posts"]) == 2
+    assert page.errors == []
+
+
+def test_flow_run_warns_about_shifted_posts(page):
+    connect(page)
+    settings(page, daily_max=2)
+    page.goto(page.base)
+    nav(page, "Flow chiến dịch")
+    page.get_by_role("button", name="Tạo flow đầu tiên").click()
+    page.get_by_label("Tên flow").fill("Nhiều bài")
+    page.get_by_role("button", name="Tạo và mở").click()
+    page.locator(".react-flow__node").first.wait_for()
+    page.get_by_role("button", name="Chạy flow").click()
+    warn = page.get_by_test_id("run-shift-warning")
+    warn.wait_for()
+    assert "tối đa 2 bài/ngày" in warn.inner_text()
+    assert page.errors == []

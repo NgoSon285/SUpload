@@ -13,7 +13,7 @@ import "@mantine/notifications/styles.css";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
 
-import App from "./App";
+import App from "./app/App";
 
 const theme = createTheme({
   primaryColor: "indigo",
