@@ -463,3 +463,79 @@ def test_health_banner_when_page_loses_connection(page, svc):
     page.wait_for_timeout(300)
     assert page.get_by_test_id("health-banner").count() == 0
     assert page.errors == []
+
+
+# ---------------------------------------------------------------- lịch tháng/tuần
+def at_day(days, hour=10, minute=0):
+    d = datetime.now() + timedelta(days=days)
+    return d.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+
+def open_calendar(page):
+    nav(page, "Lịch đăng")
+    page.get_by_test_id("queue-layout").locator(".mantine-SegmentedControl-label", has_text="Lịch").click()
+    page.get_by_test_id("cal-title").wait_for()
+
+
+def test_calendar_shows_posts_and_drag_reschedules(page, svc, graph):
+    connect(page)
+    settings(page, fb_schedule=False)
+    d1, d3 = at_day(1), at_day(3)
+    page.request.post(page.base + "/api/posts", data={"message": "Bài ngày mai", "scheduled_at": d1.isoformat(timespec="minutes")})
+    page.goto(page.base)
+    open_calendar(page)
+    cell1 = page.locator(f'[data-testid="cal-day"][data-date="{d1:%Y-%m-%d}"]')
+    chip = cell1.get_by_test_id("cal-chip")
+    chip.wait_for()
+    assert "10:00" in chip.inner_text() and "Bài ngày mai" in chip.inner_text()
+    target = page.locator(f'[data-testid="cal-day"][data-date="{d3:%Y-%m-%d}"]')
+    chip.drag_to(target)
+    page.get_by_text("Đã dời sang", exact=False).wait_for()
+    p = api_state(page)["posts"][0]
+    assert p["scheduled_at"] == d3.isoformat(timespec="minutes")  # đổi ngày, giữ giờ
+    target.get_by_test_id("cal-chip").wait_for()
+    assert page.errors == []
+
+
+def test_calendar_drag_of_facebook_scheduled_post_reschedules_on_facebook(page, svc, graph):
+    connect(page)
+    d1, d2 = at_day(1, 11), at_day(2, 11)
+    page.request.post(page.base + "/api/posts", data={"message": "Đã hẹn FB", "scheduled_at": d1.isoformat(timespec="minutes")})
+    svc.scheduler.process_one()
+    page.goto(page.base)
+    assert api_state(page)["posts"][0]["status"] == "scheduled"
+    open_calendar(page)
+    chip = page.locator(f'[data-testid="cal-day"][data-date="{d1:%Y-%m-%d}"]').get_by_test_id("cal-chip")
+    chip.drag_to(page.locator(f'[data-testid="cal-day"][data-date="{d2:%Y-%m-%d}"]'))
+    page.get_by_text("đã huỷ và hẹn lại trên Facebook", exact=False).wait_for()
+    assert graph.by("DELETE")
+    svc.scheduler.process_one()
+    p = api_state(page)["posts"][0]
+    assert p["status"] == "scheduled" and p["fb_scheduled_at"].startswith(f"{d2:%Y-%m-%dT11:00}")
+    assert page.errors == []
+
+
+def test_calendar_past_days_do_not_accept_drops(page, svc):
+    connect(page)
+    settings(page, fb_schedule=False)
+    d1 = at_day(1)
+    page.request.post(page.base + "/api/posts", data={"message": "x", "scheduled_at": d1.isoformat(timespec="minutes")})
+    page.goto(page.base)
+    open_calendar(page)
+    yesterday = page.locator(f'[data-testid="cal-day"][data-date="{datetime.now() - timedelta(days=1):%Y-%m-%d}"]')
+    if yesterday.count():  # có thể nằm ngoài lưới vào ngày đầu tháng
+        assert yesterday.get_attribute("data-past") == "true"
+        page.locator(f'[data-testid="cal-day"][data-date="{d1:%Y-%m-%d}"]').get_by_test_id("cal-chip").drag_to(yesterday)
+        page.wait_for_timeout(400)
+        assert api_state(page)["posts"][0]["scheduled_at"] == d1.isoformat(timespec="minutes")
+    assert page.errors == []
+
+
+def test_calendar_plus_opens_compose_for_that_day(page):
+    connect(page)
+    page.goto(page.base)
+    open_calendar(page)
+    d2 = at_day(2)
+    page.get_by_role("button", name=f"Soạn bài ngày {d2.day}/{d2.month}").click()
+    page.get_by_text("Sẽ đăng lúc 09:00", exact=False).wait_for()
+    assert page.errors == []

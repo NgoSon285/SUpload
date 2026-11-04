@@ -211,3 +211,83 @@ body {
     flex-direction: row !important;
   }
 }
+
+/* ---------- lịch tháng/tuần */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.cal-head {
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-default-hover);
+}
+.cal-cell {
+  min-height: 112px;
+  padding: 6px;
+  border-right: 1px solid var(--mantine-color-default-border);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  min-width: 0;
+  transition: background-color 0.1s;
+}
+.cal-week .cal-cell {
+  min-height: 420px;
+}
+.cal-cell:nth-child(7n) {
+  border-right: 0;
+}
+.cal-cell[data-outside] {
+  background: var(--mantine-color-default-hover);
+}
+.cal-cell[data-outside] .cal-daynum {
+  opacity: 0.45;
+}
+.cal-cell[data-today] .cal-daynum {
+  background: var(--mantine-primary-color-filled);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 7px;
+}
+.cal-cell[data-over] {
+  background: var(--mantine-primary-color-light);
+  outline: 2px dashed var(--mantine-primary-color-filled);
+  outline-offset: -3px;
+}
+.cal-cell .cal-add {
+  opacity: 0;
+}
+.cal-cell:hover .cal-add {
+  opacity: 1;
+}
+@media (hover: none) {
+  .cal-cell .cal-add {
+    opacity: 1;
+  }
+}
+.cal-chip {
+  display: block;
+  width: 100%;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border-left: 3px solid var(--chip);
+  background: color-mix(in srgb, var(--chip) 12%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5;
+}
+.cal-chip:hover {
+  background: color-mix(in srgb, var(--chip) 22%, transparent);
+}
+.cal-chip[data-status="done"] {
+  opacity: 0.75;
+}
+@media (max-width: 48em) {
+  .cal-month .cal-cell {
+    min-height: 72px;
+    padding: 3px;
+  }
+  .cal-chip {
+    font-size: 10px;
+    padding: 1px 3px;
+  }
+}

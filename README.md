@@ -178,6 +178,12 @@ Bài vượt giới hạn **không bị bỏ**, mà được tự dời sang th�
      ứng dụng không xoá để tránh đăng trùng và hỏi bạn có muốn tự xoá trên Facebook không.
 5. Mở Page trên Facebook để kiểm tra bài (bài hẹn giờ nằm trong mục *Bài viết đã lên lịch* của Page).
 
+**Xem dạng Lịch:** ở trang **Lịch đăng**, chuyển *Danh sách → Lịch* để xem theo **Tháng** hoặc **Tuần**.
+- **Kéo một bài sang ngày khác** để dời lịch (giữ nguyên giờ). Bài *Đã hẹn trên Facebook* được huỷ và hẹn lại tự động.
+  Không kéo được về ngày đã qua.
+- Bấm **+** (hoặc nhấp đúp) vào một ô ngày để soạn bài cho ngày đó; bấm vào bài để sửa.
+- Màu theo trạng thái: xanh tím = đang chờ, xanh lơ = đã hẹn trên Facebook, xanh lá = đã đăng, đỏ = lỗi.
+
 ## 7. Lên lịch hàng loạt bằng Flow
 
 Trang **Flow chiến dịch** thay cho việc soạn từng bài: kéo thả các khối và nối chúng lại.
@@ -292,7 +298,7 @@ Facebook được giả lập trong mọi test, **không đăng bài thật**.
 | `tests/test_app.py` | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt |
 | `tests/test_pages.py` | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page |
 | `tests/test_maintenance.py`, `tests/test_instance.py`, `tests/test_health.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần, kiểm tra kết nối |
-| `tests/test_e2e.py` | Giao diện thật bằng trình duyệt tự động (cần `playwright install chromium`; tự bỏ qua nếu chưa cài) |
+| `tests/test_e2e.py` | Giao diện thật bằng trình duyệt tự động (kể cả kéo thả trên Lịch) (cần `playwright install chromium`; tự bỏ qua nếu chưa cài) |
 
 Kiểm thử bộ tính lịch của Flow (cần Node.js 18+):
 

@@ -48,7 +48,11 @@ export default function ComposePage() {
     const p = draftPost.post;
     setPost({ message: p.message || "", link: p.link || "", photos: [...(p.photos || [])], page: p.page || "" });
     setShowLink(!!p.link);
-    if (draftPost.mode === "edit") {
+    if (draftPost.mode === "schedule") {  // từ Lịch: soạn bài mới cho một ngày
+      setEditingId(null);
+      setMode("later");
+      setAt(new Date(p.scheduled_at));
+    } else if (draftPost.mode === "edit") {
       setEditingId(p.id);
       const future = p.scheduled_at && new Date(p.scheduled_at) > new Date();
       setMode(future ? "later" : "now");

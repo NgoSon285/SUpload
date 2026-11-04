@@ -1,10 +1,14 @@
 import { useMemo, useState } from "react";
 import { Button, Card, Group, Paper, SegmentedControl, Select, SimpleGrid, Stack, Text, ThemeIcon } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { IconAlertTriangle, IconCheck, IconClock, IconGauge, IconInbox, IconPlus, IconSitemap, IconTrash } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCalendarMonth, IconCheck, IconClock, IconGauge, IconInbox, IconList, IconPlus, IconSitemap, IconTrash } from "@tabler/icons-react";
 
 import { useApp } from "../../app/context";
 import { postsApi } from "../../api/endpoints";
+import { moveKeepingTime } from "../../lib/calendar";
+import { storage } from "../../lib/storage";
+import { toLocalIso, when } from "../../lib/time";
+import { CalendarView } from "./CalendarView";
 import { EmptyState, PageHeader, notifyErr, notifyOk } from "../../components";
 import { defaultPage, pagesOf } from "../../lib/page";
 import { dayLabel } from "../../lib/time";
@@ -31,6 +35,8 @@ export default function QueuePage() {
   const { state, refresh, setView, setDraftPost } = useApp();
   const [filter, setFilter] = useState("pending");
   const [pageFilter, setPageFilter] = useState("all");
+  const [layout, setLayoutRaw] = useState(() => storage.get("queue-layout", "list"));
+  const setLayout = (v) => { setLayoutRaw(v); storage.set("queue-layout", v); };
   const pages = pagesOf(state);
   const multi = pages.length > 1;
   const def = defaultPage(state);
@@ -92,6 +98,21 @@ export default function QueuePage() {
     else { setDraftPost({ post: p, mode: a === "edit" ? "edit" : "dup" }); setView("compose"); }
   };
 
+  const move = async (p, day) => {
+    const target = moveKeepingTime(p.status === "pending" ? p.effective_at || p.scheduled_at || new Date() : p.fb_scheduled_at || p.scheduled_at || p.done_at, day);
+    if (target <= new Date()) return notifyErr("Không thể dời bài về thời điểm đã qua");
+    try {
+      await postsApi.edit(p.id, { message: p.message, link: p.link, photos: p.photos, page: p.page, scheduled_at: toLocalIso(target) });
+      notifyOk(`Đã dời sang ${when(target)}${p.status === "scheduled" ? " (đã huỷ và hẹn lại trên Facebook)" : ""}`);
+    } catch (e) { notifyErr(e.message); }
+    refresh();
+  };
+  const createAt = (day) => {
+    const at = moveKeepingTime(new Date(new Date().setHours(9, 0, 0, 0)), day);
+    setDraftPost({ post: { message: "", link: "", photos: [], page: pageFilter === "all" ? "" : pageFilter, scheduled_at: toLocalIso(at > new Date() ? at : new Date(Date.now() + 3600000)) }, mode: "schedule" });
+    setView("compose");
+  };
+
   const clearDone = () =>
     modals.openConfirmModal({
       title: "Dọn bài đã đăng?",
@@ -120,24 +141,40 @@ export default function QueuePage() {
       </SimpleGrid>
 
       <Group justify="space-between" mb="md">
-        <SegmentedControl
-          value={filter} onChange={setFilter}
-          data={[
-            { value: "pending", label: `Sắp đăng (${counts.pending})` },
-            { value: "done", label: `Đã đăng (${counts.done})` },
-            { value: "error", label: `Lỗi (${counts.error})` },
-          ]}
-        />
+        <Group gap="xs">
+          <SegmentedControl
+            value={layout} onChange={setLayout} data-testid="queue-layout"
+            data={[
+              { value: "list", label: <Group gap={6} wrap="nowrap"><IconList size={16} />Danh sách</Group> },
+              { value: "calendar", label: <Group gap={6} wrap="nowrap"><IconCalendarMonth size={16} />Lịch</Group> },
+            ]}
+          />
+          {layout === "list" && (
+            <SegmentedControl
+              value={filter} onChange={setFilter}
+              data={[
+                { value: "pending", label: `Sắp đăng (${counts.pending})` },
+                { value: "done", label: `Đã đăng (${counts.done})` },
+                { value: "error", label: `Lỗi (${counts.error})` },
+              ]}
+            />
+          )}
+        </Group>
         {multi && (
           <Select
             w={220} value={pageFilter} onChange={(v) => setPageFilter(v || "all")} allowDeselect={false} aria-label="Lọc theo Page" data-testid="queue-page-filter"
             comboboxProps={{ withinPortal: true }} data={[{ value: "all", label: "Tất cả Page" }, ...pages.map((p) => ({ value: p.id, label: p.name }))]}
           />
         )}
-        {filter === "done" && counts.done > 0 && <Button variant="subtle" color="gray" leftSection={<IconTrash size={16} />} onClick={clearDone}>Dọn bài đã đăng</Button>}
+        {layout === "list" && filter === "done" && counts.done > 0 && <Button variant="subtle" color="gray" leftSection={<IconTrash size={16} />} onClick={clearDone}>Dọn bài đã đăng</Button>}
       </Group>
 
-      {groups.length === 0 ? (
+      {layout === "calendar" ? (
+        <CalendarView
+          posts={posts} pageName={pageName} onMove={move} onCreateAt={createAt}
+          onOpen={(p) => { setDraftPost({ post: p, mode: p.status === "done" ? "dup" : "edit" }); setView("compose"); }}
+        />
+      ) : groups.length === 0 ? (
         <Card><EmptyState icon={EMPTY[0]} title={EMPTY[1]} desc={EMPTY[2]}
           action={filter === "pending" && <Button leftSection={<IconPlus size={16} />} onClick={() => setView("compose")}>Soạn bài mới</Button>} /></Card>
       ) : (
