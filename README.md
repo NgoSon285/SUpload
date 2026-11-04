@@ -16,20 +16,43 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Trên Windows có thể bấm đúp `start.bat`. Trình duyệt sẽ tự mở <http://127.0.0.1:5000>, gồm:
+Trên Windows có thể bấm đúp `start.bat`. Trình duyệt sẽ tự mở <http://127.0.0.1:5000>. Giao diện đã được build sẵn
+trong thư mục `web/`, **không cần cài Node.js** để dùng.
 
-- **Đăng bài**: soạn nội dung, kéo thả nhiều ảnh, thêm link, xem trước, đăng ngay hoặc hẹn giờ.
-- **Hàng đợi**: trạng thái từng bài (Đang chờ / Đang đăng / Đã đăng / Lỗi), đăng lại bài lỗi, xoá bài.
-- **Cài đặt**: chọn cách đăng (Graph API hoặc Trình duyệt).
-  - API: nhập App ID, App Secret, User Token → *Lấy danh sách Page* → bấm chọn Page (token Page được lưu tự động).
-  - Trình duyệt: nhập URL Page → *Mở trình duyệt để đăng nhập* (tự đăng nhập 1 lần) → đặt giãn cách giữa các bài.
-- **Nhật ký**: lịch sử hoạt động.
+| Trang | Chức năng |
+|---|---|
+| **Soạn bài** | Soạn nội dung, kéo thả / dán ảnh (kéo để đổi thứ tự), thêm link, xem trước, đăng ngay hoặc hẹn giờ với các mốc nhanh (Sau 1 giờ, 20:00 tối nay…). `Ctrl+Enter` để đăng. |
+| **Lịch đăng** | Bài gom theo ngày, trạng thái Đang chờ / Đang đăng / Đã đăng / Lỗi; sửa, dùng lại nội dung, đăng lại, xoá. |
+| **Flow chiến dịch** | Thay cho việc viết file JSON: kéo thả các khối **Bắt đầu → Bài viết → Chờ → Nhiều bài** trên bảng vẽ, xem ngay giờ đăng dự kiến của từng bài, rồi bấm **Chạy flow** để đưa tất cả vào Lịch đăng. Flow được tự lưu để dùng lại. |
+| **Nhật ký** | Lịch sử hoạt động. |
+| **Cài đặt** | Chọn cách đăng (Graph API hoặc Trình duyệt), lấy danh sách Page từ User Token, kiểm tra kết nối, đăng nhập trình duyệt. |
+
+**Các khối trong Flow**
+
+- **Bắt đầu**: chạy ngay khi bấm *Chạy flow*, hoặc từ một thời điểm cụ thể.
+- **Bài viết**: một bài (nội dung, ảnh, link), đăng tại thời điểm hiện tại của chuỗi.
+- **Nhiều bài**: dán nhiều đoạn (cách nhau 1 dòng trống) và/hoặc thả nhiều ảnh, ảnh thứ *i* đi với đoạn thứ *i*;
+  các bài cách nhau X phút/giờ/ngày.
+- **Chờ**: nghỉ một khoảng (vd 2 giờ) hoặc đợi tới giờ cố định lần kế tiếp (vd 08:00).
+- Một khối có thể nối ra nhiều nhánh; mỗi nhánh tự tính giờ từ điểm rẽ.
 
 Lưu ý:
 - Bài hẹn giờ do ứng dụng tự đăng khi tới giờ, nên **phải để ứng dụng chạy** (không tắt cửa sổ dòng lệnh).
-- Ứng dụng chỉ nghe ở `127.0.0.1` (chỉ máy bạn truy cập được). Cài đặt, token và hàng đợi lưu trong `data.json`,
-  ảnh lưu trong `uploads/` — đừng chia sẻ các file này.
+- Ứng dụng chỉ nghe ở `127.0.0.1` (chỉ máy bạn truy cập được). Cài đặt, token, flow và hàng đợi lưu trong `data.json`,
+  ảnh lưu trong `uploads/`. Đừng chia sẻ các file này.
 - Chế độ Trình duyệt cần thêm: `playwright install chromium`.
+
+### Phát triển giao diện (tuỳ chọn)
+
+Mã nguồn giao diện nằm trong `frontend/` (Vite + React 18, [Mantine](https://mantine.dev) cho component,
+[React Flow](https://reactflow.dev) cho trình dựng flow, Tabler Icons).
+
+```bash
+python app.py                      # chạy API ở cổng 5000
+cd frontend && npm install
+npm run dev                        # http://localhost:5173, tự tải lại khi sửa code
+npm run build                      # build ra ../web cho Flask phục vụ
+```
 
 Các mục dưới đây là cách dùng bằng dòng lệnh.
 

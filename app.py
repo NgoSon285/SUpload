@@ -37,7 +37,8 @@ DEFAULT_SETTINGS = {
     "min_gap": 300,  # giây tối thiểu giữa 2 bài (chế độ trình duyệt)
 }
 
-app = Flask(__name__, static_folder=str(BASE / "static"), static_url_path="/static")
+WEB_DIR = BASE / "web"  # bản build của frontend/ (npm run build)
+app = Flask(__name__, static_folder=str(WEB_DIR / "assets"), static_url_path="/assets")
 lock = threading.RLock()  # bảo vệ data.json
 browser_lock = threading.Lock()  # chỉ 1 thao tác trình duyệt tại 1 thời điểm
 wake = threading.Event()
@@ -157,7 +158,9 @@ def worker() -> None:
 # ---------------------------------------------------------------- routes
 @app.get("/")
 def index():
-    return send_from_directory(app.static_folder, "index.html")
+    if not (WEB_DIR / "index.html").exists():
+        return "Chưa có giao diện. Chạy: cd frontend && npm install && npm run build", 500
+    return send_from_directory(WEB_DIR, "index.html")
 
 
 @app.get("/uploads/<path:name>")
@@ -183,6 +186,8 @@ def api_settings():
     with lock:
         data = load()
         s = data["settings"]
+        if body.get("page_id") is not None and body["page_id"] != s["page_id"]:
+            s["page_name"] = ""  # Page khác -> tên cũ không còn đúng
         for k in DEFAULT_SETTINGS:
             if k not in body:
                 continue
@@ -211,24 +216,14 @@ def api_upload():
 
 @app.post("/api/posts")
 def api_add_post():
-    body = request.get_json(force=True)
-    message = (body.get("message") or "").strip()
-    photos = [p for p in body.get("photos", []) if (UPLOAD_DIR / p).is_file()]
-    link = (body.get("link") or "").strip()
-    if not (message or photos or link):
-        return jsonify(error="Bài viết đang trống"), 400
-    sched = body.get("scheduled_at") or None
-    if sched:
-        try:
-            sched = datetime.fromisoformat(sched).isoformat(timespec="minutes")
-        except ValueError:
-            return jsonify(error="Thời gian hẹn không hợp lệ"), 400
+    try:
+        fields = _clean_post_body(request.get_json(force=True))
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
+    sched = fields["scheduled_at"]
     post = {
         "id": uuid.uuid4().hex[:10],
-        "message": message,
-        "link": link,
-        "photos": photos,
-        "scheduled_at": sched,
+        **fields,
         "status": "pending",
         "created_at": now_iso(),
         "done_at": None,
@@ -242,6 +237,127 @@ def api_add_post():
         save(data)
     wake.set()
     return jsonify(post=post)
+
+
+def _clean_post_body(body: dict):
+    message = (body.get("message") or "").strip()
+    photos = [p for p in body.get("photos", []) if (UPLOAD_DIR / p).is_file()]
+    link = (body.get("link") or "").strip()
+    if not (message or photos or link):
+        raise ValueError("Bài viết đang trống")
+    sched = body.get("scheduled_at") or None
+    if sched:
+        try:
+            sched = datetime.fromisoformat(sched).isoformat(timespec="minutes")
+        except ValueError:
+            raise ValueError("Thời gian hẹn không hợp lệ")
+    return {"message": message, "photos": photos, "link": link, "scheduled_at": sched}
+
+
+@app.put("/api/posts/<post_id>")
+def api_edit_post(post_id):
+    try:
+        fields = _clean_post_body(request.get_json(force=True))
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
+    with lock:
+        data = load()
+        post = next((p for p in data["posts"] if p["id"] == post_id), None)
+        if not post:
+            return jsonify(error="Không tìm thấy bài"), 404
+        if post["status"] not in ("pending", "error"):
+            return jsonify(error="Chỉ sửa được bài đang chờ hoặc bị lỗi"), 400
+        post.update(fields, status="pending", error="")
+        add_log(data, "info", "Đã sửa bài: " + (fields["message"] or "(ảnh)")[:50])
+        save(data)
+    wake.set()
+    return jsonify(post=post)
+
+
+@app.post("/api/test-connection")
+def api_test_connection():
+    s = load()["settings"]
+    if s["method"] == "browser":
+        threading.Thread(target=_browser_job, args=("check",), daemon=True).start()
+        return jsonify(ok=True, pending=True, text="Đang kiểm tra đăng nhập trong trình duyệt...")
+    if not (s["page_id"] and s["page_token"]):
+        return jsonify(error="Chưa có Page ID / Page Token"), 400
+    try:
+        info = fb_poster._call("GET", s["page_id"], params={"access_token": s["page_token"], "fields": "name"})
+    except fb_poster.FBError as e:
+        return jsonify(error=str(e)), 400
+    with lock:
+        data = load()
+        data["settings"]["page_name"] = info.get("name", "")
+        add_log(data, "ok", f"Kết nối thành công tới Page: {info.get('name')}")
+        save(data)
+    return jsonify(ok=True, text=f"Kết nối tốt tới Page “{info.get('name')}”")
+
+
+@app.get("/api/flows")
+def api_flows():
+    return jsonify(flows=load().get("flows", []))
+
+
+@app.put("/api/flows/<flow_id>")
+def api_save_flow(flow_id):
+    body = request.get_json(force=True)
+    flow = {
+        "id": flow_id,
+        "name": (body.get("name") or "Flow chưa đặt tên").strip()[:80],
+        "nodes": body.get("nodes", []),
+        "edges": body.get("edges", []),
+        "updated_at": now_iso(),
+    }
+    with lock:
+        data = load()
+        flows = data.setdefault("flows", [])
+        idx = next((i for i, f in enumerate(flows) if f["id"] == flow_id), None)
+        if idx is None:
+            flows.append(flow)
+        else:
+            flows[idx] = flow
+        save(data)
+    return jsonify(flow=flow)
+
+
+@app.delete("/api/flows/<flow_id>")
+def api_delete_flow(flow_id):
+    with lock:
+        data = load()
+        data["flows"] = [f for f in data.get("flows", []) if f["id"] != flow_id]
+        save(data)
+    return jsonify(ok=True)
+
+
+@app.post("/api/flows/run")
+def api_run_flow():
+    """Nhận danh sách bài đã tính giờ từ flow -> thêm hàng loạt vào lịch đăng."""
+    body = request.get_json(force=True)
+    items = body.get("posts", [])
+    if not items:
+        return jsonify(error="Flow chưa có bài viết nào"), 400
+    if len(items) > 500:
+        return jsonify(error="Tối đa 500 bài mỗi lần chạy"), 400
+    created, now = [], datetime.now()
+    try:
+        for it in items:
+            fields = _clean_post_body(it)
+            if fields["scheduled_at"] and datetime.fromisoformat(fields["scheduled_at"]) <= now:
+                fields["scheduled_at"] = None  # giờ đã qua -> đăng ngay
+            created.append({
+                "id": uuid.uuid4().hex[:10], **fields, "status": "pending", "created_at": now_iso(),
+                "done_at": None, "error": "", "result": "", "flow": (body.get("name") or "")[:80],
+            })
+    except ValueError as e:
+        return jsonify(error=f"Bài #{len(created) + 1}: {e}"), 400
+    with lock:
+        data = load()
+        data["posts"].extend(created)
+        add_log(data, "info", f"Chạy flow “{body.get('name') or 'không tên'}”: thêm {len(created)} bài vào lịch")
+        save(data)
+    wake.set()
+    return jsonify(count=len(created))
 
 
 @app.delete("/api/posts/<post_id>")

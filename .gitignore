@@ -10,3 +10,4 @@ browser_post_log.jsonl
 data.json
 data.tmp
 uploads/
+frontend/node_modules/

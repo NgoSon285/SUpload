@@ -1,0 +1,204 @@
+body {
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: anywhere;
+}
+
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--mantine-color-indigo-6), var(--mantine-color-violet-6));
+  flex: none;
+}
+
+.pv-grid {
+  display: grid;
+  gap: 2px;
+  background: var(--mantine-color-default-border);
+}
+.pv-grid > div {
+  position: relative;
+  overflow: hidden;
+  background: var(--mantine-color-default-hover);
+}
+.pv-grid img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.pv-more {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--mantine-radius-md);
+  overflow: hidden;
+  border: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-default-hover);
+  cursor: grab;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.thumb .thumb-x {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+.thumb .thumb-i {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 6px;
+  border-radius: 6px;
+}
+.thumb.dragging {
+  opacity: 0.4;
+}
+
+.method-card {
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.method-card[data-checked] {
+  border-color: var(--mantine-primary-color-filled);
+  background-color: var(--mantine-primary-color-light);
+}
+
+/* ---------- flow editor */
+.flow-shell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 360px;
+  height: calc(100dvh - var(--app-shell-header-offset, 56px) - 59px);
+}
+@media (max-width: 75em) {
+  .flow-shell {
+    grid-template-columns: 200px minmax(0, 1fr) 320px;
+  }
+}
+@media (max-width: 62em) {
+  .flow-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(420px, 60dvh) auto;
+    height: auto;
+  }
+}
+.flow-panel {
+  border-color: var(--mantine-color-default-border);
+  background: var(--mantine-color-body);
+  overflow: auto;
+}
+.flow-canvas {
+  position: relative;
+  min-width: 0;
+}
+.palette-item {
+  cursor: grab;
+  user-select: none;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.palette-item:hover {
+  border-color: var(--mantine-primary-color-filled);
+}
+.palette-item:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+.fnode {
+  width: 260px;
+  border-radius: 14px;
+  border: 1.5px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-body);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 6px 18px rgba(16, 24, 40, 0.06);
+  font-size: 13px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.fnode.selected {
+  border-color: var(--mantine-primary-color-filled);
+  box-shadow: 0 0 0 4px var(--mantine-primary-color-light);
+}
+.fnode.has-issue {
+  border-color: var(--mantine-color-orange-5);
+}
+.fnode-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+.fnode-b {
+  padding: 10px 12px;
+}
+.fnode-photos {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+.fnode-photos img {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+.react-flow__handle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--mantine-color-body);
+  background: var(--mantine-primary-color-filled);
+}
+.react-flow__attribution {
+  display: none;
+}
+[data-mantine-color-scheme="dark"] .react-flow {
+  --xy-background-color: var(--mantine-color-dark-8);
+  --xy-minimap-background-color: var(--mantine-color-dark-7);
+  --xy-controls-button-background-color: var(--mantine-color-dark-6);
+  --xy-controls-button-background-color-hover: var(--mantine-color-dark-5);
+  --xy-controls-button-color: var(--mantine-color-gray-2);
+  --xy-controls-button-border-color: var(--mantine-color-dark-4);
+  --xy-edge-stroke: var(--mantine-color-dark-2);
+}
+.react-flow {
+  --xy-background-color: var(--mantine-color-gray-0);
+  --xy-edge-stroke: var(--mantine-color-gray-5);
+  --xy-edge-stroke-width: 2;
+}
+@media (max-width: 62em) {
+  .palette {
+    flex-direction: row !important;
+    overflow-x: auto;
+    padding: 10px 12px !important;
+  }
+  .palette > .palette-item {
+    flex: none;
+    padding: 8px 12px !important;
+  }
+  .palette-desc,
+  .palette-help,
+  .flow-minimap {
+    display: none;
+  }
+}
