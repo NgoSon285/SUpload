@@ -89,7 +89,9 @@ Trình duyệt sẽ tự mở <http://127.0.0.1:5000>. Nếu không tự mở, b
 
 ## 5. Kết nối Page
 
-Lần đầu mở, ứng dụng tự chuyển tới trang **Cài đặt**.
+Lần đầu mở, ứng dụng tự chuyển tới trang **Cài đặt**. Bạn kết nối được **nhiều Page** (mục *Thêm Page*), mỗi Page
+đăng theo cách riêng (Graph API hoặc Trình duyệt). Page đầu tiên là **Page mặc định**: bài và flow không chọn Page
+riêng sẽ đăng lên Page này.
 
 ### Cách A: Graph API (khuyên dùng)
 
@@ -109,31 +111,43 @@ Lần đầu mở, ứng dụng tự chuyển tới trang **Cài đặt**.
 1. Mở **Graph API Explorer**: <https://developers.facebook.com/tools/explorer>.
 2. Ở ô **Meta App**, chọn App vừa tạo. Ở ô **User or Page**, chọn **User Token**.
 3. Ở **Permissions**, thêm 3 quyền: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
-4. Bấm **Generate Access Token**, đăng nhập và **chọn Page muốn đăng** trong hộp thoại cấp quyền.
+4. Bấm **Generate Access Token**, đăng nhập và **chọn mọi Page muốn quản lý** trong hộp thoại cấp quyền.
 5. Chép chuỗi token vừa tạo.
 
 **Bước 3: Kết nối trong SUpload**
 
-1. Trang **Cài đặt** → chọn **Graph API**.
+1. Trang **Cài đặt → Thêm Page → Qua Graph API**.
 2. Dán **App ID**, **App Secret**, **User Access Token**.
-3. Bấm **Lấy danh sách Page** → bấm chọn Page của bạn.
-4. Bấm **Kiểm tra kết nối**: thấy “Kết nối tốt tới Page …” là xong.
+3. Bấm **Lấy danh sách Page** → bấm **Thêm** ở từng Page muốn dùng.
+4. Ở mục *Page đã kết nối*, bấm **Kiểm tra** trên từng Page: thấy “Kết nối tốt tới Page …” là xong.
 
 Ứng dụng tự đổi sang **Page Token dài hạn** (thường không hết hạn, trừ khi bạn đổi mật khẩu Facebook
 hoặc gỡ quyền của App). User Token bạn dán vào không được lưu lại.
 
 ### Cách B: Trình duyệt
 
-1. Trang **Cài đặt** → chọn **Trình duyệt**.
-2. Nhập địa chỉ Page, ví dụ `https://www.facebook.com/TenPageCuaBan`, rồi bấm **Lưu cài đặt**.
-3. Bấm **Mở trình duyệt để đăng nhập**. Một cửa sổ Chromium mở ra, bạn tự đăng nhập Facebook (kể cả mã 2FA).
-   Ứng dụng tự nhận biết khi đăng nhập xong và đóng cửa sổ.
-4. Để tắt “Chạy ẩn trình duyệt” trong vài lần đầu để quan sát.
+1. Trang **Cài đặt → Thêm Page → Qua trình duyệt**.
+2. Bấm **Mở trình duyệt để đăng nhập**. Một cửa sổ Chromium mở ra, bạn tự đăng nhập Facebook (kể cả mã 2FA).
+   Ứng dụng tự nhận biết khi đăng nhập xong và đóng cửa sổ. Mọi Page cách này dùng chung lần đăng nhập đó.
+3. Nhập địa chỉ Page, ví dụ `https://www.facebook.com/TenPageCuaBan`, rồi bấm **Thêm Page**. Lặp lại cho Page khác.
+4. Để tắt “Chạy ẩn trình duyệt” (mục *Cách đăng*) trong vài lần đầu để quan sát.
+
+### Quản lý các Page
+
+Mục **Page đã kết nối** liệt kê mọi Page kèm số bài đã đăng hôm nay. Nút **Kiểm tra** thử kết nối; menu **⋯** để
+*Đặt làm mặc định*, *Đổi tên hiển thị* hoặc *Xoá Page* (chỉ xoá được khi Page không còn bài chưa đăng).
+Khi có từ 2 Page trở lên:
+- **Soạn bài** có ô *Đăng lên Page*; **Flow** có ô chọn Page đích ở thanh trên cùng của trình dựng.
+- **Lịch đăng** ghi tên Page trên từng bài và lọc được theo Page.
+- **Giới hạn an toàn tính riêng cho từng Page** (Facebook giới hạn theo từng Page).
+
+> Nâng cấp từ bản cũ (một Page): Page đang kết nối tự trở thành Page đầu tiên và là Page mặc định; bài đang chờ
+> được gán vào Page đó. Bạn không cần làm gì.
 
 > Nếu đăng lỗi, ảnh chụp màn hình lúc lỗi nằm trong thư mục `screenshots/`. Nếu Facebook đổi chữ trên nút,
 > sửa các biểu thức `RE_*` ở đầu file `supload/integrations/browser.py`.
 
-### Giới hạn an toàn (cả hai cách)
+### Giới hạn an toàn (cả hai cách, tính riêng từng Page)
 
 Trang **Cài đặt → Giới hạn an toàn** giúp Page không bị Facebook hạn chế vì đăng quá dày:
 
@@ -271,6 +285,8 @@ Facebook được giả lập trong mọi test, **không đăng bài thật**.
 | `tests/test_facebook.py` | Lớp Graph API: đăng, hẹn giờ, huỷ, kiểm tra trạng thái |
 | `tests/test_fb_scheduling.py` | Vòng đời bài hẹn trên Facebook, đối soát, giới hạn an toàn trong luồng nền |
 | `tests/test_app.py` | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt |
+| `tests/test_pages.py` | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page |
+| `tests/test_maintenance.py`, `tests/test_instance.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần |
 | `tests/test_e2e.py` | Giao diện thật bằng trình duyệt tự động (cần `playwright install chromium`; tự bỏ qua nếu chưa cài) |
 
 Kiểm thử bộ tính lịch của Flow (cần Node.js 18+):
@@ -326,6 +342,7 @@ supload/                      Backend (Python, Flask)
   storage.py                  Store: đọc/ghi data.json an toàn luồng, transaction
   domain/                     Nghiệp vụ thuần, không phụ thuộc Flask/mạng
     posts.py                    vòng đời bài: pending → running/scheduled → done/error
+    pages.py                    các Page đã kết nối, chuyển dữ liệu kiểu cũ
     flows.py  settings.py
     planner.py                  giới hạn an toàn: tính thời điểm đăng thực tế
   integrations/               Giao tiếp bên ngoài
@@ -335,7 +352,7 @@ supload/                      Backend (Python, Flask)
     publisher.py                đăng ngay / giao Facebook hẹn giờ / huỷ / đối soát
     scheduler.py                luồng nền: đối soát → đăng bài đến giờ → giao Facebook
   api/                        HTTP, mỗi file một nhóm tài nguyên (Flask blueprint)
-    state.py  posts.py  flows.py  settings.py
+    state.py  posts.py  flows.py  pages.py  settings.py
   cli/                        Dòng lệnh (fb_poster.py, browser_poster.py)
 
 frontend/src/                 Giao diện (React + Mantine + React Flow)

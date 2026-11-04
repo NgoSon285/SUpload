@@ -14,7 +14,7 @@ import { computeSchedule } from "./engine/schedule";
 import { nodeDef } from "./engine/nodes";
 
 
-function FlowCard({ flow, onOpen, onEdit, onDuplicate, onExport, onDelete }) {
+function FlowCard({ flow, pageName, onOpen, onEdit, onDuplicate, onExport, onDelete }) {
   const planned = useMemo(() => computeSchedule(flow.nodes || [], flow.edges || [], new Date(), flow.seed || flow.id).posts.length, [flow]);
   const st = flow.stats || {};
   const types = (flow.nodes || []).map((n) => n.type);
@@ -57,6 +57,7 @@ function FlowCard({ flow, onOpen, onEdit, onDuplicate, onExport, onDelete }) {
         </Group>
 
         <Group gap={6}>
+          {pageName && <Badge variant="outline" color="indigo" style={{ textTransform: "none" }}>{pageName}</Badge>}
           <Badge variant="light" color="gray" style={{ textTransform: "none" }}>{types.length} khối</Badge>
           <Badge variant="light" style={{ textTransform: "none" }}>{planned} bài dự kiến</Badge>
           {st.pending > 0 && <Badge variant="light" color="indigo" leftSection={<IconClock size={11} />} style={{ textTransform: "none" }}>{st.pending} đang chờ</Badge>}
@@ -76,7 +77,9 @@ function FlowCard({ flow, onOpen, onEdit, onDuplicate, onExport, onDelete }) {
   );
 }
 
-export function FlowList({ flows, onOpen, onCreate, onEdit, onDuplicate, onExport, onDelete, onImport }) {
+export function FlowList({ flows, pages = [], onOpen, onCreate, onEdit, onDuplicate, onExport, onDelete, onImport }) {
+  const defaultName = (pages.find((p) => p.default) || pages[0])?.name;
+  const pageName = (f) => (pages.length > 1 ? pages.find((p) => p.id === f.page)?.name || `${defaultName} (mặc định)` : null);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("updated");
   const list = useMemo(() => {
@@ -125,7 +128,7 @@ export function FlowList({ flows, onOpen, onCreate, onEdit, onDuplicate, onExpor
           ) : (
             <SimpleGrid cols={{ base: 1, sm: 2, xl: 3 }} spacing="md">
               {list.map((f) => (
-                <FlowCard key={f.id} flow={f} onOpen={() => onOpen(f.id)} onEdit={() => onEdit(f)} onDuplicate={() => onDuplicate(f)}
+                <FlowCard key={f.id} flow={f} pageName={pageName(f)} onOpen={() => onOpen(f.id)} onEdit={() => onEdit(f)} onDuplicate={() => onDuplicate(f)}
                   onExport={() => onExport(f)} onDelete={() => onDelete(f)} />
               ))}
             </SimpleGrid>

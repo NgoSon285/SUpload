@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert, Button, Card, Chip, Collapse, Grid, Group, Kbd, SegmentedControl, Stack, Text, Textarea, TextInput, ThemeIcon,
+  Alert, Button, Card, Chip, Collapse, Grid, Group, Kbd, SegmentedControl, Select, Stack, Text, TextInput, Textarea, ThemeIcon,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useHotkeys, useInterval } from "@mantine/hooks";
@@ -11,12 +11,12 @@ import { IconAlertCircle, IconClock, IconLink, IconPencil, IconPlugConnected, Ic
 import { useApp } from "../../app/context";
 import { mediaApi, postsApi, stateApi } from "../../api/endpoints";
 import { eventValue } from "../../lib/forms";
-import { configured, pageName } from "../../lib/page";
+import { configured, pagesOf, targetPage } from "../../lib/page";
 import { storage } from "../../lib/storage";
 import { dayLabel, hm, presetTimes, rel, toLocalIso, when } from "../../lib/time";
 import { PageHeader, PhotoPicker, PostPreview, notifyErr, usePasteImages } from "../../components";
 
-const EMPTY = { message: "", link: "", photos: [] };
+const EMPTY = { message: "", link: "", photos: [], page: "" }; // page "" = Page mặc định
 
 const confirmShift = (preview) =>
   new Promise((resolve) => modals.openConfirmModal({
@@ -33,7 +33,7 @@ const confirmShift = (preview) =>
 
 export default function ComposePage() {
   const { state, refresh, setView, draftPost, setDraftPost } = useApp();
-  const [post, setPost] = useState(() => storage.get("draft", EMPTY) || EMPTY);
+  const [post, setPost] = useState(() => ({ ...EMPTY, ...(storage.get("draft", EMPTY) || {}) }));
   const [showLink, setShowLink] = useState(!!post.link);
   const [mode, setMode] = useState("now");
   const [at, setAt] = useState(null);
@@ -46,7 +46,7 @@ export default function ComposePage() {
   useEffect(() => {
     if (!draftPost) return;
     const p = draftPost.post;
-    setPost({ message: p.message || "", link: p.link || "", photos: [...(p.photos || [])] });
+    setPost({ message: p.message || "", link: p.link || "", photos: [...(p.photos || [])], page: p.page || "" });
     setShowLink(!!p.link);
     if (draftPost.mode === "edit") {
       setEditingId(p.id);
@@ -64,7 +64,9 @@ export default function ComposePage() {
 
   const set = (k) => (v) => { const val = eventValue(v); setPost((p) => ({ ...p, [k]: val })); };
   const s = state.settings;
-  const ok = configured(s);
+  const ok = configured(state);
+  const pages = pagesOf(state);
+  const target = targetPage(state, post.page);
   const presets = useMemo(presetTimes, [mode, Math.floor(Date.now() / 60000)]); // eslint-disable-line
   const atValid = at && at > new Date();
   const isEmpty = !post.message.trim() && !post.photos.length && !post.link.trim();
@@ -99,7 +101,7 @@ export default function ComposePage() {
     setBusy(true);
     try {
       // Giới hạn an toàn có thể dời bài -> báo trước để người dùng quyết định
-      const preview = editingId ? null : (await stateApi.previewPlan([{ scheduled_at: body.scheduled_at }])).items[0];
+      const preview = editingId ? null : (await stateApi.previewPlan([{ scheduled_at: body.scheduled_at, page: post.page }])).items[0];
       if (preview?.shifted && !(await confirmShift(preview))) { setBusy(false); return; }
       if (editingId) {
         await postsApi.edit(editingId, body);
@@ -124,7 +126,7 @@ export default function ComposePage() {
   };
 
   useHotkeys([["mod+Enter", submit]], []);
-  const fbSchedules = s.method === "api" && s.fb_schedule;
+  const fbSchedules = target?.kind === "api" && s.fb_schedule;
   const onPaste = usePasteImages(async (files) => {
     try { const names = await mediaApi.upload(files); setPost((p) => ({ ...p, photos: [...p.photos, ...names] })); }
     catch (e) { notifyErr(e.message); }
@@ -154,6 +156,15 @@ export default function ComposePage() {
                     <Button size="compact-sm" variant="subtle" color="orange" onClick={() => { reset(); setView("queue"); }}>Huỷ sửa</Button>
                   </Group>
                 </Alert>
+              )}
+
+              {pages.length > 1 && (
+                <Select
+                  label="Đăng lên Page" data-testid="page-select" allowDeselect={false} comboboxProps={{ withinPortal: true }}
+                  value={post.page || ""} onChange={(v) => setPost((p) => ({ ...p, page: v || "" }))}
+                  data={[{ value: "", label: `Page mặc định (${pages.find((p) => p.default)?.name || pages[0].name})` },
+                    ...pages.map((p) => ({ value: p.id, label: p.name }))]}
+                />
               )}
 
               <Textarea
@@ -225,7 +236,7 @@ export default function ComposePage() {
           <div style={{ position: "sticky", top: 80 }}>
             <Group gap={6} mb="xs"><ThemeIcon size="sm" variant="light" radius="xl"><IconSend size={12} /></ThemeIcon><Text size="xs" fw={700} c="dimmed" tt="uppercase">Xem trước</Text></Group>
             <PostPreview
-              name={pageName(s)} {...post}
+              name={target?.name} {...post}
               scheduled={mode === "later" && atValid}
               timeLabel={mode === "later" && atValid ? when(at) : "Vừa xong"}
             />

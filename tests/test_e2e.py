@@ -65,19 +65,21 @@ def nav(page, label):
 
 
 def connect(page):
-    page.request.post(page.base + "/api/settings", data={"method": "api", "page_id": "111", "page_token": "tok", "min_gap": 0, "daily_max": 0})
+    page.request.post(page.base + "/api/settings", data={"min_gap": 0, "daily_max": 0})
+    page.request.post(page.base + "/api/pages", data={"kind": "api", "fb_page_id": "111", "token": "tok", "name": "Tiệm Bánh"})
 
 
-def test_first_run_opens_settings_and_connects(page):
+def test_first_run_opens_settings_and_adds_page(page):
     page.goto(page.base)
-    page.get_by_text("Kết nối Page qua API").wait_for()
+    page.get_by_text("Chưa kết nối Page nào").wait_for()
     page.get_by_text("Nhập Page ID / Page Token thủ công").click()
     page.get_by_role("textbox", name="Page ID").fill("111")
     page.get_by_role("textbox", name="Page Access Token").fill("SECRET")
-    save = page.get_by_role("button", name="Lưu cài đặt")
-    save.click()
-    save.wait_for(state="detached")  # đã lưu -> thanh biến mất
-    page.get_by_role("button", name="Kiểm tra kết nối").click()
+    page.get_by_role("button", name="Thêm Page").first.click()
+    row = page.get_by_test_id("page-row")
+    row.wait_for()
+    assert "mặc định" in row.inner_text().lower()
+    row.get_by_role("button", name="Kiểm tra").click()
     page.get_by_text("Kết nối tốt tới Page “Page Một”").wait_for()
     assert "SECRET" not in page.content()
     assert page.errors == []
@@ -323,7 +325,7 @@ def test_safety_limits_settings_and_shift_reason(page, svc):
     page.get_by_test_id("shift-reason").get_by_text("đã đủ 1 bài/ngày", exact=False).wait_for()
     page.get_by_text("1/1").wait_for()  # thẻ "Bài hôm nay / giới hạn"
     nav(page, "Cài đặt")
-    assert "Hôm nay: 1 / 1 bài" in page.get_by_test_id("limits-today").inner_text()
+    assert "1 / 1 bài" in page.get_by_test_id("limits-today").inner_text()
     assert page.errors == []
 
 
@@ -369,4 +371,74 @@ def test_backup_now_from_settings(page, svc):
     page.get_by_text("Đã sao lưu (data-").wait_for()
     assert len(svc.maintenance.backups()) == 1
     page.get_by_test_id("backup-info").get_by_text("1 bản sao lưu", exact=False).wait_for()
+    assert page.errors == []
+
+
+# ---------------------------------------------------------------- nhiều Page
+def two_pages(page):
+    connect(page)  # Page "Tiệm Bánh" (111) là mặc định
+    r = page.request.post(page.base + "/api/pages", data={"kind": "api", "fb_page_id": "222", "token": "t2", "name": "Quán Cà Phê"})
+    return r.json()["page"]["id"]
+
+
+def pick(page, testid, option):
+    page.get_by_test_id(testid).click()
+    page.get_by_role("option", name=option).click()
+
+
+def test_compose_to_chosen_page_and_filter_queue(page, svc, graph):
+    cafe = two_pages(page)
+    page.goto(page.base)
+    nav(page, "Soạn bài")
+    pick(page, "page-select", "Quán Cà Phê")
+    page.get_by_label("Nội dung").fill("Cà phê sáng")
+    page.get_by_role("button", name="Đăng ngay").last.click()
+    page.get_by_text("Đang đăng bài").wait_for()
+    assert api_state(page)["posts"][0]["page"] == cafe
+    page.request.post(page.base + "/api/posts", data={"message": "Bánh ngọt"})  # Page mặc định
+    while svc.scheduler.process_one():
+        pass
+    assert sorted(c["path"] for c in graph.by("POST", "/feed")) == ["111/feed", "222/feed"]
+    nav(page, "Lịch đăng")
+    page.get_by_text("Đã đăng (2)").click()
+    rows = page.get_by_test_id("post-row")
+    rows.first.wait_for()
+    assert rows.count() == 2
+    pick(page, "queue-page-filter", "Quán Cà Phê")
+    page.wait_for_timeout(200)
+    assert rows.count() == 1 and "Cà phê sáng" in rows.first.inner_text() and "Quán Cà Phê" in rows.first.inner_text()
+    assert page.errors == []
+
+
+def test_manage_pages_in_settings(page, svc):
+    two_pages(page)
+    page.goto(page.base)
+    nav(page, "Cài đặt")
+    rows = page.get_by_test_id("page-row")
+    rows.nth(1).wait_for()
+    card_action(page, "Page Quán Cà Phê", "Đặt làm mặc định")
+    page.get_by_text("“Quán Cà Phê” là Page mặc định").wait_for()
+    assert svc.store.load()["settings"]["default_page"] == svc.store.load()["pages"][1]["id"]
+    card_action(page, "Page Tiệm Bánh", "Xoá Page")
+    page.get_by_role("dialog").get_by_role("button", name="Xoá Page").click()
+    page.get_by_text("Đã xoá Page").wait_for()
+    assert [p["name"] for p in svc.store.load()["pages"]] == ["Quán Cà Phê"]
+    assert page.errors == []
+
+
+def test_flow_targets_selected_page(page, svc):
+    cafe = two_pages(page)
+    page.goto(page.base)
+    nav(page, "Flow chiến dịch")
+    page.get_by_role("button", name="Tạo flow đầu tiên").click()
+    page.get_by_label("Tên flow").fill("Cà phê")
+    page.get_by_role("button", name="Tạo và mở").click()
+    page.locator(".react-flow__node").first.wait_for()
+    pick(page, "flow-page", "Quán Cà Phê")
+    page.get_by_role("button", name="Chạy flow").click()
+    page.get_by_text("lên Page Quán Cà Phê", exact=False).wait_for()
+    page.get_by_role("button", name="Lên lịch").last.click()
+    page.get_by_text("Đã lên lịch").wait_for()
+    assert {p["page"] for p in api_state(page)["posts"]} == {cafe}
+    assert api_flows(page)[0]["page"] == cafe
     assert page.errors == []

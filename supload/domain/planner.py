@@ -52,8 +52,19 @@ def desired_time(post: dict, now: datetime) -> datetime:
     return max(d, now) if d else now
 
 
-def plan(posts: list[dict], settings: dict, now: datetime | None = None) -> dict[str, Slot]:
-    """Trả về {post_id: Slot} cho mọi bài đang chờ."""
+def plan(posts: list[dict], settings: dict, now: datetime | None = None, key=None) -> dict[str, Slot]:
+    """Trả về {post_id: Slot} cho mọi bài đang chờ.
+
+    `key(post)` -> nhóm áp giới hạn riêng (mỗi Page một nhóm, vì Facebook giới hạn theo từng Page).
+    """
+    if key is not None:
+        groups: dict = {}
+        for p in posts:
+            groups.setdefault(key(p), []).append(p)
+        out: dict[str, Slot] = {}
+        for group in groups.values():
+            out.update(plan(group, settings, now))
+        return out
     now = (now or datetime.now()).replace(microsecond=0)
     gap, cap = limits(settings)
     taken = occupied(posts, now)

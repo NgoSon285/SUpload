@@ -37,6 +37,14 @@ export const flowsApi = {
   run: (body) => post("/api/flows/run", body),
 };
 
+export const pagesApi = {
+  add: (body) => post("/api/pages", body),
+  edit: (id, body) => put(`/api/pages/${id}`, body),
+  remove: (id) => del(`/api/pages/${id}`),
+  setDefault: (id) => post(`/api/pages/${id}/default`),
+  test: (id) => post(`/api/pages/${id}/test`),
+};
+
 export const settingsApi = {
   save: (body) => post("/api/settings", body),
   testConnection: () => post("/api/test-connection"),

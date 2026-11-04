@@ -6,7 +6,10 @@ import threading
 from contextlib import contextmanager
 from pathlib import Path
 
+import os
+
 from .config import default_settings
+from .domain.pages import migrate
 from .utils import now_iso
 
 LOG_LIMIT = 300
@@ -21,11 +24,15 @@ class Store:
     def load(self) -> dict:
         with self.lock:
             data = json.loads(self.path.read_text(encoding="utf-8")) if self.path.exists() else {}
-        data["settings"] = {**default_settings(), **data.get("settings", {})}
+        raw = data.get("settings", {})
+        if "pages" not in data:  # lần đầu: nhận Page từ .env (FB_PAGE_ID/FB_PAGE_TOKEN) nếu có
+            raw.setdefault("page_id", os.getenv("FB_PAGE_ID", ""))
+            raw.setdefault("page_token", os.getenv("FB_PAGE_TOKEN", ""))
+        data["settings"] = {**default_settings(), **raw}
         data.setdefault("posts", [])
         data.setdefault("flows", [])
         data.setdefault("log", [])
-        return data
+        return migrate(data)
 
     def save(self, data: dict) -> None:
         with self.lock:

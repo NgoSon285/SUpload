@@ -6,6 +6,7 @@ from datetime import datetime
 from flask import Blueprint, jsonify, request
 
 from ..domain import flows as flow_domain
+from ..domain import pages as pages_domain
 from ..domain.posts import ERROR, PENDING, SCHEDULED, clean_body, new_post
 from ..integrations.facebook import FBError
 from ..storage import add_log, find
@@ -34,6 +35,8 @@ def save_flow(flow_id):
         data = services().store.load()
         old = find(data["flows"], flow_id)
         try:
+            if body.get("page"):
+                pages_domain.resolve(data, body["page"])
             flow = flow_domain.upsert(flow_id, old, body)
         except ValueError as e:
             return error(str(e))
@@ -83,7 +86,7 @@ def delete_flow(flow_id):
             if p.get("flow_id") != flow_id or p["status"] not in (PENDING, ERROR, SCHEDULED):
                 continue
             try:
-                s.publisher.cancel(p, data["settings"])
+                s.publisher.cancel(p, pages_domain.page_of(data, p))
                 remove_ids.add(p["id"])
             except FBError:
                 kept += 1  # không huỷ được trên Facebook -> giữ lại để người dùng xử lý
@@ -105,13 +108,19 @@ def run_flow():
         return error("Flow chưa có bài viết nào")
     if len(items) > MAX_RUN:
         return error(f"Tối đa {MAX_RUN} bài mỗi lần chạy")
+    data = s.store.load()
+    flow = find(data["flows"], flow_id) if flow_id else None
+    try:
+        page_id = pages_domain.resolve(data, body.get("page") or (flow or {}).get("page"))
+    except ValueError as e:
+        return error(str(e))
     created, now = [], datetime.now()
     try:
         for it in items:
             fields = clean_body(it, s.config.upload_dir)
             if fields["scheduled_at"] and datetime.fromisoformat(fields["scheduled_at"]) <= now:
                 fields["scheduled_at"] = None  # giờ đã qua -> đăng ngay (vẫn theo giới hạn an toàn)
-            created.append(new_post(fields, flow=(body.get("name") or "")[:80], flow_id=flow_id))
+            created.append(new_post(fields, flow=(body.get("name") or "")[:80], flow_id=flow_id, page=page_id))
     except ValueError as e:
         return error(f"Bài #{len(created) + 1}: {e}")
     with s.store.transaction() as data:

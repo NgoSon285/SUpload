@@ -16,15 +16,11 @@ ALLOWED_IMAGE_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 def default_settings() -> dict:
     """Cài đặt mặc định. Giá trị trong .env (FB_*) được dùng khi chưa cấu hình trên giao diện."""
     return {
-        # kết nối
-        "method": "api",  # "api" | "browser"
-        "page_id": os.getenv("FB_PAGE_ID", ""),
-        "page_token": os.getenv("FB_PAGE_TOKEN", ""),
-        "page_name": "",
-        "app_id": os.getenv("FB_APP_ID", ""),
+        # kết nối (danh sách Page nằm ở data["pages"], xem domain/pages.py)
+        "default_page": "",
+        "app_id": os.getenv("FB_APP_ID", ""),  # dùng để lấy danh sách Page từ User Token
         "app_secret": os.getenv("FB_APP_SECRET", ""),
-        "page_url": "",
-        "headless": False,
+        "headless": False,  # cách Trình duyệt: chạy ẩn
         # hẹn giờ trên Facebook (chỉ cách API)
         "fb_schedule": True,
         # giới hạn an toàn (cả hai cách)
@@ -35,7 +31,7 @@ def default_settings() -> dict:
     }
 
 
-SECRET_KEYS = ("page_token", "app_secret")
+SECRET_KEYS = ("app_secret",)
 
 
 def data_home() -> Path:

@@ -8,7 +8,7 @@ from .posts import ACTIVE, DONE, ERROR
 
 FLOW_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 MAX_NODES = 300
-EDITABLE_FIELDS = ("name", "description", "nodes", "edges", "seed")
+EDITABLE_FIELDS = ("name", "description", "nodes", "edges", "seed", "page")
 
 
 def validate_graph(src: dict) -> tuple[list, list]:
@@ -38,6 +38,7 @@ def upsert(flow_id: str, old: dict | None, body: dict) -> dict:
     nodes, edges = validate_graph(merged)
     return {
         "id": flow_id, **_base(merged.get("name"), merged.get("description"), nodes, edges, merged.get("seed") or flow_id),
+        "page": str(merged.get("page") or ""),  # "" = Page mặc định
         "created_at": old.get("created_at") or stamp(), "updated_at": stamp(),
         "last_run_at": old.get("last_run_at"), "last_run_count": old.get("last_run_count", 0),
     }
@@ -47,7 +48,7 @@ def _fresh(src: dict, name: str, seed=None) -> dict:
     nodes, edges = validate_graph(src)
     return {
         "id": new_id("f_", 12), **_base(name, src.get("description"), copy.deepcopy(nodes), copy.deepcopy(edges), seed),
-        "created_at": stamp(), "updated_at": stamp(), "last_run_at": None, "last_run_count": 0,
+        "page": str(src.get("page") or ""), "created_at": stamp(), "updated_at": stamp(), "last_run_at": None, "last_run_count": 0,
     }
 
 

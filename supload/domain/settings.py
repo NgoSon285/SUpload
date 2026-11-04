@@ -21,16 +21,14 @@ def _int(v, lo: int, hi: int) -> int:
 
 def apply_update(s: dict, body: dict) -> dict:
     """Áp các trường hợp lệ từ body vào cài đặt s (sửa tại chỗ)."""
-    if body.get("page_id") is not None and body["page_id"] != s.get("page_id"):
-        s["page_name"] = ""  # Page khác -> tên cũ không còn đúng
     for k in default_settings():
+        if k == "default_page":
+            continue  # đổi Page mặc định qua /api/pages/<id>/default
         if k not in body:
             continue
         if k in SECRET_KEYS and not body[k]:
             continue  # để trống = giữ giá trị cũ
         s[k] = body[k]
-    if s.get("method") not in ("api", "browser"):
-        s["method"] = "api"
     s["min_gap"] = _int(s.get("min_gap"), 0, 86400)
     s["daily_max"] = _int(s.get("daily_max"), 0, 500)
     s["keep_done_days"] = _int(s.get("keep_done_days"), 0, 3650)
@@ -39,5 +37,5 @@ def apply_update(s: dict, body: dict) -> dict:
     return s
 
 
-def has_api_credentials(s: dict) -> bool:
-    return bool(s.get("page_id") and s.get("page_token"))
+def has_api_credentials(page: dict | None) -> bool:
+    return bool(page and page.get("kind") == "api" and page.get("fb_page_id") and page.get("token"))

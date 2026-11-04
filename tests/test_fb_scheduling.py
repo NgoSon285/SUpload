@@ -185,7 +185,8 @@ def test_daily_cap_keeps_post_pending_with_reason(connected, svc, graph):
     assert svc.scheduler.process_one() is False
     pb = post(connected, b["id"])
     assert pb["status"] == "pending" and pb["shift_reason"] == "đã đủ 1 bài/ngày"
-    assert state(connected)["limits"] == {"daily_max": 1, "min_gap": 0, "today": 1}
+    lim = state(connected)["limits"]
+    assert (lim["daily_max"], lim["min_gap"], lim["today"]) == (1, 0, 1)
 
 
 def test_min_gap_applies_to_api_mode(connected, svc, graph):

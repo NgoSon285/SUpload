@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Button, Card, Group, Paper, SegmentedControl, SimpleGrid, Stack, Text, ThemeIcon } from "@mantine/core";
+import { Button, Card, Group, Paper, SegmentedControl, Select, SimpleGrid, Stack, Text, ThemeIcon } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { IconAlertTriangle, IconCheck, IconClock, IconGauge, IconInbox, IconPlus, IconSitemap, IconTrash } from "@tabler/icons-react";
 
 import { useApp } from "../../app/context";
 import { postsApi } from "../../api/endpoints";
 import { EmptyState, PageHeader, notifyErr, notifyOk } from "../../components";
+import { defaultPage, pagesOf } from "../../lib/page";
 import { dayLabel } from "../../lib/time";
 import { PostRow } from "./PostRow";
 import { isUpcoming, upcomingTime } from "./status";
@@ -29,8 +30,15 @@ const confirm = (opts) => new Promise((resolve) => modals.openConfirmModal({ ...
 export default function QueuePage() {
   const { state, refresh, setView, setDraftPost } = useApp();
   const [filter, setFilter] = useState("pending");
-  const posts = state.posts;
+  const [pageFilter, setPageFilter] = useState("all");
+  const pages = pagesOf(state);
+  const multi = pages.length > 1;
+  const def = defaultPage(state);
+  const pageOfPost = (p) => p.page || def?.id;
+  const pageName = (p) => (multi ? pages.find((x) => x.id === pageOfPost(p))?.name || "Page đã xoá" : null);
+  const posts = pageFilter === "all" ? state.posts : state.posts.filter((p) => pageOfPost(p) === pageFilter);
   const limits = state.limits || {};
+  const todayCount = pageFilter === "all" ? limits.today : limits.per_page?.[pageFilter] ?? 0;
   const counts = {
     pending: posts.filter(isUpcoming).length,
     done: posts.filter((p) => p.status === "done").length,
@@ -106,8 +114,8 @@ export default function QueuePage() {
       />
       <SimpleGrid cols={{ base: 1, xs: 3 }} mb="lg">
         <Stat icon={IconClock} color="indigo" value={counts.pending} label="Sắp đăng" />
-        <Stat icon={IconGauge} color="teal" value={limits.daily_max ? `${limits.today}/${limits.daily_max}` : limits.today ?? 0}
-          label={limits.daily_max ? "Bài hôm nay / giới hạn" : "Bài hôm nay"} />
+        <Stat icon={IconGauge} color="teal" value={limits.daily_max ? `${todayCount ?? 0}/${limits.daily_max}` : todayCount ?? 0}
+          label={(limits.daily_max ? "Bài hôm nay / giới hạn" : "Bài hôm nay") + (multi && pageFilter === "all" ? " (Page mặc định)" : "")} />
         <Stat icon={IconAlertTriangle} color="red" value={counts.error} label="Bị lỗi" />
       </SimpleGrid>
 
@@ -120,6 +128,12 @@ export default function QueuePage() {
             { value: "error", label: `Lỗi (${counts.error})` },
           ]}
         />
+        {multi && (
+          <Select
+            w={220} value={pageFilter} onChange={(v) => setPageFilter(v || "all")} allowDeselect={false} aria-label="Lọc theo Page" data-testid="queue-page-filter"
+            comboboxProps={{ withinPortal: true }} data={[{ value: "all", label: "Tất cả Page" }, ...pages.map((p) => ({ value: p.id, label: p.name }))]}
+          />
+        )}
         {filter === "done" && counts.done > 0 && <Button variant="subtle" color="gray" leftSection={<IconTrash size={16} />} onClick={clearDone}>Dọn bài đã đăng</Button>}
       </Group>
 
@@ -131,7 +145,7 @@ export default function QueuePage() {
           {groups.map((g) => (
             <div key={g.label}>
               <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={8} ml={4}>{g.label} · {g.items.length}</Text>
-              <Stack gap={8}>{g.items.map((p) => <PostRow key={p.id} p={p} onAction={onAction} />)}</Stack>
+              <Stack gap={8}>{g.items.map((p) => <PostRow key={p.id} p={p} pageName={pageName(p)} onAction={onAction} />)}</Stack>
             </div>
           ))}
         </Stack>

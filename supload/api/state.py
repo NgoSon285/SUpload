@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request, send_from_directory
 from werkzeug.utils import secure_filename
 
 from ..config import ALLOWED_IMAGE_EXT
+from ..domain import pages as pages_domain
 from ..domain import planner
 from ..domain.posts import DONE, PENDING, SCHEDULED
 from ..domain.settings import public_settings
@@ -43,13 +44,16 @@ def upload():
     return jsonify(files=names)
 
 
-def _limits_summary(posts: list[dict], settings: dict, now: datetime) -> dict:
-    today = now.date()
-    used = 0
+def _used_today(posts: list[dict], now: datetime) -> int:
+    today, used = now.date(), 0
     for p in posts:
         t = parse_dt(p.get("done_at")) if p["status"] == DONE else parse_dt(p.get("fb_scheduled_at")) if p["status"] == SCHEDULED else None
         used += bool(t and t.date() == today)
-    return {"daily_max": settings["daily_max"], "min_gap": settings["min_gap"], "today": used}
+    return used
+
+
+def _page_key(data: dict):
+    return lambda p: (pages_domain.page_of(data, p) or {}).get("id")
 
 
 @bp.get("/api/state")
@@ -57,18 +61,26 @@ def state():
     s = services()
     data = s.store.load()
     now = datetime.now()
-    plan = planner.plan(data["posts"], data["settings"], now)
+    settings = data["settings"]
+    key = _page_key(data)
+    plan = planner.plan(data["posts"], settings, now, key=key)
     posts = []
     for p in sorted(data["posts"], key=lambda p: p["created_at"], reverse=True):
         slot = plan.get(p["id"]) if p["status"] == PENDING else None
         if slot:
+            page = pages_domain.page_of(data, p)
             p = {**p, "effective_at": slot.effective.isoformat(timespec="seconds"),
-                 "shift_reason": planner.describe(slot, data["settings"]) if slot.shifted else "",
-                 "fb_handoff": s.publisher.fb_scheduling_enabled(data["settings"]) and slot.effective - now >= timedelta(minutes=12)}
+                 "shift_reason": planner.describe(slot, settings) if slot.shifted else "",
+                 "fb_handoff": s.publisher.fb_scheduling_enabled(page, settings) and slot.effective - now >= timedelta(minutes=12)}
         posts.append(p)
+    default = pages_domain.default_page(data)
+    per_page = {pg["id"]: _used_today([p for p in data["posts"] if key(p) == pg["id"]], now) for pg in data["pages"]}
     return jsonify(
-        settings=public_settings(data["settings"]), posts=posts, log=data["log"][:100],
-        worker=s.runtime.worker, login=s.runtime.login, limits=_limits_summary(data["posts"], data["settings"], now),
+        settings=public_settings(settings), posts=posts, log=data["log"][:100],
+        pages=[pages_domain.public(pg, default and default["id"]) for pg in data["pages"]],
+        worker=s.runtime.worker, login=s.runtime.login,
+        limits={"daily_max": settings["daily_max"], "min_gap": settings["min_gap"],
+                "today": per_page.get(default["id"], 0) if default else 0, "per_page": per_page},
         maintenance={**(data.get("maintenance") or {}), "backups": len(s.maintenance.backups())},
     )
 
@@ -82,12 +94,15 @@ def run_maintenance():
 @bp.post("/api/plan/preview")
 def plan_preview():
     """Xem trước: nếu thêm các bài này thì chúng sẽ thực sự được đăng lúc nào (sau giới hạn an toàn)."""
-    items = request.get_json(force=True).get("posts", [])[:1000]
+    body = request.get_json(force=True)
+    items = body.get("posts", [])[:1000]
     data = services().store.load()
     now = datetime.now()
+    default = pages_domain.default_page(data)
     temp = [{"id": f"tmp_{i}", "status": PENDING, "scheduled_at": it.get("scheduled_at"),
+             "page": it.get("page") or body.get("page") or (default and default["id"]),
              "created_at": f"~{i:06d}"} for i, it in enumerate(items)]  # "~" xếp sau mọi bài thật cùng giờ
-    plan = planner.plan(data["posts"] + temp, data["settings"], now)
+    plan = planner.plan(data["posts"] + temp, data["settings"], now, key=_page_key(data))
     out, by_cap, by_gap = [], 0, 0
     for t in temp:
         slot = plan[t["id"]]

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { Alert, Button, Group, Menu, Stack, Text, TextInput, ThemeIcon } from "@mantine/core";
+import { Alert, Button, Group, Menu, Select, Stack, Text, TextInput, ThemeIcon } from "@mantine/core";
 import { useDebouncedCallback } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
-import { IconArrowForward, IconArrowLeft, IconCheck, IconCopy, IconDots, IconDownload, IconPencil, IconTrash } from "@tabler/icons-react";
+import { IconArrowForward, IconArrowLeft, IconBrandFacebook, IconCheck, IconCopy, IconDots, IconDownload, IconPencil, IconTrash } from "@tabler/icons-react";
 
 import { useApp } from "../../app/context";
 import { flowsApi, stateApi } from "../../api/endpoints";
 import { notifyErr, notifyOk } from "../../components";
-import { configured } from "../../lib/page";
+import { configured, pagesOf, targetPage } from "../../lib/page";
 import { toLocalIso, when } from "../../lib/time";
 import { FlowEditor } from "./editor/FlowEditor";
 import { newId, newNode, sampleFlow } from "./engine/schedule";
@@ -49,7 +49,7 @@ export default function FlowPage() {
     if (pending.current?.id === f.id) pending.current = null;
     setSaveState("saving");
     try {
-      const { flow } = await flowsApi.save(f.id, { name: f.name, description: f.description, nodes: f.nodes, edges: f.edges, seed: f.seed });
+      const { flow } = await flowsApi.save(f.id, { name: f.name, description: f.description, nodes: f.nodes, edges: f.edges, seed: f.seed, page: f.page || "" });
       setFlows((fs) => fs?.map((x) => (x.id === flow.id ? { ...x, updated_at: flow.updated_at } : x)));
       setSaveState("saved");
     } catch (e) { setSaveState("error"); notifyErr(e.message, "Không lưu được flow"); }
@@ -120,21 +120,22 @@ export default function FlowPage() {
 
   /* ---- chạy flow */
   const run = async (schedule) => {
-    if (!configured(state.settings)) {
+    if (!configured(state)) {
       modals.openConfirmModal({ title: "Chưa kết nối Page", children: <Text size="sm">Cần kết nối Page trước khi chạy flow.</Text>, labels: { confirm: "Mở Cài đặt", cancel: "Để sau" }, onConfirm: () => setView("settings") });
       return;
     }
     const soon = Date.now() + 60000;
     const items = schedule.posts.map((p) => ({ message: p.message, link: p.link, photos: p.photos, scheduled_at: +p.time > soon ? toLocalIso(p.time) : null }));
     let preview = null;
-    try { preview = await stateApi.previewPlan(items); } catch (e) { notifyErr(e.message); return; }
+    const page = targetPage(state, current.page);
+    try { preview = await stateApi.previewPlan(items.map((it) => ({ ...it, page: page.id }))); } catch (e) { notifyErr(e.message); return; }
     const last = preview.items.reduce((m, it) => (it.effective_at > m ? it.effective_at : m), preview.items[0].effective_at);
-    const fbSchedules = state.settings.method === "api" && state.settings.fb_schedule;
+    const fbSchedules = page.kind === "api" && state.settings.fb_schedule;
     modals.openConfirmModal({
       title: "Chạy flow và lên lịch?",
       children: (
         <Stack gap="xs">
-          <Text size="sm">Sẽ thêm <b>{items.length} bài</b> vào Lịch đăng, từ <b>{when(preview.items[0].effective_at)}</b> đến <b>{when(last)}</b>.</Text>
+          <Text size="sm">Sẽ thêm <b>{items.length} bài</b> lên Page <b>{page.name}</b>, từ <b>{when(preview.items[0].effective_at)}</b> đến <b>{when(last)}</b>.</Text>
           {preview.shifted > 0 && (
             <Alert color="orange" variant="light" py="xs" icon={<IconArrowForward size={16} />} data-testid="run-shift-warning">
               {preview.shifted} bài được dời do giới hạn an toàn
@@ -182,7 +183,7 @@ export default function FlowPage() {
     return (
       <div style={{ padding: "var(--mantine-spacing-lg)" }}>
         <FlowList
-          flows={flows} onOpen={open} onCreate={() => setForm({ mode: "create", flow: { name: "", description: "" } })}
+          flows={flows} pages={pagesOf(state)} onOpen={open} onCreate={() => setForm({ mode: "create", flow: { name: "", description: "" } })}
           onEdit={(f) => setForm({ mode: "edit", flow: f })} onDuplicate={duplicate} onExport={exportFlow}
           onDelete={setToDelete} onImport={importFlow}
         />
@@ -195,7 +196,14 @@ export default function FlowPage() {
     <div>
       <Group px="md" py="sm" gap="sm" wrap="wrap" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
         <Button variant="subtle" color="gray" leftSection={<IconArrowLeft size={16} />} onClick={back}>Tất cả flow</Button>
-        <TextInput w={260} value={current.name} onChange={(e) => patchCurrent({ name: e.currentTarget.value })} aria-label="Tên flow" placeholder="Tên flow" />
+        <TextInput w={240} value={current.name} onChange={(e) => patchCurrent({ name: e.currentTarget.value })} aria-label="Tên flow" placeholder="Tên flow" />
+        {pagesOf(state).length > 1 && (
+          <Select
+            w={240} aria-label="Đăng lên Page" data-testid="flow-page" leftSection={<IconBrandFacebook size={16} />} allowDeselect={false}
+            comboboxProps={{ withinPortal: true }} value={current.page || ""} onChange={(v) => patchCurrent({ page: v || "" })}
+            data={[{ value: "", label: `Page mặc định (${targetPage(state, "")?.name})` }, ...pagesOf(state).map((p) => ({ value: p.id, label: p.name }))]}
+          />
+        )}
         <Text size="xs" c={saveState === "error" ? "red" : "dimmed"}>{saveState === "saving" || saveState === "dirty" ? "Đang lưu…" : saveState === "error" ? "Lưu thất bại" : "Đã lưu"}</Text>
         <Group gap="xs" ml="auto">
           <Menu position="bottom-end" withinPortal>

@@ -91,8 +91,16 @@ def client(app):
 @pytest.fixture
 def connected(client):
     """Đã kết nối Page qua API; tắt giới hạn an toàn để test hành vi cơ bản (test riêng cho giới hạn)."""
-    client.post("/api/settings", json={"method": "api", "page_id": "111", "page_token": "SECRET_PAGE_TOKEN", "min_gap": 0, "daily_max": 0})
+    client.post("/api/settings", json={"min_gap": 0, "daily_max": 0})
+    r = client.post("/api/pages", json={"kind": "api", "fb_page_id": "111", "token": "SECRET_PAGE_TOKEN"})
+    assert r.status_code == 200, r.get_json()
     return client
+
+
+def add_browser_page(client, url="https://www.facebook.com/p", name="Page trình duyệt"):
+    r = client.post("/api/pages", json={"kind": "browser", "url": url, "name": name})
+    assert r.status_code == 200, r.get_json()
+    return r.get_json()["page"]["id"]
 
 
 def upload(client, name="a.png"):

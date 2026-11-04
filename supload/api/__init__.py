@@ -14,7 +14,7 @@ def error(message: str, status: int = 400, **extra):
 
 
 def register(app: Flask) -> None:
-    from . import flows, posts, settings, state
+    from . import flows, pages, posts, settings, state
 
-    for bp in (state.bp, posts.bp, flows.bp, settings.bp):
+    for bp in (state.bp, posts.bp, flows.bp, settings.bp, pages.bp):
         app.register_blueprint(bp)

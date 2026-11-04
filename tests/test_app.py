@@ -21,25 +21,25 @@ def add(client, **body):
 # ---------------------------------------------------------------- cài đặt
 def test_secrets_never_returned_to_browser(connected, svc):
     connected.post("/api/settings", json={"app_secret": "SECRET_APP"})
-    raw = connected.get("/api/state").get_data(as_text=True)
+    raw = connected.get("/api/state").get_data(as_text=True) + connected.get("/api/pages").get_data(as_text=True)
     assert "SECRET_PAGE_TOKEN" not in raw and "SECRET_APP" not in raw
-    s = state(connected)["settings"]
-    assert s["page_token_set"] is True and s["app_secret_set"] is True
+    st = state(connected)
+    assert st["settings"]["app_secret_set"] is True and st["pages"][0]["token_set"] is True
     # nhưng vẫn được lưu phía máy chủ
-    saved = json.loads(svc.config.data_file.read_text(encoding="utf-8"))["settings"]
-    assert saved["page_token"] == "SECRET_PAGE_TOKEN"
+    saved = json.loads(svc.config.data_file.read_text(encoding="utf-8"))
+    assert saved["pages"][0]["token"] == "SECRET_PAGE_TOKEN"
 
 
-def test_blank_secret_keeps_existing(connected, svc):
-    connected.post("/api/settings", json={"page_token": "", "page_id": "111"})
-    assert svc.store.load()["settings"]["page_token"] == "SECRET_PAGE_TOKEN"
+def test_blank_token_keeps_existing(connected, svc):
+    pid = state(connected)["pages"][0]["id"]
+    connected.put(f"/api/pages/{pid}", json={"token": "", "name": "Tên mới"})
+    page = svc.store.load()["pages"][0]
+    assert page["token"] == "SECRET_PAGE_TOKEN" and page["name"] == "Tên mới"
 
 
-def test_changing_page_id_clears_stale_name(connected, svc):
+def test_connection_test_updates_page_name(connected, svc):
     connected.post("/api/test-connection")
-    assert svc.store.load()["settings"]["page_name"] == "Page Một"
-    connected.post("/api/settings", json={"page_id": "222"})
-    assert svc.store.load()["settings"]["page_name"] == ""
+    assert svc.store.load()["pages"][0]["name"] == "Page Một"
 
 
 def test_min_gap_is_clamped(client, svc):
@@ -47,13 +47,16 @@ def test_min_gap_is_clamped(client, svc):
     assert svc.store.load()["settings"]["min_gap"] == 0
 
 
-def test_page_picker_keeps_page_tokens_server_side(client, svc):
+def test_page_picker_adds_page_and_keeps_token_server_side(client, svc):
     r = client.post("/api/fb/pages", json={"app_id": "app", "app_secret": "sec", "user_token": "short"})
-    body = r.get_json()
-    assert body == {"pages": [{"id": "111", "name": "Page Một"}]}  # không có access_token
+    assert r.get_json() == {"pages": [{"id": "111", "name": "Page Một"}]}  # không có access_token
     client.post("/api/fb/select-page", json={"id": "111"})
-    s = svc.store.load()["settings"]
-    assert (s["page_id"], s["page_token"], s["page_name"]) == ("111", "PAGE_TOKEN_1", "Page Một")
+    client.post("/api/fb/select-page", json={"id": "111"})  # chọn lại -> cập nhật, không nhân đôi
+    data = svc.store.load()
+    assert len(data["pages"]) == 1
+    p = data["pages"][0]
+    assert (p["kind"], p["fb_page_id"], p["token"], p["name"]) == ("api", "111", "PAGE_TOKEN_1", "Page Một")
+    assert data["settings"]["default_page"] == p["id"]
 
 
 def test_page_picker_requires_credentials(client):
@@ -89,24 +92,24 @@ def test_upload_filename_is_sanitized(client, svc):
 
 
 # ---------------------------------------------------------------- bài viết
-def test_empty_post_rejected(client):
-    assert client.post("/api/posts", json={"message": "  "}).status_code == 400
+def test_empty_post_rejected(connected):
+    assert connected.post("/api/posts", json={"message": "  "}).status_code == 400
 
 
-def test_bad_schedule_rejected(client):
-    assert client.post("/api/posts", json={"message": "x", "scheduled_at": "không phải ngày"}).status_code == 400
+def test_bad_schedule_rejected(connected):
+    assert connected.post("/api/posts", json={"message": "x", "scheduled_at": "không phải ngày"}).status_code == 400
 
 
-def test_unknown_photos_are_dropped(client):
-    p = add(client, photos=["khong_ton_tai.png"])
+def test_unknown_photos_are_dropped(connected):
+    p = add(connected, photos=["khong_ton_tai.png"])
     assert p["photos"] == []
 
 
-def test_edit_pending_post(client):
-    p = add(client, scheduled_at=(datetime.now() + timedelta(days=1)).isoformat(timespec="minutes"))
-    r = client.put(f"/api/posts/{p['id']}", json={"message": "Đã sửa", "scheduled_at": None})
+def test_edit_pending_post(connected):
+    p = add(connected, scheduled_at=(datetime.now() + timedelta(days=1)).isoformat(timespec="minutes"))
+    r = connected.put(f"/api/posts/{p['id']}", json={"message": "Đã sửa", "scheduled_at": None})
     assert r.status_code == 200
-    q = state(client)["posts"][0]
+    q = state(connected)["posts"][0]
     assert q["message"] == "Đã sửa" and q["scheduled_at"] is None and q["status"] == "pending"
 
 
@@ -177,11 +180,10 @@ def test_worker_records_errors_and_retry(connected, svc, graph):
     assert state(connected)["posts"][0]["status"] == "done"
 
 
-def test_worker_without_connection_marks_error(client, svc):
-    add(client)
-    svc.scheduler.process_one()
-    p = state(client)["posts"][0]
-    assert p["status"] == "error" and "FB_PAGE_ID" in p["error"]
+def test_cannot_queue_post_without_any_page(client, svc):
+    r = client.post("/api/posts", json={"message": "x"})
+    assert r.status_code == 400 and "Chưa kết nối Page" in r.get_json()["error"]
+    assert svc.store.load()["posts"] == []
 
 
 @pytest.fixture
@@ -205,15 +207,15 @@ def fake_browser(monkeypatch):
     return seen
 
 
-def test_browser_mode_requires_page_url(client, svc, fake_browser):
-    client.post("/api/settings", json={"method": "browser", "page_url": "", "min_gap": 0})
-    add(client)
-    svc.scheduler.process_one()
-    assert "URL của Page" in state(client)["posts"][0]["error"]
+def test_browser_page_requires_facebook_url(client):
+    r = client.post("/api/pages", json={"kind": "browser", "url": "https://example.com/x"})
+    assert r.status_code == 400 and "facebook.com" in r.get_json()["error"]
 
 
 def test_browser_mode_posts_with_link_appended(client, svc, fake_browser):
-    client.post("/api/settings", json={"method": "browser", "page_url": "https://www.facebook.com/p", "min_gap": 0, "headless": True})
+    from conftest import add_browser_page
+    client.post("/api/settings", json={"min_gap": 0, "headless": True})
+    add_browser_page(client)
     add(client, message="Xem", link="https://ex.com")
     svc.scheduler.process_one()
     assert {k: fake_browser[k] for k in ("url", "msg", "headless")} == {"url": "https://www.facebook.com/p", "msg": "Xem\nhttps://ex.com", "headless": True}
@@ -221,18 +223,20 @@ def test_browser_mode_posts_with_link_appended(client, svc, fake_browser):
     assert state(client)["posts"][0]["status"] == "done"
 
 
-def test_browser_mode_never_hands_off_to_facebook(client, svc, fake_browser, graph):
-    client.post("/api/settings", json={"method": "browser", "page_url": "https://www.facebook.com/p", "page_id": "111", "page_token": "t", "min_gap": 0})
+def test_browser_page_never_hands_off_to_facebook(client, svc, fake_browser, graph):
+    from conftest import add_browser_page
+    client.post("/api/settings", json={"min_gap": 0})
+    add_browser_page(client)
     add(client, scheduled_at=(datetime.now() + timedelta(hours=1)).isoformat(timespec="minutes"))
     assert svc.scheduler.process_one() is False
     assert graph.calls == []
 
 
-def test_recover_running_marks_error(client, svc):
-    p = add(client)
+def test_recover_running_marks_error(connected, svc):
+    p = add(connected)
     svc.store.update_post(p["id"], status="running")
     svc.scheduler.recover_running()
-    assert state(client)["posts"][0]["status"] == "error"
+    assert state(connected)["posts"][0]["status"] == "error"
 
 
 # ---------------------------------------------------------------- flow
@@ -260,14 +264,14 @@ def test_flow_run_enqueues_posts(connected, svc):
 
 
 @pytest.mark.parametrize("posts,msg", [([], "chưa có"), ([{"message": ""}], "Bài #1"), ([{"message": "x"}] * 501, "500")])
-def test_flow_run_validation(client, posts, msg):
-    r = client.post("/api/flows/run", json={"posts": posts})
+def test_flow_run_validation(connected, posts, msg):
+    r = connected.post("/api/flows/run", json={"posts": posts})
     assert r.status_code == 400 and msg in r.get_json()["error"]
 
 
-def test_flow_run_is_all_or_nothing(client):
-    client.post("/api/flows/run", json={"posts": [{"message": "ok"}, {"message": ""}]})
-    assert state(client)["posts"] == []
+def test_flow_run_is_all_or_nothing(connected):
+    connected.post("/api/flows/run", json={"posts": [{"message": "ok"}, {"message": ""}]})
+    assert state(connected)["posts"] == []
 
 
 def test_log_is_capped(client, svc):

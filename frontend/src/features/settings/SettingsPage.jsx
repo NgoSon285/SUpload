@@ -1,246 +1,99 @@
 import { useEffect, useState } from "react";
-import {
-  Accordion, Alert, Anchor, Avatar, Badge, Button, Card, Code, Group, List, NumberInput, PasswordInput, SegmentedControl, SimpleGrid,
-  Stack, Switch, Text, TextInput, ThemeIcon, UnstyledButton, Affix, Transition, Paper,
-} from "@mantine/core";
-import {
-  IconAlertTriangle, IconBolt, IconCheck, IconClock, IconDatabase, IconListDetails, IconPlugConnected, IconWorld,
-} from "@tabler/icons-react";
+import { Affix, Button, Code, Group, NumberInput, Paper, SegmentedControl, Stack, Switch, Text, Transition } from "@mantine/core";
+import { IconDatabase } from "@tabler/icons-react";
 
 import { useApp } from "../../app/context";
 import { settingsApi, stateApi } from "../../api/endpoints";
-import { when } from "../../lib/time";
-import { eventValue } from "../../lib/forms";
 import { PageHeader, notifyErr, notifyOk } from "../../components";
+import { eventValue } from "../../lib/forms";
+import { pagesOf } from "../../lib/page";
+import { when } from "../../lib/time";
+import { AddPage } from "./AddPageCard";
+import { PagesCard } from "./PagesCard";
+import { GAPS, Step } from "./ui";
 
-const GAPS = [
-  { value: "0", label: "Không" },
-  { value: "120", label: "2 phút" },
-  { value: "300", label: "5 phút" },
-  { value: "600", label: "10 phút" },
-  { value: "1800", label: "30 phút" },
-];
-
-function Step({ n, title, children }) {
-  return (
-    <Card p={0}>
-      <Group gap="sm" px="lg" py="md" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-        <ThemeIcon radius="xl" size={26} variant="light"><Text fw={700} size="sm">{n}</Text></ThemeIcon>
-        <Text fw={600}>{title}</Text>
-      </Group>
-      <Stack p="lg" gap="md">{children}</Stack>
-    </Card>
-  );
-}
-
-function MethodCard({ value, current, onChange, icon: Icon, title, desc, tag }) {
-  return (
-    <UnstyledButton onClick={() => onChange(value)} style={{ height: "100%" }}>
-      <Paper withBorder p="md" radius="md" className="method-card" data-checked={current === value || undefined} h="100%" pos="relative">
-        {tag && <Badge color="teal" size="xs" pos="absolute" top={-9} right={12}>{tag}</Badge>}
-        <Group align="flex-start" wrap="nowrap">
-          <ThemeIcon size={38} radius="md" variant={current === value ? "filled" : "light"} color={current === value ? undefined : "gray"}><Icon size={20} /></ThemeIcon>
-          <div>
-            <Text fw={600}>{title}</Text>
-            <Text size="sm" c="dimmed" lh={1.45}>{desc}</Text>
-          </div>
-        </Group>
-      </Paper>
-    </UnstyledButton>
-  );
-}
-
-const LOGIN = {
-  waiting: ["orange", "Đang chờ bạn đăng nhập trong cửa sổ trình duyệt…", IconClock],
-  checking: ["orange", "Đang kiểm tra phiên đăng nhập…", IconClock],
-  yes: ["teal", "Đã đăng nhập Facebook", IconCheck],
-  no: ["red", "Chưa đăng nhập: bấm “Mở trình duyệt để đăng nhập”", IconAlertTriangle],
-  busy: ["orange", "Trình duyệt đang bận đăng bài, thử lại sau ít phút", IconClock],
-};
-
+/** Cài đặt: Page đã kết nối, thêm Page, cách đăng, giới hạn an toàn, dữ liệu & sao lưu. */
 export default function SettingsPage() {
   const { state, refresh } = useApp();
   const s = state.settings;
+  const pages = pagesOf(state);
+  const hasApi = pages.some((p) => p.kind === "api");
+  const hasBrowser = pages.some((p) => p.kind === "browser");
   const initial = () => ({
-    method: s.method, app_id: s.app_id || "", app_secret: "", page_id: s.page_id || "", page_token: "",
-    page_url: s.page_url || "", min_gap: String(s.min_gap ?? 300), headless: !!s.headless,
-    daily_max: s.daily_max ?? 20, fb_schedule: s.fb_schedule ?? true, keep_done_days: String(s.keep_done_days ?? 90),
+    fb_schedule: s.fb_schedule ?? true, headless: !!s.headless, min_gap: String(s.min_gap ?? 300),
+    daily_max: s.daily_max ?? 20, keep_done_days: String(s.keep_done_days ?? 90),
   });
   const [f, setF] = useState(initial);
   const [dirty, setDirty] = useState(false);
-  const [userToken, setUserToken] = useState("");
-  const [pages, setPages] = useState(null);
-  const [busy, setBusy] = useState("");
-  const [test, setTest] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => { if (!dirty) setF(initial()); }, [state]); // eslint-disable-line
 
   const set = (k) => (v) => { const val = eventValue(v); setF((x) => ({ ...x, [k]: val })); setDirty(true); };
   const gaps = GAPS.some((g) => g.value === f.min_gap) ? GAPS : [...GAPS, { value: f.min_gap, label: `${Math.round(f.min_gap / 60)} phút` }];
 
-  const save = async (silent) => {
-    if (f.method === "browser" && f.page_url && !/facebook\.com\//.test(f.page_url)) { notifyErr("Địa chỉ Page phải là link facebook.com/…"); return false; }
+  const save = async () => {
     try {
       await settingsApi.save({ ...f, min_gap: Number(f.min_gap), daily_max: Number(f.daily_max) || 0, keep_done_days: Number(f.keep_done_days) });
       setDirty(false);
       await refresh();
-      if (!silent) notifyOk("Đã lưu cài đặt");
-      return true;
-    } catch (e) { notifyErr(e.message); return false; }
-  };
-
-  const fetchPages = async () => {
-    setBusy("pages");
-    try {
-      const j = await settingsApi.fetchPages({ app_id: f.app_id.trim(), app_secret: f.app_secret.trim(), user_token: userToken.trim() });
-      setPages(j.pages);
+      notifyOk("Đã lưu cài đặt");
     } catch (e) { notifyErr(e.message); }
-    setBusy("");
-  };
-  const choosePage = async (id) => {
-    try {
-      await settingsApi.selectPage(id);
-      if (f.method !== "api" || dirty) await settingsApi.save({ method: "api" });
-      setPages(null); setUserToken(""); setDirty(false);
-      await refresh();
-      notifyOk("Đã kết nối Page");
-    } catch (e) { notifyErr(e.message); }
-  };
-  const testApi = async () => {
-    setTest({ color: "orange", text: "Đang kiểm tra…" });
-    try { const j = await settingsApi.testConnection(); setTest({ color: "teal", text: j.text }); refresh(); }
-    catch (e) { setTest({ color: "red", text: e.message }); }
   };
   const runMaintenance = async () => {
-    setBusy("maint");
+    setBusy(true);
     try {
       const r = await stateApi.runMaintenance();
       notifyOk(`Đã sao lưu (${r.last_backup}). Dọn ${r.removed_posts} bài cũ, ${r.removed_files} ảnh không dùng.`);
       refresh();
     } catch (e) { notifyErr(e.message); }
-    setBusy("");
+    setBusy(false);
   };
-  const browserAction = async (a) => {
-    if (dirty && !(await save(true))) return;
-    await settingsApi.browser(a);
-    setTimeout(refresh, 600);
-  };
-
-  const hasApi = s.page_id && s.page_token_set;
-  const login = LOGIN[state.login] || (state.login?.startsWith("error") ? ["red", state.login.replace(/^error: /, "Lỗi: "), IconAlertTriangle] : null);
 
   return (
     <>
-      <PageHeader title="Cài đặt" desc="Kết nối Page và tuỳ chỉnh cách đăng bài." />
-      <Stack maw={800} gap="lg" pb={80}>
-        <Step n={1} title="Chọn cách đăng">
-          <SimpleGrid cols={{ base: 1, sm: 2 }}>
-            <MethodCard value="api" current={f.method} onChange={set("method")} icon={IconBolt} tag="Khuyên dùng" title="Graph API"
-              desc="Kênh chính thức Facebook cấp cho chủ Page. Nhanh, ổn định, không cần mở trình duyệt." />
-            <MethodCard value="browser" current={f.method} onChange={set("method")} icon={IconWorld} title="Trình duyệt"
-              desc="Tự thao tác trên facebook.com như người dùng. Chậm hơn và có thể hỏng khi Facebook đổi giao diện." />
-          </SimpleGrid>
+      <PageHeader title="Cài đặt" desc="Kết nối các Page và tuỳ chỉnh cách đăng bài." />
+      <Stack maw={820} gap="lg" pb={90}>
+        <Step n={1} title={`Page đã kết nối (${pages.length})`}>
+          <PagesCard pages={pages} perPageToday={state.limits?.per_page} dailyMax={s.daily_max} onChanged={refresh} />
         </Step>
 
-        {f.method === "api" ? (
-          <Step n={2} title="Kết nối Page qua API">
-            {hasApi && (
-              <Paper withBorder p="sm" radius="md" bg="var(--mantine-color-default-hover)">
-                <Group justify="space-between">
-                  <Group gap="sm">
-                    <Avatar radius="xl" variant="gradient" gradient={{ from: "indigo", to: "violet" }}>{(s.page_name || "P")[0].toUpperCase()}</Avatar>
-                    <div><Text fw={600} size="sm">{s.page_name || "Page đã kết nối"}</Text><Text size="xs" c="dimmed">ID {s.page_id}</Text></div>
-                  </Group>
-                  <Button variant="default" leftSection={<IconPlugConnected size={16} />} onClick={testApi}>Kiểm tra kết nối</Button>
-                </Group>
-              </Paper>
-            )}
-            {test && <Alert color={test.color} variant="light" py="xs">{test.text}</Alert>}
+        <Step n={2} title="Thêm Page">
+          <AddPage settings={s} pages={pages} login={state.login} onAdded={refresh} />
+        </Step>
 
-            <List type="ordered" size="sm" spacing={4} c="dimmed">
-              <List.Item>Tạo App loại <b>Business</b> tại <Anchor href="https://developers.facebook.com/apps" target="_blank">developers.facebook.com/apps</Anchor>, chép <b>App ID</b> và <b>App Secret</b> (Settings → Basic).</List.Item>
-              <List.Item>Mở <Anchor href="https://developers.facebook.com/tools/explorer" target="_blank">Graph API Explorer</Anchor>, chọn App, cấp quyền <Code>pages_show_list</Code> <Code>pages_read_engagement</Code> <Code>pages_manage_posts</Code> rồi bấm <b>Generate Access Token</b>.</List.Item>
-              <List.Item>Dán token vào dưới đây và bấm <b>Lấy danh sách Page</b>.</List.Item>
-            </List>
-            <SimpleGrid cols={{ base: 1, sm: 2 }}>
-              <TextInput label="App ID" value={f.app_id} onChange={set("app_id")} autoComplete="off" />
-              <PasswordInput label="App Secret" description={s.app_secret_set ? "Đã lưu, để trống nếu không đổi" : undefined} value={f.app_secret} onChange={set("app_secret")} autoComplete="new-password" />
-            </SimpleGrid>
-            <PasswordInput label="User Access Token" placeholder="Dán token từ Graph API Explorer" value={userToken} onChange={(e) => setUserToken(e.currentTarget.value)} />
-            <Group><Button variant="default" loading={busy === "pages"} leftSection={<IconListDetails size={16} />} onClick={fetchPages} disabled={!userToken.trim()}>Lấy danh sách Page</Button></Group>
+        <Step n={3} title="Cách đăng">
+          <Switch
+            checked={f.fb_schedule} onChange={set("fb_schedule")} label="Hẹn giờ trên Facebook (Page qua API)" data-testid="fb-schedule" disabled={!hasApi && pages.length > 0}
+            description="Bài hẹn từ 12 phút tới 30 ngày được gửi lên Facebook ngay để Facebook tự đăng đúng giờ, kể cả khi bạn tắt máy. Tắt đi thì ứng dụng tự đăng khi tới giờ (phải để ứng dụng chạy)."
+          />
+          <Switch
+            checked={f.headless} onChange={set("headless")} label="Chạy ẩn trình duyệt (Page qua trình duyệt)" disabled={!hasBrowser}
+            description="Không hiện cửa sổ khi đăng. Nên tắt trong vài lần đầu để theo dõi."
+          />
+        </Step>
 
-            {pages && (pages.length ? (
-              <Stack gap={6}>
-                <Text size="sm" c="dimmed">Chọn Page muốn đăng bài:</Text>
-                {pages.map((p) => (
-                  <UnstyledButton key={p.id} onClick={() => choosePage(p.id)}>
-                    <Paper withBorder p="sm" radius="md" className="method-card">
-                      <Group justify="space-between">
-                        <Group gap="sm"><Avatar radius="xl" color="indigo">{(p.name || "P")[0].toUpperCase()}</Avatar><div><Text fw={600} size="sm">{p.name}</Text><Text size="xs" c="dimmed">ID {p.id}</Text></div></Group>
-                        <Text size="sm" c="indigo" fw={500}>Chọn</Text>
-                      </Group>
-                    </Paper>
-                  </UnstyledButton>
-                ))}
-              </Stack>
-            ) : (
-              <Alert color="red" variant="light">Tài khoản này không quản lý Page nào, hoặc token thiếu quyền pages_show_list.</Alert>
-            ))}
-
-            <Switch
-              checked={f.fb_schedule} onChange={set("fb_schedule")} label="Hẹn giờ trên Facebook" data-testid="fb-schedule"
-              description="Bài hẹn từ 12 phút tới 30 ngày được gửi lên Facebook ngay để Facebook tự đăng đúng giờ, kể cả khi bạn tắt máy. Tắt đi thì ứng dụng tự đăng khi tới giờ (phải để ứng dụng chạy)."
-            />
-
-            <Accordion variant="separated" radius="md">
-              <Accordion.Item value="manual">
-                <Accordion.Control><Text size="sm">Nhập Page ID / Page Token thủ công</Text></Accordion.Control>
-                <Accordion.Panel>
-                  <Stack gap="sm">
-                    <TextInput label="Page ID" value={f.page_id} onChange={set("page_id")} autoComplete="off" />
-                    <PasswordInput label="Page Access Token" description={s.page_token_set ? "Đã lưu, để trống nếu không đổi" : undefined} value={f.page_token} onChange={set("page_token")} autoComplete="new-password" />
-                  </Stack>
-                </Accordion.Panel>
-              </Accordion.Item>
-            </Accordion>
-          </Step>
-        ) : (
-          <Step n={2} title="Đăng qua trình duyệt">
-            <TextInput label="Địa chỉ Page" placeholder="https://www.facebook.com/TenPage" leftSection={<IconWorld size={16} />} value={f.page_url} onChange={set("page_url")} />
-            <div>
-              <Text size="sm" fw={500} mb={6}>Đăng nhập Facebook</Text>
-              <Group gap="xs">
-                <Button variant="default" leftSection={<IconWorld size={16} />} onClick={() => browserAction("login")}>Mở trình duyệt để đăng nhập</Button>
-                <Button variant="subtle" onClick={() => browserAction("check")}>Kiểm tra lại</Button>
-              </Group>
-              {login && <Alert mt="sm" py="xs" variant="light" color={login[0]} icon={(() => { const I = login[2]; return <I size={16} />; })()}>{login[1]}</Alert>}
-              <Text size="xs" c="dimmed" mt="xs">Một cửa sổ trình duyệt sẽ mở ra để bạn tự đăng nhập (kể cả mã 2FA). Ứng dụng không lưu mật khẩu, chỉ giữ phiên trong thư mục <Code>fb_profile/</Code>.</Text>
-            </div>
-            <Switch checked={f.headless} onChange={set("headless")} label="Chạy ẩn trình duyệt" description="Không hiện cửa sổ khi đăng. Nên tắt trong vài lần đầu để theo dõi." />
-          </Step>
-        )}
-
-        <Step n={3} title="Giới hạn an toàn">
+        <Step n={4} title="Giới hạn an toàn">
           <Text size="sm" c="dimmed">
-            Áp dụng cho cả hai cách đăng, giúp Page không bị Facebook hạn chế vì đăng quá dày. Bài vượt giới hạn
+            Áp dụng <b>riêng cho từng Page</b>, giúp Page không bị Facebook hạn chế vì đăng quá dày. Bài vượt giới hạn
             được tự dời sang thời điểm hợp lệ kế tiếp; Lịch đăng sẽ ghi rõ lý do.
           </Text>
           <NumberInput
-            label="Số bài tối đa mỗi ngày" description="0 = không giới hạn. Tính cả bài đã đăng và bài đã hẹn trên Facebook trong ngày."
-            min={0} max={500} value={f.daily_max} onChange={(v) => { setF((x) => ({ ...x, daily_max: v })); setDirty(true); }} maw={260}
+            label="Số bài tối đa mỗi ngày (mỗi Page)" description="0 = không giới hạn. Tính cả bài đã đăng và bài đã hẹn trên Facebook trong ngày."
+            min={0} max={500} value={f.daily_max} onChange={(v) => { setF((x) => ({ ...x, daily_max: v })); setDirty(true); }} maw={300}
           />
           <div>
-            <Text size="sm" fw={500} mb={6}>Giãn cách tối thiểu giữa 2 bài</Text>
+            <Text size="sm" fw={500} mb={6}>Giãn cách tối thiểu giữa 2 bài (cùng Page)</Text>
             <SegmentedControl data={gaps} value={f.min_gap} onChange={set("min_gap")} />
           </div>
           {state.limits && (
             <Text size="sm" c="dimmed" data-testid="limits-today">
-              Hôm nay: {state.limits.today}{state.limits.daily_max ? ` / ${state.limits.daily_max}` : ""} bài
+              Hôm nay (Page mặc định): {state.limits.today}{state.limits.daily_max ? ` / ${state.limits.daily_max}` : ""} bài
             </Text>
           )}
         </Step>
 
-        <Step n={4} title="Dữ liệu & sao lưu">
+        <Step n={5} title="Dữ liệu & sao lưu">
           <Text size="sm" c="dimmed">
             Mỗi ngày ứng dụng tự sao lưu <Code>data.json</Code> vào thư mục <Code>backups/</Code> (giữ 14 bản gần nhất),
             dọn bài đã đăng lâu ngày và xoá ảnh không còn bài/flow nào dùng (sau 7 ngày).
@@ -256,7 +109,7 @@ export default function SettingsPage() {
                 ? `Lần gần nhất: ${when(state.maintenance.last_run)} · ${state.maintenance.backups} bản sao lưu`
                 : "Chưa sao lưu lần nào"}
             </Text>
-            <Button variant="default" leftSection={<IconDatabase size={16} />} loading={busy === "maint"} onClick={runMaintenance}>Sao lưu & dọn dẹp ngay</Button>
+            <Button variant="default" leftSection={<IconDatabase size={16} />} loading={busy} onClick={runMaintenance}>Sao lưu & dọn dẹp ngay</Button>
           </Group>
         </Step>
       </Stack>
@@ -268,7 +121,7 @@ export default function SettingsPage() {
               <Group gap="md" wrap="nowrap">
                 <Text size="sm" fw={500}>Bạn có thay đổi chưa lưu</Text>
                 <Button variant="default" onClick={() => { setF(initial()); setDirty(false); }}>Huỷ</Button>
-                <Button onClick={() => save()}>Lưu cài đặt</Button>
+                <Button onClick={save}>Lưu cài đặt</Button>
               </Group>
             </Paper>
           )}

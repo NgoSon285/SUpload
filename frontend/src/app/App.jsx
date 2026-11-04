@@ -15,7 +15,7 @@ import FlowPage from "../features/flow/FlowPage";
 import LogPage from "../features/log/LogPage";
 import QueuePage from "../features/queue/QueuePage";
 import SettingsPage from "../features/settings/SettingsPage";
-import { configured, pageName } from "../lib/page";
+import { configured, defaultPage, KIND_LABEL, pageInitial, pagesOf } from "../lib/page";
 import { storage } from "../lib/storage";
 import { AppContext } from "./context";
 
@@ -46,18 +46,19 @@ function ThemeSwitch() {
 }
 
 function ConnectionCard({ state, onClick }) {
-  const s = state?.settings;
-  const ok = configured(s);
-  const name = pageName(s) || "Chưa kết nối";
+  const ok = configured(state);
+  const page = defaultPage(state);
+  const n = pagesOf(state).length;
+  const name = page?.name || "Chưa kết nối";
   return (
     <Paper withBorder p="sm" component={UnstyledButton} onClick={onClick} style={{ width: "100%" }}>
       <Group gap="sm" wrap="nowrap">
         <Indicator color={ok ? "teal" : "gray"} size={10} offset={4} position="bottom-end" withBorder>
-          <Avatar color="indigo" radius="xl">{(pageName(s) || "?")[0].toUpperCase()}</Avatar>
+          <Avatar color="indigo" radius="xl">{pageInitial(page)}</Avatar>
         </Indicator>
         <div style={{ minWidth: 0 }}>
           <Text size="sm" fw={600} truncate>{name}</Text>
-          <Text size="xs" c="dimmed">{ok ? (s.method === "api" ? "Graph API" : "Trình duyệt") : "Bấm để thiết lập"}</Text>
+          <Text size="xs" c="dimmed">{ok ? (n > 1 ? `Mặc định · ${n} Page` : KIND_LABEL[page.kind]) : "Bấm để thiết lập"}</Text>
         </div>
       </Group>
     </Paper>
@@ -93,13 +94,13 @@ export default function App() {
 
   // Lần đầu chưa kết nối Page -> mở Cài đặt
   useEffect(() => {
-    if (state && !configured(state.settings) && storage.get("view") === null) setView("settings");
+    if (state && !configured(state) && storage.get("view") === null) setView("settings");
   }, [state, setView]);
 
   const posts = state?.posts || [];
   const nPending = posts.filter((p) => p.status === "pending" || p.status === "running").length;
   const nErr = posts.filter((p) => p.status === "error").length;
-  const ok = configured(state?.settings);
+  const ok = configured(state);
   const isFlow = view === "flow";
 
   const ctx = { state, refresh, setView, draftPost, setDraftPost, offline };

@@ -5,7 +5,8 @@ import threading
 
 from flask import Blueprint, jsonify, request
 
-from ..domain.settings import apply_update, has_api_credentials
+from ..domain import pages as pages_domain
+from ..domain.settings import apply_update
 from ..integrations import facebook
 from ..storage import add_log, find
 from . import error, services
@@ -24,21 +25,13 @@ def save_settings():
 
 @bp.post("/test-connection")
 def test_connection():
-    s = services()
-    settings = s.store.load()["settings"]
-    if settings["method"] == "browser":
-        _start_browser_job("check")
-        return jsonify(ok=True, pending=True, text="Đang kiểm tra đăng nhập trong trình duyệt...")
-    if not has_api_credentials(settings):
-        return error("Chưa có Page ID / Page Token")
-    try:
-        info = facebook.page_info(settings["page_id"], settings["page_token"])
-    except facebook.FBError as e:
-        return error(str(e))
-    with s.store.transaction() as data:
-        data["settings"]["page_name"] = info.get("name", "")
-        add_log(data, "ok", f"Kết nối thành công tới Page: {info.get('name')}")
-    return jsonify(ok=True, text=f"Kết nối tốt tới Page “{info.get('name')}”")
+    """Kiểm tra Page mặc định (giữ cho tương thích; dùng /api/pages/<id>/test cho từng Page)."""
+    from .pages import test_page
+
+    page = pages_domain.default_page(services().store.load())
+    if not page:
+        return error("Chưa kết nối Page nào")
+    return test_page(page["id"])
 
 
 @bp.post("/fb/pages")
@@ -64,14 +57,23 @@ def fb_pages():
 
 @bp.post("/fb/select-page")
 def select_page():
+    """Thêm Page vừa chọn từ danh sách (hoặc cập nhật token nếu Page đã có)."""
     page_id = request.get_json(force=True).get("id")
     with services().store.transaction() as data:
-        page = find(data.get("_pages", []), page_id)
-        if not page:
+        src = find(data.get("_pages", []), page_id)
+        if not src:
             return error("Không tìm thấy Page", 404)
-        data["settings"].update(page_id=page["id"], page_token=page["access_token"], page_name=page["name"])
-        add_log(data, "ok", f"Đã chọn Page: {page['name']}")
-    return jsonify(ok=True)
+        page = next((p for p in data["pages"] if p["kind"] == "api" and p["fb_page_id"] == src["id"]), None)
+        if page:
+            page.update(token=src["access_token"], name=src["name"])
+        else:
+            page = pages_domain.new_page("api", name=src["name"], fb_page_id=src["id"], token=src["access_token"])
+            data["pages"].append(page)
+        if not data["settings"].get("default_page"):
+            data["settings"]["default_page"] = page["id"]
+        add_log(data, "ok", f"Đã kết nối Page: {page['name']}")
+    services().runtime.notify()
+    return jsonify(ok=True, page_id=page["id"])
 
 
 def _browser_job(rt, config, action: str) -> None:
@@ -94,7 +96,7 @@ def _browser_job(rt, config, action: str) -> None:
         rt.browser_lock.release()
 
 
-def _start_browser_job(action: str) -> None:
+def start_browser_job(action: str) -> None:
     s = services()
     threading.Thread(target=_browser_job, args=(s.runtime, s.config, action), daemon=True).start()
 
@@ -103,5 +105,5 @@ def _start_browser_job(action: str) -> None:
 def browser_action(action):
     if action not in ("login", "check"):
         return error("unknown", 404)
-    _start_browser_job(action)
+    start_browser_job(action)
     return jsonify(ok=True)

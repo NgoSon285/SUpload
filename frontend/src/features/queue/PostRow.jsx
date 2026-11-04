@@ -17,7 +17,7 @@ function TimeLine({ p }) {
   return <><IconClock size={14} />{hm(t)} · {rel(t)}{p.fb_handoff ? " · sẽ hẹn trên Facebook" : ""}</>;
 }
 
-export function PostRow({ p, onAction }) {
+export function PostRow({ p, pageName, onAction }) {
   const st = STATUS[p.status] || STATUS.pending;
   const act = (a, Icon, label, color = "gray") => (
     <Tooltip label={label} withArrow>
@@ -38,6 +38,7 @@ export function PostRow({ p, onAction }) {
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
           <Group gap={6}>
             <Badge variant="light" color={st.color} size="sm">{st.label}</Badge>
+            {pageName && <Badge variant="outline" color="indigo" size="sm" style={{ textTransform: "none" }}>{pageName}</Badge>}
             {p.flow && <Badge variant="outline" color="gray" size="sm" leftSection={<IconSitemap size={11} />} style={{ textTransform: "none" }}>{p.flow}</Badge>}
           </Group>
           <Text lineClamp={2} size="sm" c={p.message ? undefined : "dimmed"} fs={p.message ? undefined : "italic"}>
