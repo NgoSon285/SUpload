@@ -7,3 +7,6 @@ post_log.jsonl
 fb_profile/
 screenshots/
 browser_post_log.jsonl
+data.json
+data.tmp
+uploads/

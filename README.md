@@ -9,6 +9,30 @@ Hỗ trợ: bài chữ, bài kèm link, 1 hoặc nhiều ảnh (URL hoặc file 
 > điều khoản của Facebook, thường bị checkpoint/2FA chặn và dễ làm khóa tài khoản.
 > Graph API là cách Facebook cho phép để quản lý Page tự động.
 
+## 0. Giao diện trực quan (khuyên dùng)
+
+```bash
+pip install -r requirements.txt
+python app.py
+```
+
+Trên Windows có thể bấm đúp `start.bat`. Trình duyệt sẽ tự mở <http://127.0.0.1:5000>, gồm:
+
+- **Đăng bài**: soạn nội dung, kéo thả nhiều ảnh, thêm link, xem trước, đăng ngay hoặc hẹn giờ.
+- **Hàng đợi**: trạng thái từng bài (Đang chờ / Đang đăng / Đã đăng / Lỗi), đăng lại bài lỗi, xoá bài.
+- **Cài đặt**: chọn cách đăng (Graph API hoặc Trình duyệt).
+  - API: nhập App ID, App Secret, User Token → *Lấy danh sách Page* → bấm chọn Page (token Page được lưu tự động).
+  - Trình duyệt: nhập URL Page → *Mở trình duyệt để đăng nhập* (tự đăng nhập 1 lần) → đặt giãn cách giữa các bài.
+- **Nhật ký**: lịch sử hoạt động.
+
+Lưu ý:
+- Bài hẹn giờ do ứng dụng tự đăng khi tới giờ, nên **phải để ứng dụng chạy** (không tắt cửa sổ dòng lệnh).
+- Ứng dụng chỉ nghe ở `127.0.0.1` (chỉ máy bạn truy cập được). Cài đặt, token và hàng đợi lưu trong `data.json`,
+  ảnh lưu trong `uploads/` — đừng chia sẻ các file này.
+- Chế độ Trình duyệt cần thêm: `playwright install chromium`.
+
+Các mục dưới đây là cách dùng bằng dòng lệnh.
+
 ## 1. Cài đặt
 
 ```bash

@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUpload</title>
+<style>
+:root{
+  --bg:#f4f5f7; --card:#fff; --text:#1c1e21; --muted:#65676b; --line:#e3e5e8;
+  --accent:#2563eb; --accent-soft:#e8efff; --ok:#16a34a; --ok-soft:#e7f7ec;
+  --err:#dc2626; --err-soft:#fdecec; --warn:#b45309; --warn-soft:#fdf3e2; --input:#f7f8fa;
+  --radius:12px; --shadow:0 1px 2px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#111315; --card:#1b1e21; --text:#e8eaed; --muted:#9aa0a6; --line:#2c3035;
+  --accent:#5b8def; --accent-soft:#1d2a44; --ok:#34c26a; --ok-soft:#173222;
+  --err:#f26b6b; --err-soft:#3a1d1d; --warn:#e3a33b; --warn-soft:#3a2e17; --input:#23272b;
+  --shadow:none;
+}}
+*{box-sizing:border-box}
+body{margin:0;overflow-wrap:anywhere;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.bar{max-width:1180px;margin:auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{font-weight:700;font-size:18px;display:flex;align-items:center;gap:8px}
+.logo span{background:var(--accent);color:#fff;border-radius:8px;width:28px;height:28px;display:grid;place-items:center;font-size:15px}
+nav{display:flex;gap:4px}
+nav button{background:none;border:0;color:var(--muted);padding:8px 14px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
+nav button.on{background:var(--accent-soft);color:var(--accent)}
+.status{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);display:inline-block;margin-right:6px}
+.dot.busy{background:var(--warn);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.pill{border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap}
+main{max-width:1180px;margin:auto;padding:20px 16px 60px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+.card h2{font-size:16px;margin:0 0 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card h2 small{font-weight:400;color:var(--muted);font-size:13px}
+label{display:block;font-weight:600;font-size:13px;margin:12px 0 6px}
+.hint{color:var(--muted);font-size:12px;font-weight:400}
+input[type=text],input[type=password],input[type=url],input[type=number],input[type=datetime-local],textarea{
+  width:100%;background:var(--input);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 11px;font:inherit}
+textarea{min-height:140px;resize:vertical}
+input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+.btn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 16px;font:inherit;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.btn.danger{background:transparent;color:var(--err);border:1px solid var(--line)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+.count{color:var(--muted);font-size:12px;text-align:right;margin-top:4px}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:10px}
+.thumb{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--input)}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.thumb button{position:absolute;top:4px;right:4px;border:0;background:rgba(0,0,0,.6);color:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer;line-height:1}
+.seg{display:inline-flex;background:var(--input);border:1px solid var(--line);border-radius:8px;padding:3px}
+.seg button{border:0;background:none;color:var(--muted);padding:6px 12px;border-radius:6px;font:inherit;font-weight:600;cursor:pointer}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:var(--shadow)}
+.preview{border:1px solid var(--line);border-radius:10px;margin-top:16px;overflow:hidden}
+.preview .ph{display:flex;gap:10px;align-items:center;padding:12px}
+.avatar{width:38px;height:38px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700}
+.preview .pb{padding:0 12px 12px;white-space:pre-wrap;word-break:break-word}
+.pimgs{display:grid;gap:2px}
+.pimgs img{width:100%;height:100%;object-fit:cover;max-height:280px;display:block}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.chip{border:1px solid var(--line);background:none;color:var(--muted);border-radius:999px;padding:4px 12px;font:inherit;font-size:13px;cursor:pointer}
+.chip.on{background:var(--text);color:var(--card);border-color:var(--text)}
+.item{display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.item .im{width:56px;height:56px;border-radius:8px;object-fit:cover;flex:none;background:var(--input);display:grid;place-items:center;color:var(--muted);font-size:20px}
+.item .body{flex:1;min-width:0}
+.item .msg{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .meta{color:var(--muted);font-size:12px;display:flex;gap:10px;flex-wrap:wrap;margin-top:2px}
+.item .err{color:var(--err);font-size:12px;margin-top:4px;word-break:break-word}
+.badge{font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.b-pending{background:var(--accent-soft);color:var(--accent)}
+.b-running{background:var(--warn-soft);color:var(--warn)}
+.b-done{background:var(--ok-soft);color:var(--ok)}
+.b-error{background:var(--err-soft);color:var(--err)}
+.empty{text-align:center;color:var(--muted);padding:40px 0}
+.methods{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:600px){.methods{grid-template-columns:1fr}}
+.method{border:2px solid var(--line);border-radius:10px;padding:12px;cursor:pointer}
+.method.on{border-color:var(--accent);background:var(--accent-soft)}
+.method b{display:block;margin-bottom:2px}
+.method span{color:var(--muted);font-size:12px}
+.section{margin-top:18px;padding-top:6px}
+.pages{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.note{background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:10px 12px;font-size:13px;margin-top:12px}
+.loglist{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px}
+.loglist div{padding:6px 0;border-top:1px solid var(--line);display:flex;gap:10px}
+.loglist time{color:var(--muted);flex:none}
+.l-ok{color:var(--ok)} .l-error{color:var(--err)}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--card);padding:10px 16px;border-radius:8px;opacity:0;transition:.2s;pointer-events:none;max-width:90vw}
+#toast.show{opacity:1}
+.hidden{display:none!important}
+.chk{display:flex;gap:8px;align-items:center;font-weight:400;margin-top:12px}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <div class="logo"><span>S</span>SUpload</div>
+  <nav>
+    <button data-tab="compose" class="on">Đăng bài</button>
+    <button data-tab="settings">Cài đặt</button>
+    <button data-tab="log">Nhật ký</button>
+  </nav>
+  <div class="status">
+    <span class="pill" id="pageInfo">Chưa chọn Page</span>
+    <span class="pill" id="methodInfo"></span>
+    <span class="pill"><i class="dot" id="wdot"></i><span id="wtext">...</span></span>
+  </div>
+</div></header>
+
+<main>
+<!-- ========== ĐĂNG BÀI ========== -->
+<section id="tab-compose" class="grid">
+  <div class="card">
+    <h2>Soạn bài viết</h2>
+    <textarea id="msg" placeholder="Bạn muốn đăng gì lên Page?"></textarea>
+    <div class="count"><span id="cnt">0</span> ký tự</div>
+
+    <label>Ảnh <span class="hint">— kéo thả hoặc bấm để chọn (jpg, png, gif, webp)</span></label>
+    <div class="drop" id="drop">📷 Thả ảnh vào đây hoặc bấm để chọn</div>
+    <input type="file" id="file" accept="image/*" multiple hidden>
+    <div class="thumbs" id="thumbs"></div>
+
+    <label>Link <span class="hint">— không bắt buộc</span></label>
+    <input type="url" id="link" placeholder="https://...">
+
+    <label>Thời điểm đăng</label>
+    <div class="row">
+      <div class="seg" id="when">
+        <button data-v="now" class="on">Đăng ngay</button>
+        <button data-v="later">Hẹn giờ</button>
+      </div>
+      <input type="datetime-local" id="sched" class="hidden" style="max-width:240px">
+    </div>
+
+    <div class="row" style="margin-top:18px">
+      <button class="btn ghost" id="clear">Xoá nội dung</button>
+      <span class="spacer"></span>
+      <button class="btn" id="submit">Đăng ngay</button>
+    </div>
+
+    <div class="preview">
+      <div class="ph"><div class="avatar" id="pvAv">P</div><div><b id="pvName">Page của bạn</b><div class="hint" id="pvTime">Vừa xong</div></div></div>
+      <div class="pb" id="pvText"><span class="hint">Xem trước bài viết sẽ hiện ở đây</span></div>
+      <div class="pimgs" id="pvImgs"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Hàng đợi <small id="qsum"></small><span class="spacer"></span><button class="btn ghost sm" id="clearDone">Dọn bài đã đăng</button></h2>
+    <div class="filters" id="filters">
+      <button class="chip on" data-f="all">Tất cả</button>
+      <button class="chip" data-f="pending">Đang chờ</button>
+      <button class="chip" data-f="done">Đã đăng</button>
+      <button class="chip" data-f="error">Lỗi</button>
+    </div>
+    <div id="queue"></div>
+  </div>
+</section>
+
+<!-- ========== CÀI ĐẶT ========== -->
+<section id="tab-settings" class="hidden" style="max-width:760px;margin:auto">
+  <div class="card">
+    <h2>Cách đăng bài</h2>
+    <div class="methods">
+      <div class="method" data-m="api"><b>Graph API</b><span>Kênh chính thức của Facebook cho chủ Page. Ổn định, nhanh, khuyên dùng.</span></div>
+      <div class="method" data-m="browser"><b>Trình duyệt</b><span>Điều khiển trình duyệt như người dùng. Chậm hơn, dễ hỏng khi Facebook đổi giao diện.</span></div>
+    </div>
+
+    <div id="sec-api" class="section">
+      <h2>Kết nối Page qua API</h2>
+      <label>App ID</label><input type="text" id="app_id">
+      <label>App Secret <span class="hint" id="secretHint"></span></label><input type="password" id="app_secret" placeholder="Để trống nếu không đổi">
+      <label>User Access Token <span class="hint">— lấy ở Graph API Explorer với quyền pages_show_list, pages_read_engagement, pages_manage_posts</span></label>
+      <input type="password" id="user_token">
+      <div class="row" style="margin-top:10px"><button class="btn ghost" id="fetchPages">Lấy danh sách Page</button></div>
+      <div class="pages" id="pages"></div>
+      <details style="margin-top:14px"><summary class="hint" style="cursor:pointer">Hoặc nhập Page ID / Page Token thủ công</summary>
+        <label>Page ID</label><input type="text" id="page_id">
+        <label>Page Token <span class="hint" id="tokenHint"></span></label><input type="password" id="page_token" placeholder="Để trống nếu không đổi">
+      </details>
+    </div>
+
+    <div id="sec-browser" class="section">
+      <h2>Đăng qua trình duyệt</h2>
+      <label>URL của Page</label><input type="url" id="page_url" placeholder="https://www.facebook.com/TenPage">
+      <label>Đăng nhập Facebook</label>
+      <div class="row">
+        <button class="btn ghost" id="loginBtn">Mở trình duyệt để đăng nhập</button>
+        <button class="btn ghost" id="checkBtn">Kiểm tra</button>
+        <span id="loginState" class="hint"></span>
+      </div>
+      <p class="hint">Một cửa sổ trình duyệt sẽ mở ra, bạn tự đăng nhập (kể cả 2FA). Ứng dụng không lưu mật khẩu, chỉ lưu phiên trong thư mục <code>fb_profile/</code>.</p>
+      <label>Giãn cách tối thiểu giữa 2 bài (giây)</label><input type="number" id="min_gap" min="0" step="30">
+      <label class="chk"><input type="checkbox" id="headless"> Chạy ẩn trình duyệt khi đăng</label>
+    </div>
+
+    <div class="row" style="margin-top:20px"><span class="spacer"></span><button class="btn" id="saveSettings">Lưu cài đặt</button></div>
+  </div>
+</section>
+
+<!-- ========== NHẬT KÝ ========== -->
+<section id="tab-log" class="hidden" style="max-width:900px;margin:auto">
+  <div class="card"><h2>Nhật ký hoạt động</h2><div class="loglist" id="log"></div></div>
+</section>
+</main>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+let S = null, photos = [], when = "now", filter = "all", method = "api", settingsDirty = false;
+
+const api = async (url, opt = {}) => {
+  const r = await fetch(url, {headers: opt.body && !(opt.body instanceof FormData) ? {"Content-Type": "application/json"} : {}, ...opt});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+};
+const toast = t => { const e = $("#toast"); e.textContent = t; e.classList.add("show"); clearTimeout(e._t); e._t = setTimeout(() => e.classList.remove("show"), 3000); };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = iso => iso ? new Date(iso).toLocaleString("vi-VN", {dateStyle: "short", timeStyle: "short"}) : "";
+
+// ---------- tabs
+$$("nav button").forEach(b => b.onclick = () => {
+  $$("nav button").forEach(x => x.classList.toggle("on", x === b));
+  ["compose", "settings", "log"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  if (b.dataset.tab === "settings") fillSettings();
+});
+
+// ---------- compose
+const msg = $("#msg");
+msg.oninput = () => { $("#cnt").textContent = msg.value.length; preview(); };
+$("#link").oninput = preview;
+const drop = $("#drop");
+drop.onclick = () => $("#file").click();
+$("#file").onchange = e => upload(e.target.files);
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files); };
+
+async function upload(files) {
+  if (!files.length) return;
+  const fd = new FormData(); [...files].forEach(f => fd.append("files", f));
+  drop.textContent = "Đang tải ảnh...";
+  try { const j = await api("/api/upload", {method: "POST", body: fd}); photos.push(...j.files); }
+  catch (e) { toast(e.message); }
+  drop.textContent = "📷 Thả ảnh vào đây hoặc bấm để chọn";
+  $("#file").value = ""; renderThumbs(); preview();
+}
+function renderThumbs() {
+  $("#thumbs").innerHTML = photos.map((p, i) => `<div class="thumb"><img src="/uploads/${encodeURIComponent(p)}"><button data-i="${i}" title="Bỏ ảnh">×</button></div>`).join("");
+  $$("#thumbs button").forEach(b => b.onclick = () => { photos.splice(+b.dataset.i, 1); renderThumbs(); preview(); });
+}
+function preview() {
+  const t = msg.value.trim(), l = $("#link").value.trim();
+  $("#pvText").innerHTML = t || l ? esc(t) + (l ? `\n<a href="${esc(l)}" target="_blank">${esc(l)}</a>` : "") : '<span class="hint">Xem trước bài viết sẽ hiện ở đây</span>';
+  const shown = photos.slice(0, 4);
+  $("#pvImgs").style.gridTemplateColumns = shown.length > 1 ? "1fr 1fr" : "1fr";
+  $("#pvImgs").innerHTML = shown.map(p => `<img src="/uploads/${encodeURIComponent(p)}">`).join("");
+  $("#pvTime").textContent = when === "later" && $("#sched").value ? "Hẹn " + fmt($("#sched").value) : "Vừa xong";
+}
+$$("#when button").forEach(b => b.onclick = () => {
+  when = b.dataset.v;
+  $$("#when button").forEach(x => x.classList.toggle("on", x === b));
+  $("#sched").classList.toggle("hidden", when !== "later");
+  if (when === "later" && !$("#sched").value) {
+    const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0);
+    $("#sched").value = new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+  }
+  $("#submit").textContent = when === "later" ? "Thêm vào lịch" : "Đăng ngay";
+  preview();
+});
+$("#sched").oninput = preview;
+$("#clear").onclick = () => { msg.value = ""; $("#link").value = ""; photos = []; renderThumbs(); msg.oninput(); };
+$("#submit").onclick = async () => {
+  const body = {message: msg.value, link: $("#link").value, photos, scheduled_at: when === "later" ? $("#sched").value : null};
+  if (when === "later") {
+    if (!body.scheduled_at) return toast("Chọn thời gian hẹn");
+    if (new Date(body.scheduled_at) < new Date()) return toast("Thời gian hẹn đã qua");
+  }
+  const draft = {msg: msg.value, link: $("#link").value, photos: [...photos]};
+  $("#submit").disabled = true;
+  $("#clear").onclick();  // xoá ngay để soạn tiếp, khôi phục nếu lỗi
+  try {
+    await api("/api/posts", {method: "POST", body: JSON.stringify(body)});
+    toast(when === "later" ? "Đã thêm vào lịch" : "Đã đưa vào hàng đợi, đang đăng...");
+    refresh();
+  } catch (e) {
+    toast(e.message);
+    msg.value = draft.msg; $("#link").value = draft.link; photos = draft.photos; renderThumbs(); msg.oninput();
+  }
+  $("#submit").disabled = false;
+};
+
+// ---------- queue
+$$("#filters .chip").forEach(c => c.onclick = () => { filter = c.dataset.f; $$("#filters .chip").forEach(x => x.classList.toggle("on", x === c)); renderQueue(); });
+const LABEL = {pending: "Đang chờ", running: "Đang đăng", done: "Đã đăng", error: "Lỗi"};
+function renderQueue() {
+  const posts = S.posts.filter(p => filter === "all" || p.status === filter || (filter === "pending" && p.status === "running"));
+  const c = s => S.posts.filter(p => p.status === s).length;
+  $("#qsum").textContent = `${c("pending") + c("running")} chờ · ${c("done")} đã đăng · ${c("error")} lỗi`;
+  if (!posts.length) { $("#queue").innerHTML = '<div class="empty">Chưa có bài nào</div>'; return; }
+  $("#queue").innerHTML = posts.map(p => {
+    const img = p.photos[0] ? `<img class="im" src="/uploads/${encodeURIComponent(p.photos[0])}">` : `<div class="im">${p.link ? "🔗" : "✎"}</div>`;
+    const time = p.status === "done" ? "Đăng lúc " + fmt(p.done_at) : p.scheduled_at ? "⏰ " + fmt(p.scheduled_at) : "Đăng ngay";
+    const acts = [
+      p.status === "error" ? `<button class="btn ghost sm" data-a="retry" data-id="${p.id}">Đăng lại</button>` : "",
+      p.status !== "running" ? `<button class="btn danger sm" data-a="del" data-id="${p.id}">Xoá</button>` : "",
+    ].join("");
+    return `<div class="item">${img}<div class="body">
+      <div class="row"><span class="badge b-${p.status}">${LABEL[p.status]}</span><span class="msg" style="flex:1">${esc(p.message || p.link || "(chỉ có ảnh)")}</span></div>
+      <div class="meta"><span>${time}</span>${p.photos.length ? `<span>${p.photos.length} ảnh</span>` : ""}${p.result ? `<span>${esc(p.result)}</span>` : ""}</div>
+      ${p.error ? `<div class="err">${esc(p.error)}</div>` : ""}
+      <div class="row" style="margin-top:6px">${acts}</div></div></div>`;
+  }).join("");
+  $$("#queue [data-a]").forEach(b => b.onclick = async () => {
+    if (b.dataset.a === "del" && !confirm("Xoá bài này khỏi hàng đợi?")) return;
+    await api(`/api/posts/${b.dataset.id}${b.dataset.a === "retry" ? "/retry" : ""}`, {method: b.dataset.a === "del" ? "DELETE" : "POST"});
+    refresh();
+  });
+}
+$("#clearDone").onclick = async () => { await api("/api/clear-done", {method: "POST"}); refresh(); };
+
+// ---------- settings
+$$(".method").forEach(m => m.onclick = () => { method = m.dataset.m; showMethod(); settingsDirty = true; });
+function showMethod() {
+  $$(".method").forEach(x => x.classList.toggle("on", x.dataset.m === method));
+  $("#sec-api").classList.toggle("hidden", method !== "api");
+  $("#sec-browser").classList.toggle("hidden", method !== "browser");
+}
+function fillSettings() {
+  const s = S.settings; method = s.method;
+  ["app_id", "page_id", "page_url", "min_gap"].forEach(k => $("#" + k).value = s[k] ?? "");
+  $("#headless").checked = s.headless;
+  $("#secretHint").textContent = s.app_secret_set ? "— đã lưu" : "";
+  $("#tokenHint").textContent = s.page_token_set ? "— đã lưu" : "";
+  showMethod(); settingsDirty = false;
+}
+$("#tab-settings").addEventListener("input", () => settingsDirty = true);
+$("#saveSettings").onclick = async () => {
+  const body = {method, headless: $("#headless").checked};
+  ["app_id", "app_secret", "page_id", "page_token", "page_url", "min_gap"].forEach(k => body[k] = $("#" + k).value);
+  try { await api("/api/settings", {method: "POST", body: JSON.stringify(body)}); toast("Đã lưu cài đặt"); $("#app_secret").value = $("#page_token").value = ""; await refresh(); fillSettings(); }
+  catch (e) { toast(e.message); }
+};
+$("#fetchPages").onclick = async () => {
+  const b = $("#fetchPages"); b.disabled = true; b.textContent = "Đang lấy...";
+  try {
+    const j = await api("/api/fb/pages", {method: "POST", body: JSON.stringify({app_id: $("#app_id").value, app_secret: $("#app_secret").value, user_token: $("#user_token").value})});
+    $("#pages").innerHTML = j.pages.length ? j.pages.map(p => `<button class="btn ghost" data-id="${esc(p.id)}">Dùng Page: <b>${esc(p.name)}</b> <span class="hint">${esc(p.id)}</span></button>`).join("") : '<span class="hint">Không có Page nào</span>';
+    $$("#pages button").forEach(x => x.onclick = async () => { await api("/api/fb/select-page", {method: "POST", body: JSON.stringify({id: x.dataset.id})}); toast("Đã chọn Page"); $("#user_token").value = ""; await refresh(); fillSettings(); });
+  } catch (e) { toast(e.message); }
+  b.disabled = false; b.textContent = "Lấy danh sách Page";
+};
+$("#loginBtn").onclick = () => api("/api/browser/login", {method: "POST"}).then(() => toast("Đang mở trình duyệt..."));
+$("#checkBtn").onclick = () => api("/api/browser/check", {method: "POST"});
+const LOGIN = {unknown: "", waiting: "⏳ Đang chờ bạn đăng nhập trong cửa sổ trình duyệt...", checking: "⏳ Đang kiểm tra...", yes: "✅ Đã đăng nhập", no: "❌ Chưa đăng nhập", busy: "Trình duyệt đang bận, thử lại sau"};
+
+// ---------- refresh
+async function refresh() {
+  try { S = await api("/api/state"); } catch { $("#wtext").textContent = "Mất kết nối"; return; }
+  const s = S.settings;
+  $("#methodInfo").textContent = s.method === "api" ? "Graph API" : "Trình duyệt";
+  $("#pageInfo").textContent = s.method === "api" ? (s.page_name || s.page_id || "Chưa chọn Page") : (s.page_url ? s.page_url.replace(/^https?:\/\/(www\.)?facebook\.com\//, "") : "Chưa nhập Page");
+  $("#pvName").textContent = s.page_name || "Page của bạn";
+  $("#pvAv").textContent = (s.page_name || "P")[0].toUpperCase();
+  $("#wtext").textContent = S.worker;
+  $("#wdot").classList.toggle("busy", S.worker !== "Đang rảnh");
+  $("#loginState").textContent = LOGIN[S.login] ?? S.login;
+  $("#log").innerHTML = S.log.length ? S.log.map(l => `<div><time>${fmt(l.at)}</time><span class="l-${l.level}">${esc(l.text)}</span></div>`).join("") : '<div class="empty">Chưa có hoạt động</div>';
+  renderQueue();
+  if (!settingsDirty && !$("#tab-settings").classList.contains("hidden")) fillSettings();
+}
+refresh().then(fillSettings);
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>

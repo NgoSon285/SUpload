@@ -153,6 +153,68 @@ def run_posts(page_url: str, posts: list[dict], headless: bool, delay: tuple[int
     return ok
 
 
+def login_wait(timeout: int = 600) -> bool:
+    """Mở trình duyệt, chờ người dùng tự đăng nhập (dùng cho giao diện, không cần nhấn Enter)."""
+    with sync_playwright() as pw:
+        ctx = open_context(pw, headless=False)
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        page.goto(HOME)
+        end = time.time() + timeout
+        ok = False
+        while time.time() < end:
+            try:
+                page.wait_for_timeout(2000)
+                if "facebook.com" in page.url and "login" not in page.url and is_logged_in(page) \
+                        and page.locator('[role="navigation"], [aria-label="Facebook"]').count():
+                    ok = True
+                    page.wait_for_timeout(3000)  # cho cookie ghi xong
+                    break
+            except Exception:  # noqa: BLE001 - người dùng đóng cửa sổ
+                break
+        try:
+            ctx.close()
+        except Exception:  # noqa: BLE001
+            pass
+        return ok
+
+
+def check_login(headless: bool = True) -> bool:
+    with sync_playwright() as pw:
+        ctx = open_context(pw, headless)
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        page.goto(HOME, wait_until="domcontentloaded")
+        pause(2, 3)
+        ok = is_logged_in(page)
+        ctx.close()
+        return ok
+
+
+def post_once(page_url: str, message: str, photos: list[str], headless: bool) -> None:
+    """Đăng 1 bài; ném PostError (kèm đường dẫn ảnh chụp lỗi) nếu thất bại."""
+    SHOT_DIR.mkdir(exist_ok=True)
+    with sync_playwright() as pw:
+        ctx = open_context(pw, headless)
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        try:
+            page.goto(HOME, wait_until="domcontentloaded")
+            pause(2, 3)
+            if not is_logged_in(page):
+                raise PostError("Chưa đăng nhập Facebook trên trình duyệt")
+            switch_to_page_profile(page, page_url)
+            create_post(page, message, photos)
+        except PostError:
+            raise
+        except Exception as e:  # noqa: BLE001
+            shot = SHOT_DIR / f"error_{datetime.now():%Y%m%d_%H%M%S}.png"
+            try:
+                page.screenshot(path=str(shot))
+            except Exception:  # noqa: BLE001
+                pass
+            raise PostError(f"{e.__class__.__name__}: {str(e).splitlines()[0]} (ảnh chụp: {shot})") from e
+        finally:
+            ctx.close()
+
+
 def _log(entry: dict) -> None:
     with LOG_FILE.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps({"at": datetime.now().isoformat(timespec="seconds"), **entry}, ensure_ascii=False) + "\n")
