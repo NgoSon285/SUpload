@@ -1,0 +1,21 @@
+[
+  {
+    "message": "Bài viết chỉ có chữ 👋"
+  },
+  {
+    "message": "Bài viết kèm link",
+    "link": "https://example.com"
+  },
+  {
+    "message": "Bài viết 1 ảnh từ URL",
+    "photos": ["https://picsum.photos/800/600"]
+  },
+  {
+    "message": "Bài viết nhiều ảnh (URL hoặc file trên máy)",
+    "photos": ["./images/a.jpg", "./images/b.jpg"]
+  },
+  {
+    "message": "Bài viết hẹn giờ (10 phút - 30 ngày trong tương lai)",
+    "schedule": "2026-12-01 09:00"
+  }
+]
