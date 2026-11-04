@@ -9,7 +9,7 @@ import { notifications } from "@mantine/notifications";
 import { IconAlertCircle, IconClock, IconLink, IconPencil, IconPlugConnected, IconSend } from "@tabler/icons-react";
 
 import { useApp } from "../App";
-import { api, configured, pageName, storage, uploadImages } from "../lib/api";
+import { api, configured, eventValue, pageName, storage, uploadImages } from "../lib/api";
 import { dayLabel, hm, presetTimes, rel, toLocalIso, when } from "../lib/time";
 import { PageHeader, PhotoPicker, PostPreview, notifyErr, usePasteImages } from "../components/common";
 
@@ -46,7 +46,7 @@ export default function Compose() {
 
   useEffect(() => { if (!editingId) storage.set("draft", post); }, [post, editingId]);
 
-  const set = (k) => (v) => setPost((p) => ({ ...p, [k]: v?.currentTarget ? v.currentTarget.value : v }));
+  const set = (k) => (v) => { const val = eventValue(v); setPost((p) => ({ ...p, [k]: val })); };
   const s = state.settings;
   const ok = configured(s);
   const presets = useMemo(presetTimes, [mode, Math.floor(Date.now() / 60000)]); // eslint-disable-line

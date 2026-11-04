@@ -5,13 +5,14 @@ import { IconClock } from "@tabler/icons-react";
 import { UNITS } from "../lib/time";
 import { toLocalIso } from "../lib/time";
 import { PhotoPicker } from "./common";
+import { eventValue } from "../lib/api";
 
 const unitData = UNITS.map(({ value, label }) => ({ value, label }));
 const val = (x, d) => (typeof x === "function" ? x(d) : x);
 
 /** Vẽ các trường cấu hình của khối dựa trên khai báo `fields` trong lib/nodes.jsx */
 export function NodeFields({ fields, data, onChange }) {
-  const set = (k) => (v) => onChange({ [k]: v?.currentTarget ? (v.currentTarget.type === "checkbox" ? v.currentTarget.checked : v.currentTarget.value) : v });
+  const set = (k) => (v) => onChange({ [k]: eventValue(v) });
   return (
     <Stack gap="md">
       {fields.filter((f) => !f.show || f.show(data)).map((f, i) => {

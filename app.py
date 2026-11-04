@@ -7,11 +7,12 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 import uuid
 import webbrowser
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -300,41 +301,147 @@ def api_test_connection():
     return jsonify(ok=True, text=f"Kết nối tốt tới Page “{info.get('name')}”")
 
 
+FLOW_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+FLOW_META = ("created_at", "last_run_at", "last_run_count")
+
+
+def _flow_stats(data: dict) -> dict:
+    stats: dict = {}
+    for p in data["posts"]:
+        fid = p.get("flow_id")
+        if not fid:
+            continue
+        st = stats.setdefault(fid, {"pending": 0, "done": 0, "error": 0})
+        key = "pending" if p["status"] in ("pending", "running") else p["status"]
+        st[key] = st.get(key, 0) + 1
+    return stats
+
+
+_last_stamp = [datetime.min]
+
+
+def _stamp() -> str:
+    """Dấu thời gian tới mili giây, luôn tăng dần, để sắp xếp "mới sửa" đúng thứ tự."""
+    with lock:
+        t = max(datetime.now(), _last_stamp[0] + timedelta(milliseconds=1))
+        _last_stamp[0] = t
+    return t.isoformat(timespec="milliseconds")
+
+
+def _new_flow_id() -> str:
+    return "f_" + uuid.uuid4().hex[:12]
+
+
+def _valid_graph(body: dict) -> tuple[list, list]:
+    nodes, edges = body.get("nodes", []), body.get("edges", [])
+    if not isinstance(nodes, list) or not isinstance(edges, list):
+        raise ValueError("Flow không hợp lệ: nodes/edges phải là danh sách")
+    if len(nodes) > 300:
+        raise ValueError("Flow quá lớn (tối đa 300 khối)")
+    for n in nodes:
+        if not isinstance(n, dict) or not n.get("id") or not n.get("type"):
+            raise ValueError("Flow không hợp lệ: mỗi khối cần có id và type")
+    return nodes, edges
+
+
 @app.get("/api/flows")
 def api_flows():
-    return jsonify(flows=load().get("flows", []))
+    data = load()
+    stats = _flow_stats(data)
+    flows = sorted(data.get("flows", []), key=lambda f: f.get("updated_at") or "", reverse=True)
+    return jsonify(flows=[{**f, "stats": stats.get(f["id"], {"pending": 0, "done": 0, "error": 0})} for f in flows])
 
 
 @app.put("/api/flows/<flow_id>")
 def api_save_flow(flow_id):
+    """Tạo mới hoặc cập nhật flow. Trường nào không gửi lên thì giữ nguyên (đổi tên không mất khối)."""
+    if not FLOW_ID_RE.match(flow_id):
+        return jsonify(error="Mã flow không hợp lệ"), 400
     body = request.get_json(force=True)
-    flow = {
-        "id": flow_id,
-        "name": (body.get("name") or "Flow chưa đặt tên").strip()[:80],
-        "nodes": body.get("nodes", []),
-        "edges": body.get("edges", []),
-        "seed": str(body.get("seed") or flow_id)[:40],
-        "updated_at": now_iso(),
-    }
     with lock:
         data = load()
         flows = data.setdefault("flows", [])
-        idx = next((i for i, f in enumerate(flows) if f["id"] == flow_id), None)
-        if idx is None:
-            flows.append(flow)
+        old = next((f for f in flows if f["id"] == flow_id), None) or {}
+        merged = {**old, **{k: v for k, v in body.items() if k in ("name", "description", "nodes", "edges", "seed")}}
+        try:
+            nodes, edges = _valid_graph(merged)
+        except ValueError as e:
+            return jsonify(error=str(e)), 400
+        flow = {
+            "id": flow_id,
+            "name": (merged.get("name") or "").strip()[:80] or "Flow chưa đặt tên",
+            "description": (merged.get("description") or "").strip()[:300],
+            "nodes": nodes,
+            "edges": edges,
+            "seed": str(merged.get("seed") or flow_id)[:40],
+            "created_at": old.get("created_at") or _stamp(),
+            "updated_at": _stamp(),
+            "last_run_at": old.get("last_run_at"),
+            "last_run_count": old.get("last_run_count", 0),
+        }
+        if old:
+            flows[flows.index(old)] = flow
         else:
-            flows[idx] = flow
+            flows.append(flow)
+        save(data)
+    return jsonify(flow=flow)
+
+
+@app.post("/api/flows/<flow_id>/duplicate")
+def api_duplicate_flow(flow_id):
+    with lock:
+        data = load()
+        src = next((f for f in data.get("flows", []) if f["id"] == flow_id), None)
+        if not src:
+            return jsonify(error="Không tìm thấy flow"), 404
+        copy = {**json.loads(json.dumps(src)), "id": _new_flow_id(), "name": f"{src['name']} (bản sao)"[:80],
+                "seed": uuid.uuid4().hex[:12], "created_at": _stamp(), "updated_at": _stamp(),
+                "last_run_at": None, "last_run_count": 0}
+        data["flows"].append(copy)
+        save(data)
+    return jsonify(flow=copy)
+
+
+@app.post("/api/flows/import")
+def api_import_flow():
+    body = request.get_json(force=True)
+    src = body.get("flow", body)
+    try:
+        nodes, edges = _valid_graph(src)
+    except ValueError as e:
+        return jsonify(error=str(e)), 400
+    if not any(n.get("type") == "start" for n in nodes):
+        return jsonify(error="Flow không hợp lệ: thiếu khối Bắt đầu"), 400
+    flow = {"id": _new_flow_id(), "name": (str(src.get("name") or "Flow nhập").strip()[:80]),
+            "description": str(src.get("description") or "")[:300], "nodes": nodes, "edges": edges,
+            "seed": str(src.get("seed") or uuid.uuid4().hex[:12])[:40], "created_at": _stamp(),
+            "updated_at": _stamp(), "last_run_at": None, "last_run_count": 0}
+    with lock:
+        data = load()
+        data.setdefault("flows", []).append(flow)
+        add_log(data, "info", f"Đã nhập flow “{flow['name']}”")
         save(data)
     return jsonify(flow=flow)
 
 
 @app.delete("/api/flows/<flow_id>")
 def api_delete_flow(flow_id):
+    """Xoá flow. ?delete_posts=1 -> xoá luôn các bài chưa đăng do flow này tạo."""
+    with_posts = request.args.get("delete_posts") == "1"
     with lock:
         data = load()
-        data["flows"] = [f for f in data.get("flows", []) if f["id"] != flow_id]
+        flow = next((f for f in data.get("flows", []) if f["id"] == flow_id), None)
+        if not flow:
+            return jsonify(error="Không tìm thấy flow"), 404
+        data["flows"] = [f for f in data["flows"] if f["id"] != flow_id]
+        removed = 0
+        if with_posts:
+            keep = [p for p in data["posts"] if not (p.get("flow_id") == flow_id and p["status"] in ("pending", "error"))]
+            removed = len(data["posts"]) - len(keep)
+            data["posts"] = keep
+        add_log(data, "info", f"Đã xoá flow “{flow['name']}”" + (f" và {removed} bài chưa đăng" if removed else ""))
         save(data)
-    return jsonify(ok=True)
+    return jsonify(ok=True, removed_posts=removed)
 
 
 @app.post("/api/flows/run")
@@ -342,6 +449,7 @@ def api_run_flow():
     """Nhận danh sách bài đã tính giờ từ flow -> thêm hàng loạt vào lịch đăng."""
     body = request.get_json(force=True)
     items = body.get("posts", [])
+    flow_id = body.get("flow_id") or None
     if not items:
         return jsonify(error="Flow chưa có bài viết nào"), 400
     if len(items) > 500:
@@ -354,13 +462,17 @@ def api_run_flow():
                 fields["scheduled_at"] = None  # giờ đã qua -> đăng ngay
             created.append({
                 "id": uuid.uuid4().hex[:10], **fields, "status": "pending", "created_at": now_iso(),
-                "done_at": None, "error": "", "result": "", "flow": (body.get("name") or "")[:80],
+                "done_at": None, "error": "", "result": "", "flow": (body.get("name") or "")[:80], "flow_id": flow_id,
             })
     except ValueError as e:
         return jsonify(error=f"Bài #{len(created) + 1}: {e}"), 400
     with lock:
         data = load()
         data["posts"].extend(created)
+        for f in data.get("flows", []):
+            if f["id"] == flow_id:
+                f["last_run_at"] = now_iso()
+                f["last_run_count"] = len(created)
         add_log(data, "info", f"Chạy flow “{body.get('name') or 'không tên'}”: thêm {len(created)} bài vào lịch")
         save(data)
     wake.set()

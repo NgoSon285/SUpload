@@ -39,7 +39,7 @@ def server(appmod):
 
 
 @pytest.fixture
-def page(browser, server):
+def page(browser, server, request):
     ctx = browser.new_context(viewport={"width": 1440, "height": 900})
     pg = ctx.new_page()
     pg.errors = []
@@ -47,6 +47,11 @@ def page(browser, server):
     pg.on("console", lambda m: m.type == "error" and pg.errors.append(m.text))
     pg.base = server
     yield pg
+    rep = getattr(request.node, "rep_call", None)
+    if rep is not None and rep.failed:  # chụp màn hình khi lỗi để dễ tìm nguyên nhân
+        out = ROOT / "test-results"
+        out.mkdir(exist_ok=True)
+        pg.screenshot(path=str(out / f"{request.node.name}.png"), full_page=True)
     ctx.close()
 
 
@@ -69,7 +74,9 @@ def test_first_run_opens_settings_and_connects(page):
     page.get_by_text("Nhập Page ID / Page Token thủ công").click()
     page.get_by_role("textbox", name="Page ID").fill("111")
     page.get_by_role("textbox", name="Page Access Token").fill("SECRET")
-    page.get_by_role("button", name="Lưu cài đặt").click()
+    save = page.get_by_role("button", name="Lưu cài đặt")
+    save.click()
+    save.wait_for(state="detached")  # đã lưu -> thanh biến mất
     page.get_by_role("button", name="Kiểm tra kết nối").click()
     page.get_by_text("Kết nối tốt tới Page “Page Một”").wait_for()
     assert "SECRET" not in page.content()
@@ -118,46 +125,142 @@ def test_edit_post_from_queue(page):
     page.get_by_text("Đang sửa một bài trong lịch đăng").wait_for()
     page.get_by_label("Nội dung").fill("Đã chỉnh sửa")
     page.get_by_role("button", name="Lưu thay đổi").click()
-    page.get_by_text("Đã chỉnh sửa").wait_for()
+    page.get_by_text("Đã lưu thay đổi").wait_for()
+    page.get_by_role("heading", name="Lịch đăng").wait_for()  # tự quay về Lịch đăng
     p = api_state(page)["posts"][0]
     assert p["message"] == "Đã chỉnh sửa" and p["scheduled_at"] == future
     assert page.errors == []
 
 
-def test_flow_builder_runs_sample(page):
+START = [{"id": "s", "type": "start", "position": {"x": 0, "y": 0}, "data": {}, "deletable": False}]
+
+
+def put_flow(page, fid, name, description=""):
+    r = page.request.put(f"{page.base}/api/flows/{fid}", data={"name": name, "description": description, "nodes": START, "edges": []})
+    assert r.ok
+
+
+def card_action(page, name, item):
+    """Mở menu ⋯ của đúng thẻ flow, chọn mục, rồi chờ menu đóng hẳn."""
+    trigger = page.get_by_role("button", name=f"Thao tác với {name}", exact=True)
+    trigger.click()
+    menu = page.locator(f'[role=menu][aria-labelledby="{trigger.get_attribute("id")}"]')
+    menu.get_by_role("menuitem", name=item).click()
+    menu.wait_for(state="detached")
+
+
+def api_flows(page):
+    return json.loads(page.evaluate("fetch('/api/flows').then(r => r.text())"))["flows"]
+
+
+def test_create_flow_from_template_and_run(page):
     connect(page)
     page.goto(page.base)
     nav(page, "Flow chiến dịch")
+    page.get_by_text("Chưa có flow nào").wait_for()
+    page.get_by_role("button", name="Tạo flow đầu tiên").click()
+    page.get_by_label("Tên flow").fill("Chiến dịch Tết")
+    page.get_by_label("Mô tả").fill("Đăng mỗi sáng")
+    page.get_by_role("button", name="Tạo và mở").click()
+
     page.locator(".react-flow__node").first.wait_for()
-    assert page.locator(".react-flow__node").count() == 6  # flow mẫu
-    # thêm khối Lặp lại vào sau khối đang chọn (khối cuối)
+    assert page.locator(".react-flow__node").count() == 6  # mẫu chiến dịch
     page.locator(".palette-item", has_text="Lặp lại").click()
     page.get_by_text("Số lần").wait_for()
     assert page.locator(".react-flow__node").count() == 7
-    badge = page.get_by_test_id("flow-count").inner_text()
-    n_posts = int(badge.split()[0])
+    n_posts = int(page.get_by_test_id("flow-count").inner_text().split()[0])
     assert n_posts == 4
     page.get_by_role("button", name="Chạy flow").click()
     page.get_by_role("button", name=f"Lên lịch {n_posts} bài").click()
     page.get_by_text(f"Đã lên lịch {n_posts} bài").wait_for()
+    page.get_by_role("button", name="Ở lại").click()
+
     posts = api_state(page)["posts"]
-    assert len(posts) == n_posts and all(p["flow"] == "Chiến dịch mẫu" for p in posts)
+    fid = api_flows(page)[0]["id"]
+    assert len(posts) == n_posts and all(p["flow"] == "Chiến dịch Tết" and p["flow_id"] == fid for p in posts)
     assert any("#tiembanh" in p["message"] for p in posts)  # khối Định dạng được áp dụng
-    page.wait_for_timeout(1500)  # tự lưu sau 0,7 giây không thay đổi
-    flows = json.loads(page.evaluate("fetch('/api/flows').then(r => r.text())"))["flows"]
-    assert len(flows) == 1 and len(flows[0]["nodes"]) == 7  # tự lưu
+
+    # quay lại danh sách: thẻ flow hiển thị thống kê
+    page.get_by_role("button", name="Tất cả flow").click()
+    card = page.get_by_test_id("flow-card").first
+    card.get_by_text("Đăng mỗi sáng").wait_for()
+    assert f"{n_posts} bài" in card.inner_text() and "đang chờ" in card.inner_text()
+    assert len(api_flows(page)[0]["nodes"]) == 7  # đã lưu
+    assert page.errors == []
+
+
+def test_manage_many_flows(page, tmp_path):
+    for i, name in enumerate(["Khuyến mãi", "Tuyển dụng", "Sự kiện"]):
+        put_flow(page, f"f_{i}", name, f"mô tả {name}")
+    page.goto(page.base)
+    nav(page, "Flow chiến dịch")
+    cards = page.get_by_test_id("flow-card")
+    cards.first.wait_for()
+    assert cards.count() == 3
+
+    # tìm kiếm
+    page.get_by_label("Tìm flow").fill("tuyển")
+    assert cards.count() == 1 and "Tuyển dụng" in cards.first.inner_text()
+    page.get_by_label("Tìm flow").fill("")
+
+    # đổi tên & mô tả
+    card_action(page, "Sự kiện", "Đổi tên & mô tả")
+    page.get_by_label("Tên flow").fill("Sự kiện cuối năm")
+    page.get_by_role("button", name="Lưu", exact=True).click()
+    page.get_by_text("Sự kiện cuối năm", exact=True).wait_for()
+
+    # nhân bản
+    card_action(page, "Khuyến mãi", "Nhân bản")
+    page.get_by_text("Khuyến mãi (bản sao)", exact=True).wait_for()
+    assert cards.count() == 4
+    assert page.locator("[role=menu]").count() == 0  # menu tự đóng sau khi chọn
+
+    # xuất file rồi nhập lại
+    with page.expect_download() as dl:
+        card_action(page, "Tuyển dụng", "Xuất file")
+    path = tmp_path / "flow.json"
+    dl.value.save_as(path)
+    exported = json.loads(path.read_text(encoding="utf-8"))
+    assert exported["format"] == "supload-flow" and exported["name"] == "Tuyển dụng"
+    page.locator("input[type=file]").set_input_files(str(path))
+    page.get_by_text("Đã nhập flow “Tuyển dụng”").wait_for()
+    assert cards.count() == 5
+
+    # xoá
+    card_action(page, "Khuyến mãi (bản sao)", "Xoá")
+    page.get_by_role("button", name="Xoá flow").click()
+    page.get_by_text("Đã xoá flow").wait_for()
+    assert cards.count() == 4
+    names = sorted(f["name"] for f in api_flows(page))
+    assert names == ["Khuyến mãi", "Sự kiện cuối năm", "Tuyển dụng", "Tuyển dụng"]
+    assert page.errors == []
+
+
+def test_delete_flow_with_waiting_posts(page):
+    connect(page)
+    put_flow(page, "f_x", "Có bài chờ")
+    future = (datetime.now() + timedelta(days=1)).isoformat(timespec="minutes")
+    page.request.post(page.base + "/api/flows/run", data={"flow_id": "f_x", "name": "Có bài chờ", "posts": [{"message": "a", "scheduled_at": future}, {"message": "b", "scheduled_at": future}]})
+    page.goto(page.base)
+    nav(page, "Flow chiến dịch")
+    card_action(page, "Có bài chờ", "Xoá")
+    page.get_by_label("Xoá luôn 2 bài chưa đăng do flow này tạo trong Lịch đăng").wait_for()
+    page.get_by_role("button", name="Xoá flow").click()
+    page.get_by_text("Đã xoá flow và 2 bài chưa đăng").wait_for()
+    assert api_state(page)["posts"] == []
     assert page.errors == []
 
 
 def test_flow_changes_saved_when_leaving_page_immediately(page):
+    put_flow(page, "f_y", "Lưu nhanh")
     page.goto(page.base)
     nav(page, "Flow chiến dịch")
+    page.get_by_test_id("flow-card").get_by_role("button", name="Mở").click()
     page.locator(".react-flow__node").first.wait_for()
     page.locator(".palette-item", has_text="Định dạng").click()
     nav(page, "Nhật ký")  # rời trang ngay, chưa tới 0,7 giây
     page.wait_for_timeout(500)
-    flows = json.loads(page.evaluate("fetch('/api/flows').then(r => r.text())"))["flows"]
-    assert len(flows[0]["nodes"]) == 7
+    assert len(api_flows(page)[0]["nodes"]) == 2
     assert page.errors == []
 
 

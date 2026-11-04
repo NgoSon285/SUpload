@@ -140,6 +140,26 @@ hoặc gỡ quyền của App). User Token bạn dán vào không được lưu 
 ## 7. Lên lịch hàng loạt bằng Flow
 
 Trang **Flow chiến dịch** thay cho việc soạn từng bài: kéo thả các khối và nối chúng lại.
+Bạn tạo được **nhiều flow**, mỗi flow là một kịch bản dùng lại được (vd “Khuyến mãi cuối tuần”, “Tuyển dụng”).
+
+### Quản lý flow
+
+Mở trang **Flow chiến dịch** sẽ thấy danh sách flow dạng thẻ. Mỗi thẻ cho biết số khối, số bài dự kiến,
+số bài đang chờ / đã đăng / lỗi, lần sửa và lần chạy gần nhất.
+
+| Việc cần làm | Cách làm |
+|---|---|
+| Tạo flow | **Tạo flow** → đặt tên, mô tả → chọn *Flow trống* hoặc *Mẫu chiến dịch* → **Tạo và mở** |
+| Sửa nội dung flow | Bấm **Mở** trên thẻ (tự lưu khi sửa, nút **← Tất cả flow** để quay lại) |
+| Đổi tên / mô tả | Menu **⋯** trên thẻ → *Đổi tên & mô tả* (hoặc menu **Flow** trong trình dựng) |
+| Nhân bản | Menu **⋯** → *Nhân bản*: tạo bản sao để biến tấu mà không ảnh hưởng bản gốc |
+| Xoá | Menu **⋯** → *Xoá*. Nếu flow còn bài chưa đăng trong Lịch đăng, bạn chọn được có xoá luôn các bài đó không |
+| Sao lưu / chia sẻ | Menu **⋯** → *Xuất file* (`.supload-flow.json`); **Nhập file** để thêm lại |
+| Tìm nhanh | Ô tìm theo tên/mô tả; sắp xếp *Mới sửa*, *Tên A–Z*, *Mới chạy* |
+
+> File xuất chỉ chứa tên ảnh, không chứa ảnh. Nhập trên máy khác thì cần copy cả thư mục `uploads/`.
+
+### Dựng flow
 
 | Nhóm | Khối | Dùng để |
 |---|---|---|

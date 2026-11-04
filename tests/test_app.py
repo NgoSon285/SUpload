@@ -250,3 +250,101 @@ def test_log_is_capped(client, appmod):
     for i in range(400):
         appmod.add_log(data, "info", str(i))
     assert len(data["log"]) == 300 and data["log"][0]["text"] == "399"
+
+
+# ---------------------------------------------------------------- quản lý flow
+START = [{"id": "s", "type": "start", "position": {"x": 0, "y": 0}, "data": {}}]
+
+
+def make_flow(client, fid="f_a", name="Flow A", **extra):
+    r = client.put(f"/api/flows/{fid}", json={"name": name, "nodes": START, "edges": [], **extra})
+    assert r.status_code == 200, r.get_json()
+    return r.get_json()["flow"]
+
+
+def flows(client):
+    return client.get("/api/flows").get_json()["flows"]
+
+
+def test_many_flows_sorted_by_last_update(client):
+    make_flow(client, "f_1", "Một")
+    make_flow(client, "f_2", "Hai")
+    make_flow(client, "f_3", "Ba")
+    client.put("/api/flows/f_1", json={"name": "Một (sửa)"})
+    assert [f["name"] for f in flows(client)] == ["Một (sửa)", "Ba", "Hai"]
+
+
+def test_partial_update_keeps_graph_and_metadata(client):
+    f = make_flow(client, description="mô tả", seed="s1")
+    client.put("/api/flows/f_a", json={"name": "Tên mới"})
+    g = flows(client)[0]
+    assert g["name"] == "Tên mới" and g["description"] == "mô tả" and g["seed"] == "s1"
+    assert g["nodes"] == START and g["created_at"] == f["created_at"]
+
+
+def test_blank_name_gets_default(client):
+    make_flow(client, name="   ")
+    assert flows(client)[0]["name"] == "Flow chưa đặt tên"
+
+
+@pytest.mark.parametrize("fid,body", [
+    ("../x", {"nodes": START}),
+    ("f_ok", {"nodes": "không phải list"}),
+    ("f_ok", {"nodes": [{"type": "post"}]}),
+    ("f_ok", {"nodes": [{"id": str(i), "type": "post"} for i in range(301)]}),
+])
+def test_invalid_flows_rejected(client, fid, body):
+    assert client.put(f"/api/flows/{fid}", json=body).status_code in (400, 404)
+
+
+def test_duplicate_flow(client):
+    make_flow(client, description="d")
+    client.post("/api/flows/run", json={"flow_id": "f_a", "name": "Flow A", "posts": [{"message": "x"}]})
+    r = client.post("/api/flows/f_a/duplicate").get_json()["flow"]
+    assert r["id"] != "f_a" and r["name"] == "Flow A (bản sao)" and r["description"] == "d"
+    assert r["nodes"] == START and r["last_run_at"] is None and r["last_run_count"] == 0
+    assert len(flows(client)) == 2
+    assert client.post("/api/flows/nope/duplicate").status_code == 404
+
+
+def test_import_export_roundtrip(client):
+    exported = {"format": "supload-flow", "version": 1, "name": "Nhập", "description": "x", "nodes": START, "edges": [], "seed": "z"}
+    f = client.post("/api/flows/import", json={"flow": exported}).get_json()["flow"]
+    assert f["id"].startswith("f_") and f["name"] == "Nhập" and f["nodes"] == START
+    # nhập lại lần nữa -> flow riêng, không ghi đè
+    client.post("/api/flows/import", json={"flow": exported})
+    assert len(flows(client)) == 2
+
+
+def test_import_requires_start_node(client):
+    r = client.post("/api/flows/import", json={"flow": {"name": "x", "nodes": [{"id": "p", "type": "post"}], "edges": []}})
+    assert r.status_code == 400 and "Bắt đầu" in r.get_json()["error"]
+
+
+def test_run_tags_posts_and_updates_stats(connected, appmod):
+    make_flow(connected)
+    connected.post("/api/flows/run", json={"flow_id": "f_a", "name": "Flow A", "posts": [
+        {"message": "1"}, {"message": "2", "scheduled_at": (datetime.now() + timedelta(days=1)).isoformat(timespec="minutes")}]})
+    appmod.process_one()
+    f = flows(connected)[0]
+    assert f["last_run_count"] == 2 and f["last_run_at"]
+    assert f["stats"] == {"pending": 1, "done": 1, "error": 0}
+    assert all(p["flow_id"] == "f_a" for p in state(connected)["posts"])
+
+
+@pytest.mark.parametrize("delete_posts,left", [(False, ["chờ", "xong", "khác"]), (True, ["xong", "khác"])])
+def test_delete_flow_optionally_removes_unposted(connected, appmod, delete_posts, left):
+    make_flow(connected)
+    connected.post("/api/flows/run", json={"flow_id": "f_a", "name": "A", "posts": [{"message": "xong"}]})
+    appmod.process_one()
+    future = (datetime.now() + timedelta(days=1)).isoformat(timespec="minutes")
+    connected.post("/api/flows/run", json={"flow_id": "f_a", "name": "A", "posts": [{"message": "chờ", "scheduled_at": future}]})
+    add(connected, message="khác", scheduled_at=future)  # không thuộc flow
+    r = connected.delete("/api/flows/f_a" + ("?delete_posts=1" if delete_posts else "")).get_json()
+    assert r["removed_posts"] == (1 if delete_posts else 0)
+    assert flows(connected) == []
+    assert sorted(p["message"] for p in state(connected)["posts"]) == sorted(left)
+
+
+def test_delete_missing_flow(client):
+    assert client.delete("/api/flows/nope").status_code == 404

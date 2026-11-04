@@ -19,11 +19,12 @@ export function dayLabel(d) {
 export const when = (d) => `${hm(d)} · ${dayLabel(d)}`;
 
 export function rel(d) {
-  const m = Math.round((new Date(d) - Date.now()) / 60000);
+  const diff = new Date(d) - Date.now();
+  const m = Math.round(diff / 60000);
   const a = Math.abs(m);
+  if (a < 1) return diff > 0 ? "sau vài giây" : "vừa xong";
   let s;
-  if (a < 1) s = "vài giây";
-  else if (a < 60) s = `${a} phút`;
+  if (a < 60) s = `${a} phút`;
   else if (a < 1440) s = `${Math.floor(a / 60)} giờ${a % 60 ? ` ${a % 60} phút` : ""}`;
   else s = `${Math.round(a / 1440)} ngày`;
   return m >= 0 ? `sau ${s}` : `${s} trước`;

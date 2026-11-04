@@ -8,7 +8,7 @@ import {
 } from "@tabler/icons-react";
 
 import { useApp } from "../App";
-import { api } from "../lib/api";
+import { api, eventValue } from "../lib/api";
 import { PageHeader, notifyErr, notifyOk } from "../components/common";
 
 const GAPS = [
@@ -72,7 +72,7 @@ export default function Settings() {
 
   useEffect(() => { if (!dirty) setF(initial()); }, [state]); // eslint-disable-line
 
-  const set = (k) => (v) => { setF((x) => ({ ...x, [k]: v?.currentTarget ? (v.currentTarget.type === "checkbox" ? v.currentTarget.checked : v.currentTarget.value) : v })); setDirty(true); };
+  const set = (k) => (v) => { const val = eventValue(v); setF((x) => ({ ...x, [k]: val })); setDirty(true); };
   const gaps = GAPS.some((g) => g.value === f.min_gap) ? GAPS : [...GAPS, { value: f.min_gap, label: `${Math.round(f.min_gap / 60)} phút` }];
 
   const save = async (silent) => {

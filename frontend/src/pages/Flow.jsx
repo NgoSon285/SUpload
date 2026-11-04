@@ -19,7 +19,9 @@ import { api, configured, imgUrl } from "../lib/api";
 import { computeSchedule, newId, newNode, sampleFlow } from "../lib/flow";
 import { NODES, NODE_GROUPS, nodeDef, withDefaults } from "../lib/nodes";
 import { dayLabel, hm, toLocalIso, when } from "../lib/time";
-import { EmptyState, notifyErr } from "../components/common";
+import { EmptyState, notifyErr, notifyOk } from "../components/common";
+import { DeleteFlowModal, FlowFormModal, FlowList } from "../components/FlowList";
+import { IconArrowLeft, IconDownload, IconPencil } from "@tabler/icons-react";
 import { NodeFields } from "../components/NodeFields";
 
 const FlowCtx = createContext(null);
@@ -284,60 +286,109 @@ function Editor({ flow, onChange, onRun, onReseed }) {
 }
 
 /* ------------------------------------------------------------------ trang */
+const blankGraph = () => ({ nodes: [newNode("start", { x: 0, y: 0 })], edges: [], seed: newId("s") });
+
+function download(name, obj) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name.replace(/[\\/:*?"<>|]+/g, "_") || "flow"}.supload-flow.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export default function Flow() {
   const { state, refresh, setView } = useApp();
   const [flows, setFlows] = useState(null);
-  const [currentId, setCurrentId] = useState(null);
+  const [openId, setOpenId] = useState(null);
   const [saveState, setSaveState] = useState("saved");
-  const current = flows?.find((f) => f.id === currentId) || null;
+  const [form, setForm] = useState(null); // {mode: 'create'|'edit', flow}
+  const [toDelete, setToDelete] = useState(null);
+  const current = flows?.find((f) => f.id === openId) || null;
 
-  const pending = useRef(null); // thay đổi chưa kịp lưu
+  const reload = useCallback(async () => {
+    try { setFlows((await api("/api/flows")).flows); } catch (e) { notifyErr(e.message); }
+  }, []);
+  useEffect(() => { reload(); }, [reload]);
+
+  /* ---- lưu tự động khi sửa trong trình dựng */
+  const pending = useRef(null);
   const persist = useCallback(async (f) => {
     if (pending.current?.id === f.id) pending.current = null;
     setSaveState("saving");
-    try { await api(`/api/flows/${f.id}`, { method: "PUT", body: f }); setSaveState("saved"); }
-    catch (e) { setSaveState("error"); notifyErr(e.message, "Không lưu được flow"); }
+    try {
+      const { flow } = await api(`/api/flows/${f.id}`, { method: "PUT", body: { name: f.name, description: f.description, nodes: f.nodes, edges: f.edges, seed: f.seed } });
+      setFlows((fs) => fs?.map((x) => (x.id === flow.id ? { ...x, updated_at: flow.updated_at } : x)));
+      setSaveState("saved");
+    } catch (e) { setSaveState("error"); notifyErr(e.message, "Không lưu được flow"); }
   }, []);
   const persistLater = useDebouncedCallback(persist, 700);
-  // rời trang Flow trước khi kịp tự lưu -> lưu ngay
-  useEffect(() => () => { if (pending.current) persist(pending.current); }, [persist]);
-
-  const createFlow = useCallback(async (kind = "sample", base) => {
-    const body = base
-      ? structuredClone({ nodes: base.nodes, edges: base.edges, seed: newId("s") })
-      : kind === "blank" ? { nodes: [newNode("start", { x: 0, y: 0 })], edges: [], seed: newId("s") } : sampleFlow();
-    const f = { id: newId("f"), name: base?.name ? `${base.name} (bản sao)` : kind === "blank" ? "Flow mới" : "Chiến dịch mẫu", ...body };
-    await persist(f);
-    setFlows((fs) => [...(fs || []), f]);
-    setCurrentId(f.id);
-  }, [persist]);
-
-  useEffect(() => {
-    api("/api/flows").then(({ flows: fs }) => {
-      setFlows(fs);
-      if (fs.length) setCurrentId([...fs].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""))[0].id);
-      else createFlow("sample");
-    }, (e) => notifyErr(e.message));
-  }, []); // eslint-disable-line
+  const flush = useCallback(async () => { if (pending.current) await persist(pending.current); }, [persist]);
+  useEffect(() => () => { if (pending.current) persist(pending.current); }, [persist]); // rời trang -> lưu ngay
 
   const patchCurrent = (patch) => {
-    setFlows((fs) => fs.map((f) => (f.id === currentId ? { ...f, ...patch } : f)));
+    setFlows((fs) => fs.map((f) => (f.id === openId ? { ...f, ...patch } : f)));
     setSaveState("dirty");
-    pending.current = { ...current, ...patch };
+    pending.current = { ...current, ...pending.current, ...patch };
     persistLater(pending.current);
   };
 
-  const deleteFlow = () => modals.openConfirmModal({
-    title: `Xoá flow “${current.name}”?`, children: <Text size="sm">Flow sẽ bị xoá. Các bài đã đưa vào lịch đăng không bị ảnh hưởng.</Text>,
-    labels: { confirm: "Xoá", cancel: "Huỷ" }, confirmProps: { color: "red" },
-    onConfirm: async () => {
-      await api(`/api/flows/${current.id}`, { method: "DELETE" });
-      const rest = flows.filter((f) => f.id !== current.id);
-      setFlows(rest);
-      if (rest.length) setCurrentId(rest[0].id); else createFlow("blank");
-    },
-  });
+  /* ---- quản lý flow */
+  const open = (id) => { setSaveState("saved"); setOpenId(id); };
+  const back = async () => { await flush(); setOpenId(null); reload(); };
 
+  const submitForm = async ({ name, description, template }) => {
+    if (form.mode === "create") {
+      const id = newId("f");
+      const graph = template === "blank" ? blankGraph() : sampleFlow();
+      await api(`/api/flows/${id}`, { method: "PUT", body: { name, description, ...graph } });
+      await reload();
+      notifyOk(`Đã tạo flow “${name}”`);
+      open(id);
+    } else {
+      if (form.flow.id === openId) await flush();
+      await api(`/api/flows/${form.flow.id}`, { method: "PUT", body: { name, description } });
+      setFlows((fs) => fs.map((f) => (f.id === form.flow.id ? { ...f, name, description } : f)));
+      notifyOk("Đã lưu tên & mô tả");
+    }
+  };
+
+  const duplicate = async (f) => {
+    try {
+      if (f.id === openId) await flush();
+      const { flow } = await api(`/api/flows/${f.id}/duplicate`, { method: "POST" });
+      await reload();
+      notifyOk(`Đã tạo “${flow.name}”`);
+      return flow;
+    } catch (e) { notifyErr(e.message); return null; }
+  };
+
+  const exportFlow = (f) => {
+    const src = f.id === openId ? { ...f, ...pending.current } : f;
+    download(src.name, { format: "supload-flow", version: 1, name: src.name, description: src.description || "", nodes: src.nodes, edges: src.edges, seed: src.seed });
+  };
+
+  const importFlow = async (file) => {
+    try {
+      const json = JSON.parse(await file.text());
+      const { flow } = await api("/api/flows/import", { method: "POST", body: { flow: json } });
+      await reload();
+      notifyOk(`Đã nhập flow “${flow.name}”`);
+    } catch (e) { notifyErr(e instanceof SyntaxError ? "File không phải JSON hợp lệ" : e.message, "Không nhập được flow"); }
+  };
+
+  const remove = async (withPosts) => {
+    const f = toDelete;
+    if (f.id === openId) { pending.current = null; setOpenId(null); }
+    const r = await api(`/api/flows/${f.id}${withPosts ? "?delete_posts=1" : ""}`, { method: "DELETE" });
+    await reload();
+    refresh();
+    notifyOk(r.removed_posts ? `Đã xoá flow và ${r.removed_posts} bài chưa đăng` : "Đã xoá flow");
+  };
+
+  /* ---- chạy flow */
   const run = (schedule) => {
     if (!configured(state.settings)) {
       modals.openConfirmModal({ title: "Chưa kết nối Page", children: <Text size="sm">Cần kết nối Page trước khi chạy flow.</Text>, labels: { confirm: "Mở Cài đặt", cancel: "Để sau" }, onConfirm: () => setView("settings") });
@@ -355,10 +406,12 @@ export default function Flow() {
       labels: { confirm: `Lên lịch ${posts.length} bài`, cancel: "Huỷ" },
       onConfirm: async () => {
         try {
+          await flush();
           const soon = Date.now() + 60000;
-          const body = { name: current.name, posts: posts.map((p) => ({ message: p.message, link: p.link, photos: p.photos, scheduled_at: +p.time > soon ? toLocalIso(p.time) : null })) };
+          const body = { flow_id: current.id, name: current.name, posts: posts.map((p) => ({ message: p.message, link: p.link, photos: p.photos, scheduled_at: +p.time > soon ? toLocalIso(p.time) : null })) };
           const { count } = await api("/api/flows/run", { method: "POST", body });
           refresh();
+          reload();
           modals.openConfirmModal({
             title: <Group gap="xs"><ThemeIcon color="teal" radius="xl" size="sm"><IconCheck size={14} /></ThemeIcon>Đã lên lịch {count} bài</Group>,
             children: <Text size="sm">Bạn có thể theo dõi và sửa từng bài trong Lịch đăng.</Text>,
@@ -369,28 +422,43 @@ export default function Flow() {
     });
   };
 
-  if (!flows || !current) return null;
+  if (!flows) return null;
+
+  const dialogs = (
+    <>
+      <FlowFormModal opened={!!form} mode={form?.mode} initial={form?.flow || null} onClose={() => setForm(null)} onSubmit={submitForm} />
+      <DeleteFlowModal flow={toDelete} onClose={() => setToDelete(null)} onConfirm={remove} />
+    </>
+  );
+
+  if (!current) {
+    return (
+      <div style={{ padding: "var(--mantine-spacing-lg)" }}>
+        <FlowList
+          flows={flows} onOpen={open} onCreate={() => setForm({ mode: "create", flow: { name: "", description: "" } })}
+          onEdit={(f) => setForm({ mode: "edit", flow: f })} onDuplicate={duplicate} onExport={exportFlow}
+          onDelete={setToDelete} onImport={importFlow}
+        />
+        {dialogs}
+      </div>
+    );
+  }
 
   return (
     <div>
       <Group px="md" py="sm" gap="sm" wrap="wrap" style={{ borderBottom: "1px solid var(--mantine-color-default-border)" }}>
-        <Select w={220} value={currentId} onChange={(v) => v && setCurrentId(v)} allowDeselect={false} leftSection={<IconFile size={16} />}
-          data={flows.map((f) => ({ value: f.id, label: f.name }))} aria-label="Chọn flow" comboboxProps={{ withinPortal: true }} />
-        <TextInput w={240} value={current.name} onChange={(e) => patchCurrent({ name: e.currentTarget.value })} aria-label="Tên flow" placeholder="Tên flow" />
+        <Button variant="subtle" color="gray" leftSection={<IconArrowLeft size={16} />} onClick={back}>Tất cả flow</Button>
+        <TextInput w={260} value={current.name} onChange={(e) => patchCurrent({ name: e.currentTarget.value })} aria-label="Tên flow" placeholder="Tên flow" />
         <Text size="xs" c={saveState === "error" ? "red" : "dimmed"}>{saveState === "saving" || saveState === "dirty" ? "Đang lưu…" : saveState === "error" ? "Lưu thất bại" : "Đã lưu"}</Text>
         <Group gap="xs" ml="auto">
           <Menu position="bottom-end" withinPortal>
-            <Menu.Target><Button variant="default" leftSection={<IconPlus size={16} />}>Flow mới</Button></Menu.Target>
+            <Menu.Target><Button variant="default" rightSection={<IconDots size={16} />}>Flow</Button></Menu.Target>
             <Menu.Dropdown>
-              <Menu.Item leftSection={<IconFile size={16} />} onClick={() => createFlow("blank")}>Flow trống</Menu.Item>
-              <Menu.Item leftSection={<IconTemplate size={16} />} onClick={() => createFlow("sample")}>Từ mẫu có sẵn</Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
-          <Menu position="bottom-end" withinPortal>
-            <Menu.Target><ActionIcon variant="default" size="lg" aria-label="Thêm"><IconDots size={18} /></ActionIcon></Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Item leftSection={<IconCopy size={16} />} onClick={() => createFlow("copy", current)}>Nhân bản flow</Menu.Item>
-              <Menu.Item color="red" leftSection={<IconTrash size={16} />} onClick={deleteFlow}>Xoá flow</Menu.Item>
+              <Menu.Item leftSection={<IconPencil size={16} />} onClick={() => setForm({ mode: "edit", flow: current })}>Đổi tên & mô tả</Menu.Item>
+              <Menu.Item leftSection={<IconCopy size={16} />} onClick={async () => { const f = await duplicate(current); if (f) open(f.id); }}>Nhân bản và mở bản sao</Menu.Item>
+              <Menu.Item leftSection={<IconDownload size={16} />} onClick={() => exportFlow(current)}>Xuất file</Menu.Item>
+              <Menu.Divider />
+              <Menu.Item color="red" leftSection={<IconTrash size={16} />} onClick={() => setToDelete(flows.find((f) => f.id === current.id))}>Xoá flow</Menu.Item>
             </Menu.Dropdown>
           </Menu>
         </Group>
@@ -398,6 +466,7 @@ export default function Flow() {
       <ReactFlowProvider key={current.id}>
         <Editor flow={current} onChange={patchCurrent} onRun={run} onReseed={() => patchCurrent({ seed: newId("s") })} />
       </ReactFlowProvider>
+      {dialogs}
     </div>
   );
 }

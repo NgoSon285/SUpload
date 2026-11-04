@@ -58,6 +58,7 @@ def appmod(tmp_path, monkeypatch, graph):
     up.mkdir()
     monkeypatch.setattr(app_module, "UPLOAD_DIR", up)
     monkeypatch.setitem(app_module.state, "login", "unknown")
+    monkeypatch.setitem(app_module.state, "worker", "Đang rảnh")
     for k in ("page_id", "page_token", "page_name", "app_id", "app_secret"):
         monkeypatch.setitem(app_module.DEFAULT_SETTINGS, k, "")
     app_module.app.config["TESTING"] = True
@@ -79,3 +80,11 @@ def upload(client, name="a.png"):
     r = client.post("/api/upload", data={"files": (io.BytesIO(PNG), name)}, content_type="multipart/form-data")
     assert r.status_code == 200, r.get_json()
     return r.get_json()["files"][0]
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """Ghi kết quả từng giai đoạn để fixture biết test có lỗi không (dùng chụp màn hình khi lỗi)."""
+    outcome = yield
+    rep = outcome.get_result()
+    setattr(item, f"rep_{rep.when}", rep)
