@@ -358,3 +358,15 @@ def test_flow_run_warns_about_shifted_posts(page):
     warn.wait_for()
     assert "tối đa 2 bài/ngày" in warn.inner_text()
     assert page.errors == []
+
+
+def test_backup_now_from_settings(page, svc):
+    connect(page)
+    page.goto(page.base)
+    nav(page, "Cài đặt")
+    page.get_by_text("Dữ liệu & sao lưu").wait_for()
+    page.get_by_role("button", name="Sao lưu & dọn dẹp ngay").click()
+    page.get_by_text("Đã sao lưu (data-").wait_for()
+    assert len(svc.maintenance.backups()) == 1
+    page.get_by_test_id("backup-info").get_by_text("1 bản sao lưu", exact=False).wait_for()
+    assert page.errors == []

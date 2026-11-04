@@ -9,6 +9,7 @@ const del = (url) => api(url, { method: "DELETE" });
 export const stateApi = {
   get: () => api("/api/state"),
   previewPlan: (posts) => post("/api/plan/preview", { posts }),
+  runMaintenance: () => post("/api/maintenance/run"),
 };
 
 export const mediaApi = {

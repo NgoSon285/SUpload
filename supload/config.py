@@ -30,15 +30,22 @@ def default_settings() -> dict:
         # giới hạn an toàn (cả hai cách)
         "min_gap": 300,  # giây tối thiểu giữa 2 bài
         "daily_max": 20,  # số bài tối đa mỗi ngày, 0 = không giới hạn
+        # dữ liệu
+        "keep_done_days": 90,  # tự xoá bài đã đăng sau N ngày, 0 = giữ mãi
     }
 
 
 SECRET_KEYS = ("page_token", "app_secret")
 
 
+def data_home() -> Path:
+    """Thư mục dữ liệu: biến môi trường SUPLOAD_HOME nếu có, mặc định là thư mục dự án."""
+    return Path(os.getenv("SUPLOAD_HOME") or ROOT)
+
+
 @dataclass
 class Config:
-    base_dir: Path = ROOT
+    base_dir: Path = field(default_factory=data_home)
     data_file: Path = field(default=None)  # type: ignore[assignment]
     upload_dir: Path = field(default=None)  # type: ignore[assignment]
     web_dir: Path = field(default=None)  # type: ignore[assignment]

@@ -71,6 +71,10 @@ def app(tmp_path, graph):
     """Ứng dụng với dữ liệu riêng cho từng test (không chạy luồng nền: test tự gọi process_one)."""
     a = create_app(Config(base_dir=tmp_path, start_worker=False))
     a.config["TESTING"] = True
+    # coi như vừa bảo trì xong, để test chỉ thấy việc đăng bài (bảo trì có test riêng)
+    from datetime import datetime
+    with a.extensions["supload"].store.transaction() as data:
+        data["maintenance"] = {"last_run": datetime.now().isoformat(timespec="seconds")}
     return a
 
 

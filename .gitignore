@@ -15,3 +15,5 @@ screenshots/
 __pycache__/
 .pytest_cache/
 test-results/
+supload.lock
+backups/

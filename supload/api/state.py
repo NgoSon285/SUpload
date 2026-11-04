@@ -69,7 +69,14 @@ def state():
     return jsonify(
         settings=public_settings(data["settings"]), posts=posts, log=data["log"][:100],
         worker=s.runtime.worker, login=s.runtime.login, limits=_limits_summary(data["posts"], data["settings"], now),
+        maintenance={**(data.get("maintenance") or {}), "backups": len(s.maintenance.backups())},
     )
+
+
+@bp.post("/api/maintenance/run")
+def run_maintenance():
+    """Sao lưu & dọn dẹp ngay (thay vì chờ lượt hằng ngày)."""
+    return jsonify(services().maintenance.run())
 
 
 @bp.post("/api/plan/preview")

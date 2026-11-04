@@ -213,12 +213,26 @@ Mẹo:
 |---|---|
 | `data.json` | Cài đặt, **token**, lịch đăng, flow, nhật ký |
 | `uploads/` | Ảnh bạn đã tải lên |
+| `backups/` | Bản sao lưu tự động của `data.json` (giữ 14 bản gần nhất) |
 | `fb_profile/` | Phiên đăng nhập Facebook (chỉ khi dùng cách Trình duyệt) |
 | `screenshots/` | Ảnh chụp khi đăng lỗi (cách Trình duyệt) |
 
-- Sao lưu: copy `data.json` và `uploads/`.
-- **Không chia sẻ** `data.json` và `fb_profile/`: ai có chúng là đăng được lên Page của bạn.
-  Các file này đã nằm trong `.gitignore`.
+Mặc định các thư mục này nằm cạnh `app.py`. Muốn để chỗ khác (ổ khác, thư mục đồng bộ…), đặt biến môi trường
+`SUPLOAD_HOME` trước khi chạy, ví dụ Windows `set SUPLOAD_HOME=D:\SUploadData`, macOS/Linux `export SUPLOAD_HOME=~/SUploadData`.
+
+**Sao lưu & dọn dẹp tự động** (mỗi ngày một lần khi ứng dụng chạy; hoặc bấm *Sao lưu & dọn dẹp ngay* trong
+**Cài đặt → Dữ liệu & sao lưu**):
+- Sao lưu `data.json` vào `backups/data-NămThángNgày-GiờPhútGiây.json` (trước khi dọn).
+- Xoá khỏi danh sách các bài **đã đăng** quá 90 ngày (đổi được: 30 ngày, 1 năm, hoặc giữ mãi). Bài lỗi/đang chờ không bị đụng tới.
+- Xoá ảnh trong `uploads/` không còn bài hay flow nào dùng, sau 7 ngày (để không xoá nhầm ảnh trong bản nháp).
+
+**Khôi phục từ bản sao lưu:** tắt ứng dụng, chép file mong muốn trong `backups/` đè lên `data.json`, rồi mở lại.
+
+**Chỉ chạy được một ứng dụng mỗi lúc** trên cùng thư mục dữ liệu: nếu lỡ chạy `python app.py` lần hai, nó sẽ báo
+“đã chạy ở cửa sổ khác” và mở lại giao diện đang chạy, thay vì chạy song song (hai phiên cùng chạy sẽ đăng trùng bài).
+
+- **Không chia sẻ** `data.json`, `backups/` và `fb_profile/`: ai có chúng là đăng được lên Page của bạn.
+  Các thư mục này đã nằm trong `.gitignore`.
 - Ứng dụng chỉ mở ở `127.0.0.1`, máy khác trong mạng không truy cập được.
 
 ## 9. Xử lý lỗi thường gặp
@@ -226,6 +240,7 @@ Mẹo:
 | Hiện tượng | Cách xử lý |
 |---|---|
 | `python` không được nhận diện | Cài lại Python, tích “Add to PATH”; hoặc dùng `py` (Windows) / `python3` (macOS, Linux). |
+| “SUpload đã chạy ở cửa sổ khác” | Đã có một cửa sổ đang chạy: dùng giao diện đó (vừa được mở lại). Muốn khởi động lại thì tắt cửa sổ cũ bằng `Ctrl + C` trước. |
 | `Address already in use` / cổng 5000 bận | Chạy ở cổng khác: Windows `set PORT=5050` rồi `python app.py`; macOS/Linux `PORT=5050 python app.py`. |
 | Trang trắng, báo “Chưa có giao diện” | Thư mục `web/` bị thiếu: tải lại mã nguồn, hoặc build lại (mục 11). |
 | Lỗi `[190] ...` | Token hết hạn/không hợp lệ: lấy User Token mới ở Graph API Explorer và làm lại **Bước 3**. |

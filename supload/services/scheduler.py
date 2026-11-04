@@ -4,6 +4,7 @@
 2. Tự đăng bài đã đến giờ (việc gấp nhất về thời gian)
 3. Giao bài sắp tới (trong 12 phút – 30 ngày) cho Facebook tự đăng   [cách API + bật hẹn giờ FB]
    Bài còn dưới 12 phút hoặc hơn 30 ngày nữa thì chờ, tới giờ tự đăng / tới lúc vào khung 30 ngày thì giao.
+4. Bảo trì hằng ngày: sao lưu, dọn dữ liệu cũ (services/maintenance.py)
 
 Thời điểm đăng do domain.planner quyết định (giãn cách tối thiểu, số bài tối đa mỗi ngày).
 """
@@ -15,14 +16,17 @@ from ..domain import planner
 from ..domain.posts import ERROR, PENDING, RUNNING, label
 from ..storage import Store, add_log, find
 from ..utils import now_iso
+from .maintenance import Maintenance
 from .publisher import Publisher
 from .runtime import Runtime
 
 
 class Scheduler:
-    def __init__(self, store: Store, publisher: Publisher, runtime: Runtime, idle_seconds: float = 10.0):
+    def __init__(self, store: Store, publisher: Publisher, runtime: Runtime, idle_seconds: float = 10.0,
+                 maintenance: Maintenance | None = None):
         self.store = store
         self.publisher = publisher
+        self.maintenance = maintenance
         self.runtime = runtime
         self.idle_seconds = idle_seconds
 
@@ -55,15 +59,16 @@ class Scheduler:
             job = self._pick(data, settings, now)
             if job:
                 kind, post, when = job
-                if kind != "check":
-                    post["status"] = RUNNING  # giữ chỗ, tránh xử lý trùng
-                else:
+                if kind == "check":
                     post["last_check_at"] = now.isoformat(timespec="seconds")
+                elif kind in ("publish", "handoff"):
+                    post["status"] = RUNNING  # giữ chỗ, tránh xử lý trùng
         if not job:
             return False
         kind, post, when = job
         try:
-            {"check": self._do_check, "handoff": self._do_handoff, "publish": self._do_publish}[kind](post, settings, now, when)
+            {"check": self._do_check, "handoff": self._do_handoff, "publish": self._do_publish,
+             "maintenance": self._do_maintenance}[kind](post, settings, now, when)
         finally:
             self.runtime.worker = "Đang rảnh"
         return True
@@ -82,6 +87,8 @@ class Scheduler:
         for when, pid in order:
             if self.publisher.can_hand_off(when, settings, now):
                 return "handoff", find(posts, pid), when
+        if self.maintenance and self.maintenance.due(data, now):
+            return "maintenance", None, None
         return None
 
     # ---------------------------------------------------------------- các việc
@@ -120,6 +127,10 @@ class Scheduler:
             self._finish(post["id"], fields, "error", f"Bài hẹn giờ có vấn đề: {fields['error']}")
         else:
             self._finish(post["id"], fields, None, None)
+
+    def _do_maintenance(self, post, settings: dict, now: datetime, when) -> None:
+        self.runtime.worker = "Đang sao lưu & dọn dữ liệu…"
+        self.maintenance.run(now)
 
 
 __all__ = ["Scheduler", "PENDING"]

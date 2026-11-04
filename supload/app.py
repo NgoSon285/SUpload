@@ -10,6 +10,8 @@ from flask import Flask
 
 from . import api
 from .config import Config
+from .instance import AlreadyRunning, SingleInstance
+from .services.maintenance import Maintenance
 from .services.publisher import Publisher
 from .services.runtime import Runtime
 from .services.scheduler import Scheduler
@@ -23,6 +25,7 @@ class Services:
     runtime: Runtime
     publisher: Publisher
     scheduler: Scheduler
+    maintenance: Maintenance
 
 
 def create_app(config: Config | None = None) -> Flask:
@@ -31,19 +34,32 @@ def create_app(config: Config | None = None) -> Flask:
     store = Store(config.data_file)
     runtime = Runtime()
     publisher = Publisher(config, runtime)
-    scheduler = Scheduler(store, publisher, runtime, config.worker_idle_seconds)
-    app.extensions["supload"] = Services(config, store, runtime, publisher, scheduler)
+    maintenance = Maintenance(store, config)
+    scheduler = Scheduler(store, publisher, runtime, config.worker_idle_seconds, maintenance)
+    app.extensions["supload"] = Services(config, store, runtime, publisher, scheduler, maintenance)
     api.register(app)
     return app
 
 
 def main() -> None:
-    app = create_app()
+    config = Config()
+    port = int(os.getenv("PORT", "5000"))
+    try:
+        instance = SingleInstance(config.base_dir / "supload.lock", port).acquire()
+    except AlreadyRunning as e:
+        print(f"{e}. Mở lại giao diện đang chạy thay vì chạy thêm (tránh đăng trùng bài).")
+        if e.port and not os.getenv("NO_BROWSER"):
+            webbrowser.open(f"http://127.0.0.1:{e.port}")
+        raise SystemExit(1) from None
+
+    app = create_app(config)
     s: Services = app.extensions["supload"]
     s.scheduler.recover_running()
     threading.Thread(target=s.scheduler.run_forever, daemon=True, name="supload-worker").start()
-    port = int(os.getenv("PORT", "5000"))
     if not os.getenv("NO_BROWSER"):
         threading.Timer(1.2, lambda: webbrowser.open(f"http://127.0.0.1:{port}")).start()
     print(f"SUpload đang chạy tại http://127.0.0.1:{port}  (Ctrl+C để thoát)")
-    app.run(host="127.0.0.1", port=port, debug=False, threaded=True)
+    try:
+        app.run(host="127.0.0.1", port=port, debug=False, threaded=True)
+    finally:
+        instance.release()

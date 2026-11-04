@@ -33,6 +33,7 @@ def apply_update(s: dict, body: dict) -> dict:
         s["method"] = "api"
     s["min_gap"] = _int(s.get("min_gap"), 0, 86400)
     s["daily_max"] = _int(s.get("daily_max"), 0, 500)
+    s["keep_done_days"] = _int(s.get("keep_done_days"), 0, 3650)
     s["headless"] = bool(s.get("headless"))
     s["fb_schedule"] = bool(s.get("fb_schedule"))
     return s

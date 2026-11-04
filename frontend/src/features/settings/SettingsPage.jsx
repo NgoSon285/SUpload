@@ -4,11 +4,12 @@ import {
   Stack, Switch, Text, TextInput, ThemeIcon, UnstyledButton, Affix, Transition, Paper,
 } from "@mantine/core";
 import {
-  IconAlertTriangle, IconBolt, IconCheck, IconClock, IconListDetails, IconPlugConnected, IconWorld,
+  IconAlertTriangle, IconBolt, IconCheck, IconClock, IconDatabase, IconListDetails, IconPlugConnected, IconWorld,
 } from "@tabler/icons-react";
 
 import { useApp } from "../../app/context";
-import { settingsApi } from "../../api/endpoints";
+import { settingsApi, stateApi } from "../../api/endpoints";
+import { when } from "../../lib/time";
 import { eventValue } from "../../lib/forms";
 import { PageHeader, notifyErr, notifyOk } from "../../components";
 
@@ -63,7 +64,7 @@ export default function SettingsPage() {
   const initial = () => ({
     method: s.method, app_id: s.app_id || "", app_secret: "", page_id: s.page_id || "", page_token: "",
     page_url: s.page_url || "", min_gap: String(s.min_gap ?? 300), headless: !!s.headless,
-    daily_max: s.daily_max ?? 20, fb_schedule: s.fb_schedule ?? true,
+    daily_max: s.daily_max ?? 20, fb_schedule: s.fb_schedule ?? true, keep_done_days: String(s.keep_done_days ?? 90),
   });
   const [f, setF] = useState(initial);
   const [dirty, setDirty] = useState(false);
@@ -80,7 +81,7 @@ export default function SettingsPage() {
   const save = async (silent) => {
     if (f.method === "browser" && f.page_url && !/facebook\.com\//.test(f.page_url)) { notifyErr("Địa chỉ Page phải là link facebook.com/…"); return false; }
     try {
-      await settingsApi.save({ ...f, min_gap: Number(f.min_gap), daily_max: Number(f.daily_max) || 0 });
+      await settingsApi.save({ ...f, min_gap: Number(f.min_gap), daily_max: Number(f.daily_max) || 0, keep_done_days: Number(f.keep_done_days) });
       setDirty(false);
       await refresh();
       if (!silent) notifyOk("Đã lưu cài đặt");
@@ -109,6 +110,15 @@ export default function SettingsPage() {
     setTest({ color: "orange", text: "Đang kiểm tra…" });
     try { const j = await settingsApi.testConnection(); setTest({ color: "teal", text: j.text }); refresh(); }
     catch (e) { setTest({ color: "red", text: e.message }); }
+  };
+  const runMaintenance = async () => {
+    setBusy("maint");
+    try {
+      const r = await stateApi.runMaintenance();
+      notifyOk(`Đã sao lưu (${r.last_backup}). Dọn ${r.removed_posts} bài cũ, ${r.removed_files} ảnh không dùng.`);
+      refresh();
+    } catch (e) { notifyErr(e.message); }
+    setBusy("");
   };
   const browserAction = async (a) => {
     if (dirty && !(await save(true))) return;
@@ -228,6 +238,26 @@ export default function SettingsPage() {
               Hôm nay: {state.limits.today}{state.limits.daily_max ? ` / ${state.limits.daily_max}` : ""} bài
             </Text>
           )}
+        </Step>
+
+        <Step n={4} title="Dữ liệu & sao lưu">
+          <Text size="sm" c="dimmed">
+            Mỗi ngày ứng dụng tự sao lưu <Code>data.json</Code> vào thư mục <Code>backups/</Code> (giữ 14 bản gần nhất),
+            dọn bài đã đăng lâu ngày và xoá ảnh không còn bài/flow nào dùng (sau 7 ngày).
+          </Text>
+          <div>
+            <Text size="sm" fw={500} mb={6}>Tự xoá bài đã đăng khỏi danh sách sau</Text>
+            <SegmentedControl value={f.keep_done_days} onChange={set("keep_done_days")}
+              data={[{ value: "30", label: "30 ngày" }, { value: "90", label: "90 ngày" }, { value: "365", label: "1 năm" }, { value: "0", label: "Giữ mãi" }]} />
+          </div>
+          <Group justify="space-between" wrap="wrap">
+            <Text size="sm" c="dimmed" data-testid="backup-info">
+              {state.maintenance?.last_run
+                ? `Lần gần nhất: ${when(state.maintenance.last_run)} · ${state.maintenance.backups} bản sao lưu`
+                : "Chưa sao lưu lần nào"}
+            </Text>
+            <Button variant="default" leftSection={<IconDatabase size={16} />} loading={busy === "maint"} onClick={runMaintenance}>Sao lưu & dọn dẹp ngay</Button>
+          </Group>
         </Step>
       </Stack>
 
