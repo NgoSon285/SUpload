@@ -71,6 +71,39 @@ Linux/macOS (cron, mỗi ngày 8h):
 Windows: dùng **Task Scheduler** để chạy cùng lệnh.
 Hoặc đơn giản hơn: dùng tham số `schedule` trong JSON để Facebook tự đăng đúng giờ.
 
+## 6. Cách 2: Đăng qua trình duyệt (Playwright)
+
+Dùng khi bạn muốn thao tác trên giao diện web như người dùng thường.
+
+```bash
+pip install -r requirements.txt
+playwright install chromium
+```
+
+**Đăng nhập 1 lần** (tự nhập tài khoản + 2FA trong cửa sổ mở ra; công cụ không lưu mật khẩu,
+chỉ lưu phiên trong thư mục `fb_profile/`):
+
+```bash
+python browser_poster.py login
+```
+
+**Đăng bài** (công cụ tự chuyển sang vai trò Page nếu Facebook hỏi "Chuyển ngay"):
+
+```bash
+python browser_poster.py post --page https://www.facebook.com/TenPage -m "Xin chào" -p ./anh.jpg
+python browser_poster.py batch posts.json --page https://www.facebook.com/TenPage
+```
+
+- `batch` mặc định chờ ngẫu nhiên 5–15 phút giữa các bài (`--min-delay`, `--max-delay`).
+- Thêm `--headless` để chạy ẩn (nên chạy hiện cửa sổ vài lần đầu để theo dõi).
+- Lỗi sẽ được chụp màn hình vào `screenshots/`, kết quả ghi ở `browser_post_log.jsonl`.
+- Ảnh phải là file trên máy (không hỗ trợ URL); không hỗ trợ hẹn giờ – dùng cron/Task Scheduler.
+- Giao diện Facebook thay đổi thường xuyên; nếu không tìm thấy nút, hãy sửa các biểu thức
+  `RE_*` ở đầu `browser_poster.py` cho khớp với chữ trên nút.
+- **Giữ bí mật thư mục `fb_profile/`**: nó chứa phiên đăng nhập của bạn.
+- Thực tế, tự động hóa trình duyệt dễ bị Facebook nghi ngờ hơn Graph API (cách 1), vì API là kênh
+  Facebook cấp chính thức cho chủ Page.
+
 ## Lưu ý
 
 - Nếu App ở chế độ *Development*, chỉ admin/tester của App dùng được. Với Page của chính bạn thì vậy là đủ.

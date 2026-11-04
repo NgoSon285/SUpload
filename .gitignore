@@ -4,3 +4,6 @@ __pycache__/
 .venv/
 posts.json
 post_log.jsonl
+fb_profile/
+screenshots/
+browser_post_log.jsonl
