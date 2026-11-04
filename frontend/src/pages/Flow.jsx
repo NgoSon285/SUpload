@@ -258,7 +258,7 @@ function Editor({ flow, onChange, onRun, onReseed }) {
           </ReactFlow>
           <Paper withBorder shadow="sm" radius="md" p={6} pos="absolute" top={12} right={12} style={{ zIndex: 5 }}>
             <Group gap="xs">
-              <Badge variant="light" size="lg" style={{ textTransform: "none" }}>{schedule.posts.length} bài</Badge>
+              <Badge data-testid="flow-count" variant="light" size="lg" style={{ textTransform: "none" }}>{schedule.posts.length} bài</Badge>
               {nIssues > 0 && <Tooltip label="Một số khối cần kiểm tra (viền cam)"><Badge color="orange" variant="light" size="lg" leftSection={<IconAlertTriangle size={14} />} style={{ textTransform: "none" }}>{nIssues} cảnh báo</Badge></Tooltip>}
               <Tooltip label="Xáo lại các lựa chọn ngẫu nhiên ({a|b}, phiên bản, thứ tự, thời gian chờ)"><ActionIcon variant="default" size="lg" onClick={onReseed} aria-label="Xáo lại"><IconDice5 size={18} /></ActionIcon></Tooltip>
               <Button size="xs" leftSection={<IconPlayerPlay size={14} />} onClick={() => onRun(schedule)} disabled={!schedule.posts.length}>Chạy flow</Button>
@@ -291,12 +291,16 @@ export default function Flow() {
   const [saveState, setSaveState] = useState("saved");
   const current = flows?.find((f) => f.id === currentId) || null;
 
+  const pending = useRef(null); // thay đổi chưa kịp lưu
   const persist = useCallback(async (f) => {
+    if (pending.current?.id === f.id) pending.current = null;
     setSaveState("saving");
     try { await api(`/api/flows/${f.id}`, { method: "PUT", body: f }); setSaveState("saved"); }
     catch (e) { setSaveState("error"); notifyErr(e.message, "Không lưu được flow"); }
   }, []);
   const persistLater = useDebouncedCallback(persist, 700);
+  // rời trang Flow trước khi kịp tự lưu -> lưu ngay
+  useEffect(() => () => { if (pending.current) persist(pending.current); }, [persist]);
 
   const createFlow = useCallback(async (kind = "sample", base) => {
     const body = base
@@ -319,7 +323,8 @@ export default function Flow() {
   const patchCurrent = (patch) => {
     setFlows((fs) => fs.map((f) => (f.id === currentId ? { ...f, ...patch } : f)));
     setSaveState("dirty");
-    persistLater({ ...current, ...patch });
+    pending.current = { ...current, ...patch };
+    persistLater(pending.current);
   };
 
   const deleteFlow = () => modals.openConfirmModal({

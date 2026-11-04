@@ -128,31 +128,37 @@ def next_due(data: dict) -> dict | None:
     return due[0] if due else None
 
 
+def process_one() -> bool:
+    """Đăng bài đến hạn kế tiếp (nếu có). Trả về True nếu đã xử lý một bài."""
+    with lock:
+        data = load()
+        post = next_due(data)
+        if post:
+            post["status"] = "running"
+            save(data)
+    if not post:
+        state["worker"] = "Đang rảnh"
+        return False
+    state["worker"] = "Đang đăng: " + (post.get("message") or "(ảnh)")[:40]
+    try:
+        info = publish(post, data["settings"])
+        update_post(post["id"], status="done", done_at=now_iso(), result=info, error="")
+        level, text = "ok", f"Đã đăng: {(post.get('message') or '(ảnh)')[:60]} ({info})"
+    except Exception as e:  # noqa: BLE001
+        update_post(post["id"], status="error", done_at=now_iso(), error=str(e))
+        level, text = "error", f"Lỗi khi đăng: {e}"
+    with lock:
+        data = load()
+        add_log(data, level, text)
+        save(data)
+    return True
+
+
 def worker() -> None:
     while True:
-        with lock:
-            data = load()
-            post = next_due(data)
-            if post:
-                post["status"] = "running"
-                save(data)
-        if not post:
-            state["worker"] = "Đang rảnh"
+        if not process_one():
             wake.wait(10)
             wake.clear()
-            continue
-        state["worker"] = "Đang đăng: " + (post.get("message") or "(ảnh)")[:40]
-        try:
-            info = publish(post, data["settings"])
-            update_post(post["id"], status="done", done_at=now_iso(), result=info, error="")
-            level, text = "ok", f"Đã đăng: {(post.get('message') or '(ảnh)')[:60]} ({info})"
-        except Exception as e:  # noqa: BLE001
-            update_post(post["id"], status="error", done_at=now_iso(), error=str(e))
-            level, text = "error", f"Lỗi khi đăng: {e}"
-        with lock:
-            data = load()
-            add_log(data, level, text)
-            save(data)
 
 
 # ---------------------------------------------------------------- routes
