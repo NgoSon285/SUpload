@@ -45,6 +45,16 @@ export const pagesApi = {
   test: (id) => post(`/api/pages/${id}/test`),
 };
 
+export const importApi = {
+  templateUrl: (format = "csv") => `/api/import/template?format=${format}`,
+  preview: (file) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return api("/api/import/preview", { method: "POST", body: fd });
+  },
+  commit: (rows, { skipErrors = false } = {}) => post("/api/import/commit", { rows, skip_errors: skipErrors }),
+};
+
 export const settingsApi = {
   save: (body) => post("/api/settings", body),
   testConnection: () => post("/api/test-connection"),

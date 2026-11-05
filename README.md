@@ -184,7 +184,27 @@ Bài vượt giới hạn **không bị bỏ**, mà được tự dời sang th�
 - Bấm **+** (hoặc nhấp đúp) vào một ô ngày để soạn bài cho ngày đó; bấm vào bài để sửa.
 - Màu theo trạng thái: xanh tím = đang chờ, xanh lơ = đã hẹn trên Facebook, xanh lá = đã đăng, đỏ = lỗi.
 
-## 7. Lên lịch hàng loạt bằng Flow
+## 7. Nhập bài hàng loạt từ Excel / CSV
+
+Trang **Lịch đăng → Nhập từ file**:
+
+1. Tải **File mẫu Excel** (hoặc CSV), mỗi dòng là một bài:
+
+   | Cột | Bắt buộc | Ghi chú |
+   |---|---|---|
+   | Nội dung | ✔ | Có thể viết nhiều đoạn trong một ô (Alt+Enter trong Excel) |
+   | Link | | `https://…` |
+   | Ảnh | | Link ảnh `https://…` (ứng dụng tự tải về) hoặc tên ảnh đã có trong thư viện; nhiều ảnh cách nhau bởi dấu phẩy |
+   | Thời gian | | `01/12/2026 20:00` (hoặc `2026-12-01 20:00`, hoặc ô ngày giờ của Excel). Để trống = đăng ngay; chỉ có ngày = 9:00 sáng |
+   | Page | | Tên Page (hoặc Page ID). Để trống = Page mặc định |
+
+   Tên cột viết có dấu hay không dấu, tiếng Việt hay tiếng Anh đều được (`noi dung`, `message`…). CSV dùng dấu phẩy hoặc chấm phẩy.
+2. Kéo thả file vào hộp thoại → xem trước từng dòng; dòng lỗi tô đỏ kèm lý do (sai thời gian, Page không tồn tại…).
+3. Bấm **Nhập N bài**. Có dòng lỗi thì sửa file rồi chọn lại, hoặc **Nhập các dòng hợp lệ, bỏ qua dòng lỗi**.
+
+Bài nhập vào vẫn tuân theo **giới hạn an toàn** của từng Page. Tối đa 500 bài mỗi lần.
+
+## 8. Lên lịch hàng loạt bằng Flow
 
 Trang **Flow chiến dịch** thay cho việc soạn từng bài: kéo thả các khối và nối chúng lại.
 Bạn tạo được **nhiều flow**, mỗi flow là một kịch bản dùng lại được (vd “Khuyến mãi cuối tuần”, “Tuyển dụng”).
@@ -232,7 +252,7 @@ Mẹo:
 - Bài nối ngay sau bài khác mà không có khối **Chờ** ở giữa sẽ đăng cùng lúc; hãy chèn khối Chờ để giãn ra.
 - Flow tự lưu, chọn lại ở ô danh sách flow phía trên.
 
-## 8. Dữ liệu được lưu ở đâu
+## 9. Dữ liệu được lưu ở đâu
 
 | File / thư mục | Nội dung |
 |---|---|
@@ -260,14 +280,14 @@ Mặc định các thư mục này nằm cạnh `app.py`. Muốn để chỗ kh�
   Các thư mục này đã nằm trong `.gitignore`.
 - Ứng dụng chỉ mở ở `127.0.0.1`, máy khác trong mạng không truy cập được.
 
-## 9. Xử lý lỗi thường gặp
+## 10. Xử lý lỗi thường gặp
 
 | Hiện tượng | Cách xử lý |
 |---|---|
 | `python` không được nhận diện | Cài lại Python, tích “Add to PATH”; hoặc dùng `py` (Windows) / `python3` (macOS, Linux). |
 | “SUpload đã chạy ở cửa sổ khác” | Đã có một cửa sổ đang chạy: dùng giao diện đó (vừa được mở lại). Muốn khởi động lại thì tắt cửa sổ cũ bằng `Ctrl + C` trước. |
 | `Address already in use` / cổng 5000 bận | Chạy ở cổng khác: Windows `set PORT=5050` rồi `python app.py`; macOS/Linux `PORT=5050 python app.py`. |
-| Trang trắng, báo “Chưa có giao diện” | Thư mục `web/` bị thiếu: tải lại mã nguồn, hoặc build lại (mục 11). |
+| Trang trắng, báo “Chưa có giao diện” | Thư mục `web/` bị thiếu: tải lại mã nguồn, hoặc build lại (mục 12). |
 | Lỗi `[190] ...` | Token hết hạn/không hợp lệ: lấy User Token mới ở Graph API Explorer và làm lại **Bước 3**. |
 | Lỗi `[200] ...` hoặc `[10] ...` | Thiếu quyền: tạo lại token với đủ 3 quyền và nhớ **chọn đúng Page** khi cấp quyền. |
 | Lỗi `[368] ...` | Facebook tạm chặn vì đăng quá dày/nội dung giống spam: giãn lịch đăng, đa dạng nội dung. |
@@ -281,7 +301,7 @@ Mặc định các thư mục này nằm cạnh `app.py`. Muốn để chỗ kh�
 
 Mọi hoạt động và lỗi đều được ghi ở trang **Nhật ký**.
 
-## 10. Chạy kiểm thử (tuỳ chọn)
+## 11. Chạy kiểm thử (tuỳ chọn)
 
 ```bash
 pip install -r requirements-dev.txt
@@ -298,6 +318,7 @@ Facebook được giả lập trong mọi test, **không đăng bài thật**.
 | `tests/test_app.py` | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt |
 | `tests/test_pages.py` | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page |
 | `tests/test_maintenance.py`, `tests/test_instance.py`, `tests/test_health.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần, kiểm tra kết nối |
+| `tests/test_import.py` | Nhập bài từ CSV/Excel |
 | `tests/test_e2e.py` | Giao diện thật bằng trình duyệt tự động (kể cả kéo thả trên Lịch) (cần `playwright install chromium`; tự bỏ qua nếu chưa cài) |
 
 Kiểm thử bộ tính lịch của Flow (cần Node.js 18+):
@@ -308,7 +329,7 @@ npm install
 npm test
 ```
 
-## 11. Sửa giao diện (dành cho lập trình viên)
+## 12. Sửa giao diện (dành cho lập trình viên)
 
 Mã nguồn giao diện nằm trong `frontend/` (Vite + React 18, Mantine, React Flow, Tabler Icons). Cần Node.js 18+.
 
@@ -322,7 +343,7 @@ npm run build                 # build ra ../web để python app.py phục vụ
 Thêm loại khối Flow mới: khai báo trong `frontend/src/features/flow/engine/nodes.jsx` (trường cấu hình, mặc định,
 cách tính lịch); bảng Thuộc tính tự sinh giao diện từ khai báo đó.
 
-## 12. Dùng bằng dòng lệnh (không cần giao diện)
+## 13. Dùng bằng dòng lệnh (không cần giao diện)
 
 Tạo `.env` từ mẫu `.env.example` và điền `FB_APP_ID`, `FB_APP_SECRET`, rồi:
 
@@ -342,7 +363,7 @@ python browser_poster.py post --page https://www.facebook.com/TenPage -m "Xin ch
 
 Giá trị trong `.env` (`FB_PAGE_ID`, `FB_PAGE_TOKEN`…) cũng được giao diện dùng làm mặc định khi chưa cấu hình.
 
-## 13. Kiến trúc
+## 14. Kiến trúc
 
 ```
 app.py, fb_poster.py, browser_poster.py   Lối vào (chỉ vài dòng, gọi vào package supload/)

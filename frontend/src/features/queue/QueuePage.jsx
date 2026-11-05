@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Button, Card, Group, Paper, SegmentedControl, Select, SimpleGrid, Stack, Text, ThemeIcon } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { IconAlertTriangle, IconCalendarMonth, IconCheck, IconClock, IconGauge, IconInbox, IconList, IconPlus, IconSitemap, IconTrash } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCalendarMonth, IconFileSpreadsheet, IconCheck, IconClock, IconGauge, IconInbox, IconList, IconPlus, IconSitemap, IconTrash } from "@tabler/icons-react";
 
 import { useApp } from "../../app/context";
 import { postsApi } from "../../api/endpoints";
@@ -9,6 +9,7 @@ import { moveKeepingTime } from "../../lib/calendar";
 import { storage } from "../../lib/storage";
 import { toLocalIso, when } from "../../lib/time";
 import { CalendarView } from "./CalendarView";
+import { ImportModal } from "./ImportModal";
 import { EmptyState, PageHeader, notifyErr, notifyOk } from "../../components";
 import { defaultPage, pagesOf } from "../../lib/page";
 import { dayLabel } from "../../lib/time";
@@ -35,6 +36,7 @@ export default function QueuePage() {
   const { state, refresh, setView, setDraftPost } = useApp();
   const [filter, setFilter] = useState("pending");
   const [pageFilter, setPageFilter] = useState("all");
+  const [importing, setImporting] = useState(false);
   const [layout, setLayoutRaw] = useState(() => storage.get("queue-layout", "list"));
   const setLayout = (v) => { setLayoutRaw(v); storage.set("queue-layout", v); };
   const pages = pagesOf(state);
@@ -131,7 +133,7 @@ export default function QueuePage() {
     <>
       <PageHeader
         title="Lịch đăng" desc="Theo dõi các bài đang chờ, đã hẹn trên Facebook, đã đăng và bị lỗi."
-        right={<Group gap="xs"><Button variant="default" leftSection={<IconSitemap size={16} />} onClick={() => setView("flow")}>Flow</Button><Button leftSection={<IconPlus size={16} />} onClick={() => setView("compose")}>Bài mới</Button></Group>}
+        right={<Group gap="xs"><Button variant="default" leftSection={<IconFileSpreadsheet size={16} />} onClick={() => setImporting(true)}>Nhập từ file</Button><Button variant="default" leftSection={<IconSitemap size={16} />} onClick={() => setView("flow")}>Flow</Button><Button leftSection={<IconPlus size={16} />} onClick={() => setView("compose")}>Bài mới</Button></Group>}
       />
       <SimpleGrid cols={{ base: 1, xs: 3 }} mb="lg">
         <Stat icon={IconClock} color="indigo" value={counts.pending} label="Sắp đăng" />
@@ -169,6 +171,10 @@ export default function QueuePage() {
         {layout === "list" && filter === "done" && counts.done > 0 && <Button variant="subtle" color="gray" leftSection={<IconTrash size={16} />} onClick={clearDone}>Dọn bài đã đăng</Button>}
       </Group>
 
+      <ImportModal
+        opened={importing} onClose={() => setImporting(false)} onDone={refresh}
+        pageName={(id) => (pages.find((p) => p.id === id) || def)?.name || ""}
+      />
       {layout === "calendar" ? (
         <CalendarView
           posts={posts} pageName={pageName} onMove={move} onCreateAt={createAt}

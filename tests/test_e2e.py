@@ -539,3 +539,34 @@ def test_calendar_plus_opens_compose_for_that_day(page):
     page.get_by_role("button", name=f"Soạn bài ngày {d2.day}/{d2.month}").click()
     page.get_by_text("Sẽ đăng lúc 09:00", exact=False).wait_for()
     assert page.errors == []
+
+
+# ---------------------------------------------------------------- nhập từ file
+def test_import_from_csv_with_preview_and_errors(page, svc, tmp_path):
+    connect(page)
+    future = (datetime.now() + timedelta(days=3)).replace(hour=19, minute=0)
+    f = tmp_path / "bai.csv"
+    f.write_text(f"Nội dung,Thời gian\nBài tốt,{future:%d/%m/%Y %H:%M}\nBài lỗi,sai-ngày\nĐăng ngay,\n", encoding="utf-8")
+    page.goto(page.base)
+    nav(page, "Lịch đăng")
+    page.get_by_role("button", name="Nhập từ file").click()
+    page.get_by_test_id("import-drop").locator("input[type=file]").set_input_files(str(f))
+    table = page.get_by_test_id("import-table")
+    table.wait_for()
+    assert "Không hiểu thời gian" in table.inner_text()
+    assert page.get_by_role("button", name="Nhập 2 bài", exact=True).is_disabled()
+    page.get_by_role("button", name="Nhập 2 bài hợp lệ, bỏ qua 1 dòng lỗi").click()
+    page.get_by_text("Đã nhập 2 bài vào Lịch đăng").wait_for()
+    msgs = sorted(p["message"] for p in api_state(page)["posts"])
+    assert msgs == ["Bài tốt", "Đăng ngay"]
+    assert page.errors == []
+
+
+def test_import_template_download(page):
+    connect(page)
+    page.goto(page.base)
+    nav(page, "Lịch đăng")
+    page.get_by_role("button", name="Nhập từ file").click()
+    with page.expect_download() as dl:
+        page.get_by_role("link", name="File mẫu Excel").click()
+    assert dl.value.suggested_filename == "supload-mau.xlsx"
