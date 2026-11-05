@@ -6,6 +6,7 @@ import {
 
 import { imgUrl } from "../../api/client";
 import { hm, rel, when } from "../../lib/time";
+import { StatsLine } from "../insights/InsightsPage";
 import { STATUS, upcomingTime } from "./status";
 
 function TimeLine({ p }) {
@@ -52,6 +53,7 @@ export function PostRow({ p, pageName, onAction }) {
             {p.photos.length > 0 && <Group gap={4} fz="xs"><IconPhoto size={14} />{p.photos.length} ảnh</Group>}
             {p.link && p.message && <Group gap={4} fz="xs"><IconLink size={14} />có link</Group>}
           </Group>
+          {p.status === "done" && <StatsLine stats={p.stats} />}
           {p.shift_reason && (
             <Group gap={4} fz="xs" c="orange" data-testid="shift-reason">
               <IconArrowForward size={14} />Dời sang {when(p.effective_at)} vì {p.shift_reason}

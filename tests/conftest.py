@@ -27,6 +27,8 @@ class FakeGraph:
         self.published = set()    # id bài hẹn mà Facebook "đã đăng"
         self.missing = set()      # id bài "đã bị xoá trên Facebook"
         self.fail_delete = False  # giả lập không huỷ được bài hẹn
+        self.metrics = {"reactions": 5, "comments": 2, "shares": 1, "reach": 120}
+        self.no_insights = False  # giả lập token thiếu quyền read_insights
         self._ids = itertools.count(1)
 
     def __call__(self, method, path, base=None, **kwargs):
@@ -52,6 +54,15 @@ class FakeGraph:
             if self.fail_delete:
                 raise facebook.FBError("[2] Service temporarily unavailable", 2)
             return {"success": True}
+        if method == "GET" and path.endswith(("/insights", "/video_insights")):
+            if self.no_insights:
+                raise facebook.FBError("[10] Requires read_insights permission", 10)
+            return {"data": [{"values": [{"value": self.metrics["reach"]}]}]}
+        if method == "GET" and str(params.get("fields", "")).startswith(("reactions.", "likes.")):
+            m = self.metrics
+            key = "likes" if params["fields"].startswith("likes") else "reactions"
+            return {key: {"summary": {"total_count": m["reactions"]}}, "comments": {"summary": {"total_count": m["comments"]}},
+                    "shares": {"count": m["shares"]}}
         if method == "GET" and params.get("fields") in ("is_published", "published"):
             return {"id": path, params["fields"]: path in self.published}
         if path.endswith("/video_reels") and data.get("upload_phase") == "start":

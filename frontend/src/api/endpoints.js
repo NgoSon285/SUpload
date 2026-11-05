@@ -65,6 +65,11 @@ export const importApi = {
   commit: (rows, { skipErrors = false } = {}) => post("/api/import/commit", { rows, skip_errors: skipErrors }),
 };
 
+export const insightsApi = {
+  get: ({ days = 30, page = "" } = {}) => api(`/api/insights?days=${days}${page ? `&page=${page}` : ""}`),
+  refresh: () => post("/api/insights/refresh"),
+};
+
 export const settingsApi = {
   save: (body) => post("/api/settings", body),
   testConnection: () => post("/api/test-connection"),

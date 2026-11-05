@@ -24,6 +24,7 @@ class Publisher:
     def __init__(self, config: Config, runtime: Runtime):
         self.config = config
         self.runtime = runtime
+        self.last_fb_id: str | None = None  # mã bài trên Facebook của lần publish_now gần nhất (cách API)
 
     # ---------------------------------------------------------------- helpers
     def _photos(self, post: dict) -> list[str]:
@@ -53,7 +54,9 @@ class Publisher:
             raise ValueError(NO_PAGE)
         if page["kind"] == "api":
             res = self._post_api(post, page)
-            return f"id={res.get('post_id') or res.get('id')}"
+            self.last_fb_id = res.get("post_id") or res.get("id")
+            return f"id={self.last_fb_id}"
+        self.last_fb_id = None
         return self._publish_browser(post, page, settings)
 
     def _publish_browser(self, post: dict, page: dict, settings: dict) -> str:
@@ -96,6 +99,11 @@ class Publisher:
         except facebook.FBError as e:
             if e.code not in NOT_FOUND_CODES:
                 raise
+
+    # ---------------------------------------------------------------- chỉ số tương tác
+    def fetch_stats(self, post: dict, page: dict, now: datetime) -> dict:
+        s = self.poster(page).engagement(post["fb_id"], video=bool(post.get("video")))
+        return {**s, "fetched_at": now.isoformat(timespec="seconds")}
 
     # ---------------------------------------------------------------- tình trạng kết nối
     def check_page(self, page: dict) -> tuple[bool, str, int | None, str]:

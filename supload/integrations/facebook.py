@@ -147,6 +147,29 @@ class PagePoster:
         call("POST", f"{self.page_id}/video_reels", data=finish)
         return {"id": video_id}
 
+    # ------------------------------------------------------------ chỉ số tương tác
+    def engagement(self, post_id: str, video: bool = False) -> dict:
+        """Cảm xúc, bình luận, chia sẻ (cần pages_read_engagement) và tiếp cận (cần read_insights).
+
+        Trả về {"reactions", "comments", "shares", "reach", "reach_error"}; thiếu quyền tiếp cận thì reach=None.
+        """
+        if video:
+            fields = "likes.summary(total_count).limit(0),comments.summary(total_count).limit(0)"
+        else:
+            fields = "reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0),shares"
+        d = call("GET", post_id, params={"access_token": self.token, "fields": fields})
+        total = lambda k: int(((d.get(k) or {}).get("summary") or {}).get("total_count") or 0)  # noqa: E731
+        out = {"reactions": total("likes" if video else "reactions"), "comments": total("comments"),
+               "shares": int((d.get("shares") or {}).get("count") or 0), "reach": None, "reach_error": None}
+        edge, metric = ("video_insights", "total_video_impressions_unique") if video else ("insights", "post_impressions_unique")
+        try:
+            ins = call("GET", f"{post_id}/{edge}", params={"access_token": self.token, "metric": metric})
+            values = (ins.get("data") or [{}])[0].get("values") or [{}]
+            out["reach"] = int(values[0].get("value") or 0)
+        except FBError as e:
+            out["reach_error"] = "Cần quyền read_insights để xem lượt tiếp cận" if e.code in (10, 200, 100) else str(e)
+        return out
+
     def delete(self, post_id: str) -> None:
         """Xoá bài (dùng để huỷ bài đã hẹn giờ)."""
         call("DELETE", post_id, params={"access_token": self.token})

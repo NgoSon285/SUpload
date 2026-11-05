@@ -627,3 +627,34 @@ def test_compose_reel_and_queue_badge(page, svc, graph, tmp_path):
     page.get_by_text("Đã đăng (1)").click()
     page.get_by_test_id("post-row").get_by_text("Reels", exact=True).wait_for()
     assert page.errors == []
+
+
+# ---------------------------------------------------------------- thống kê
+def seed_stats(svc):
+    now = datetime.now()
+    with svc.store.transaction() as data:
+        pid = data["pages"][0]["id"]
+        for i, (hour, r) in enumerate([(20, 40), (20, 30), (8, 3), (8, 5), (12, 10), (21, 22)]):
+            t = (now - timedelta(days=i + 1)).replace(hour=hour, minute=0, second=0, microsecond=0)
+            data["posts"].append({"id": f"s{i}", "status": "done", "message": f"Bài {i} lúc {hour}h", "photos": [], "page": pid,
+                                  "created_at": t.isoformat(), "done_at": t.isoformat(), "fb_id": f"111_s{i}",
+                                  "stats": {"reactions": r, "comments": 2, "shares": 1, "reach": r * 10, "fetched_at": now.isoformat()}})
+
+
+def test_insights_page(page, svc):
+    connect(page)
+    seed_stats(svc)
+    page.goto(page.base)
+    nav(page, "Thống kê")
+    page.get_by_test_id("best-hours").wait_for()
+    assert "20:00" in page.get_by_test_id("best-hours").inner_text()
+    assert page.get_by_test_id("chart-hour").locator(".bar").count() == 4  # 4 khung giờ có bài
+    page.get_by_test_id("chart-hour").get_by_label("20:00–20:59", exact=False).hover()
+    page.get_by_text("TB 38 tương tác · 2 bài", exact=False).wait_for()
+    assert "Bài 0 lúc 20h" in page.get_by_test_id("top-posts").locator("tbody tr").first.inner_text()
+    page.get_by_text("Xem dạng bảng số liệu").click()
+    page.get_by_role("columnheader", name="TB tương tác").first.wait_for()
+    nav(page, "Lịch đăng")
+    page.get_by_text("Đã đăng (6)").click()
+    page.get_by_test_id("post-stats").first.wait_for()
+    assert page.errors == []

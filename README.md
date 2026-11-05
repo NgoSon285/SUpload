@@ -110,7 +110,8 @@ riêng sẽ đăng lên Page này.
 
 1. Mở **Graph API Explorer**: <https://developers.facebook.com/tools/explorer>.
 2. Ở ô **Meta App**, chọn App vừa tạo. Ở ô **User or Page**, chọn **User Token**.
-3. Ở **Permissions**, thêm 3 quyền: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`.
+3. Ở **Permissions**, thêm 3 quyền: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`
+   (thêm `read_insights` nếu muốn xem lượt tiếp cận trong trang Thống kê).
 4. Bấm **Generate Access Token**, đăng nhập và **chọn mọi Page muốn quản lý** trong hộp thoại cấp quyền.
 5. Chép chuỗi token vừa tạo.
 
@@ -264,6 +265,16 @@ Mẹo:
 - Bài nối ngay sau bài khác mà không có khối **Chờ** ở giữa sẽ đăng cùng lúc; hãy chèn khối Chờ để giãn ra.
 - Flow tự lưu, chọn lại ở ô danh sách flow phía trên.
 
+### Thống kê tương tác
+
+Trang **Thống kê** cho biết các bài đăng qua **Graph API** đang được tương tác thế nào (bài qua Trình duyệt không có số liệu):
+- Ứng dụng tự lấy **cảm xúc, bình luận, chia sẻ, tiếp cận** của bài khoảng 10 phút sau khi đăng, rồi cập nhật mỗi 6 giờ trong 14 ngày.
+  Bấm **Cập nhật số liệu** để lấy lại ngay.
+- **Giờ hiệu quả nhất**: khung giờ có từ 2 bài trở lên và tương tác trung bình cao hơn mức chung. Dùng nó để đặt khối
+  **Khung giờ** trong Flow.
+- Biểu đồ theo giờ và theo thứ (rê chuột để xem số liệu, hoặc bật *Xem dạng bảng số liệu*), danh sách bài nổi bật.
+- **Lượt tiếp cận** cần thêm quyền `read_insights` khi tạo User Token; thiếu quyền này các số liệu khác vẫn hiện đủ.
+
 ## 9. Dữ liệu được lưu ở đâu
 
 | File / thư mục | Nội dung |
@@ -330,6 +341,7 @@ Facebook được giả lập trong mọi test, **không đăng bài thật**.
 | `tests/test_app.py` | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt |
 | `tests/test_pages.py` | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page |
 | `tests/test_maintenance.py`, `tests/test_instance.py`, `tests/test_health.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần, kiểm tra kết nối |
+| `tests/test_insights.py` | Lấy chỉ số tương tác, tổng hợp, giờ hiệu quả |
 | `tests/test_video.py` | Video thường & Reels (tải lên 3 bước, hẹn giờ, đối soát) |
 | `tests/test_import.py`, `tests/test_library.py` | Nhập bài từ CSV/Excel, thư viện nội dung & ảnh |
 | `tests/test_e2e.py` | Giao diện thật bằng trình duyệt tự động (kể cả kéo thả trên Lịch) (cần `playwright install chromium`; tự bỏ qua nếu chưa cài) |

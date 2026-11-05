@@ -5,7 +5,8 @@
 3. Giao bài sắp tới (trong 12 phút – 30 ngày) cho Facebook tự đăng   [cách API + bật hẹn giờ FB]
    Bài còn dưới 12 phút hoặc hơn 30 ngày nữa thì chờ, tới giờ tự đăng / tới lúc vào khung 30 ngày thì giao.
 4. Kiểm tra kết nối từng Page qua API, mỗi 6 giờ (domain/health.py)
-5. Bảo trì hằng ngày: sao lưu, dọn dữ liệu cũ (services/maintenance.py)
+5. Lấy chỉ số tương tác của bài đã đăng trong 14 ngày, mỗi bài 6 giờ/lần (domain/insights.py)
+6. Bảo trì hằng ngày: sao lưu, dọn dữ liệu cũ (services/maintenance.py)
 
 Thời điểm đăng do domain.planner quyết định (giãn cách tối thiểu, số bài tối đa mỗi ngày).
 """
@@ -13,7 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from ..domain import health, planner
+from ..domain import health, insights, planner
 from ..domain.pages import page_of
 from ..integrations.facebook import FBError
 from ..domain.posts import ERROR, PENDING, RUNNING, label
@@ -65,6 +66,8 @@ class Scheduler:
                 page = page_of(data, post) if post else None
                 if kind == "check":
                     post["last_check_at"] = now.isoformat(timespec="seconds")
+                elif kind == "stats":  # đánh dấu đã thử, lỗi thì 6 giờ sau thử lại
+                    post["stats"] = {**(post.get("stats") or {}), "fetched_at": now.isoformat(timespec="seconds")}
                 elif kind in ("publish", "handoff"):
                     post["status"] = RUNNING  # giữ chỗ, tránh xử lý trùng
         if not job:
@@ -72,7 +75,8 @@ class Scheduler:
         kind, post, when = job
         try:
             {"check": self._do_check, "handoff": self._do_handoff, "publish": self._do_publish,
-             "health": self._do_health, "maintenance": self._do_maintenance}[kind](post, page, settings, now, when)
+             "health": self._do_health, "stats": self._do_stats,
+             "maintenance": self._do_maintenance}[kind](post, page, settings, now, when)
         finally:
             self.runtime.worker = "Đang rảnh"
         return True
@@ -96,6 +100,9 @@ class Scheduler:
         for pg in data["pages"]:
             if health.due(data, pg, now):
                 return "health", {"id": None, "page": pg["id"]}, None
+        for p in posts:
+            if insights.needs_refresh(p, now) and (page_of(data, p) or {}).get("kind") == "api":
+                return "stats", p, None
         if self.maintenance and self.maintenance.due(data, now):
             return "maintenance", None, None
         return None
@@ -126,10 +133,11 @@ class Scheduler:
         self.runtime.worker = "Đang đăng: " + label(post)[:40]
         try:
             info = self.publisher.publish_now(post, page, settings)
+            fb_id = self.publisher.last_fb_id
             if page:
                 info = f"{info} · {page['name']}"
             self._finish(post["id"], {"status": "done", "done_at": now_iso(), "result": info, "error": "",
-                                      **({"page": page["id"]} if page else {})},
+                                      **({"page": page["id"]} if page else {}), **({"fb_id": fb_id} if fb_id else {})},
                          "ok", f"Đã đăng: {label(post)} ({info})", page)
         except Exception as e:  # noqa: BLE001
             msg = health.describe(e.code, str(e)) if isinstance(e, FBError) else str(e)
@@ -165,6 +173,17 @@ class Scheduler:
                 add_log(data, "error", f"Page “{page['name']}” mất kết nối: {err}")
             elif ok and before is not None and not before.get("ok"):
                 add_log(data, "ok", f"Page “{page['name']}” đã kết nối lại bình thường")
+
+    def _do_stats(self, post, page, settings: dict, now: datetime, when) -> None:
+        self.runtime.worker = "Đang cập nhật thống kê: " + label(post)[:30]
+        try:
+            stats = self.publisher.fetch_stats(post, page, now)
+        except FBError as e:
+            if e.code in (100, 803):  # bài đã bị xoá trên Facebook -> thôi theo dõi
+                self._finish(post["id"], {"stats": {**(post.get("stats") or {}), "fetched_at": now.isoformat(timespec="seconds"),
+                                                    "gone": True}, "fb_id": None}, None, None)
+            return
+        self._finish(post["id"], {"stats": stats}, None, None)
 
     def _do_maintenance(self, post, page, settings: dict, now: datetime, when) -> None:
         self.runtime.worker = "Đang sao lưu & dọn dữ liệu…"
