@@ -6,12 +6,13 @@ import {
 import { useDisclosure, useInterval } from "@mantine/hooks";
 import {
   IconPencil, IconCalendarEvent, IconSitemap, IconListDetails, IconAdjustments, IconSun, IconMoon,
-  IconDeviceDesktop, IconSend,
+  IconDeviceDesktop, IconSend, IconBooks,
 } from "@tabler/icons-react";
 
 import { stateApi } from "../api/endpoints";
 import ComposePage from "../features/compose/ComposePage";
 import FlowPage from "../features/flow/FlowPage";
+import LibraryPage from "../features/library/LibraryPage";
 import LogPage from "../features/log/LogPage";
 import QueuePage from "../features/queue/QueuePage";
 import SettingsPage from "../features/settings/SettingsPage";
@@ -24,6 +25,7 @@ const VIEWS = [
   { id: "compose", label: "Soạn bài", icon: IconPencil },
   { id: "queue", label: "Lịch đăng", icon: IconCalendarEvent },
   { id: "flow", label: "Flow chiến dịch", icon: IconSitemap },
+  { id: "library", label: "Thư viện", icon: IconBooks },
   { id: "log", label: "Nhật ký", icon: IconListDetails },
   { id: "settings", label: "Cài đặt", icon: IconAdjustments },
 ];
@@ -163,7 +165,7 @@ export default function App() {
               <HealthBanner pages={pagesOf(state)} onFix={() => setView("settings")} />
             </div>
           )}
-          {!state ? null : view === "compose" ? <ComposePage /> : view === "queue" ? <QueuePage /> : view === "flow" ? <FlowPage /> : view === "log" ? <LogPage /> : <SettingsPage />}
+          {!state ? null : view === "compose" ? <ComposePage /> : view === "queue" ? <QueuePage /> : view === "flow" ? <FlowPage /> : view === "library" ? <LibraryPage /> : view === "log" ? <LogPage /> : <SettingsPage />}
         </AppShell.Main>
       </AppShell>
     </AppContext.Provider>

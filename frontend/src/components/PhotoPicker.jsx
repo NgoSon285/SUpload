@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { ActionIcon, Group, SimpleGrid, Stack, Text } from "@mantine/core";
+import { ActionIcon, Button, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import { Dropzone } from "@mantine/dropzone";
-import { IconPhotoPlus, IconUpload, IconX } from "@tabler/icons-react";
+import { IconLibraryPhoto, IconPhotoPlus, IconUpload, IconX } from "@tabler/icons-react";
 
 import { imgUrl } from "../api/client";
 import { mediaApi } from "../api/endpoints";
+import { MediaPicker } from "./MediaPicker";
 import { notifyErr } from "./notify";
 
 const IMAGE_MIME = ["image/jpeg", "image/png", "image/gif", "image/webp"];
@@ -13,6 +14,7 @@ const IMAGE_MIME = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 export function PhotoPicker({ value, onChange, compact = false }) {
   const [busy, setBusy] = useState(false);
   const [dragFrom, setDragFrom] = useState(null);
+  const [libOpen, setLibOpen] = useState(false);
 
   const add = async (files) => {
     if (!files.length) return;
@@ -54,6 +56,10 @@ export function PhotoPicker({ value, onChange, compact = false }) {
           </div>
         </Group>
       </Dropzone>
+      <Group gap="xs">
+        <Button variant="subtle" size="compact-sm" leftSection={<IconLibraryPhoto size={16} />} onClick={() => setLibOpen(true)}>Chọn ảnh đã tải</Button>
+      </Group>
+      <MediaPicker opened={libOpen} onClose={() => setLibOpen(false)} exclude={value} onPick={(names) => onChange([...value, ...names])} />
 
       {value.length > 0 && (
         <SimpleGrid cols={compact ? 4 : { base: 4, xs: 5, md: 6 }} spacing="xs">

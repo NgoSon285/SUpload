@@ -26,3 +26,13 @@ describe("eventValue()", () => {
     expect(val).toBe("x");
   });
 });
+
+import { insertSnippet } from "../components/SnippetMenu";
+describe("insertSnippet()", () => {
+  it("mẫu bài thay khung trống; hashtag/chữ ký nối cuối, cách 1 dòng trống", () => {
+    expect(insertSnippet("", { kind: "template", content: "Mẫu" })).toBe("Mẫu");
+    expect(insertSnippet("Bài viết  \n", { kind: "hashtag", content: "#a #b" })).toBe("Bài viết\n\n#a #b");
+    expect(insertSnippet("Có chữ", { kind: "template", content: "Mẫu" })).toBe("Có chữ\n\nMẫu");
+    expect(insertSnippet("", { kind: "signature", content: "Hotline" })).toBe("Hotline");
+  });
+});

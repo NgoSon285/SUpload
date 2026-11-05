@@ -204,6 +204,14 @@ Trang **Lịch đăng → Nhập từ file**:
 
 Bài nhập vào vẫn tuân theo **giới hạn an toàn** của từng Page. Tối đa 500 bài mỗi lần.
 
+### Thư viện nội dung
+
+Trang **Thư viện** lưu những thứ dùng lại nhiều lần:
+- **Đoạn nội dung**: *Bộ hashtag*, *Chữ ký* (địa chỉ, hotline…), *Mẫu bài*. Khi soạn bài bấm **Chèn từ thư viện**:
+  hashtag/chữ ký được thêm vào cuối bài; mẫu bài điền vào khung trống. Mục hay dùng hiện lên đầu.
+- **Ảnh & video**: mọi file đã tải lên, kèm số bài/flow đang dùng. Xoá được file không còn dùng.
+  Khi soạn bài, bấm **Chọn ảnh đã tải** để dùng lại ảnh cũ thay vì tải lên lần nữa.
+
 ## 8. Lên lịch hàng loạt bằng Flow
 
 Trang **Flow chiến dịch** thay cho việc soạn từng bài: kéo thả các khối và nối chúng lại.
@@ -318,7 +326,7 @@ Facebook được giả lập trong mọi test, **không đăng bài thật**.
 | `tests/test_app.py` | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt |
 | `tests/test_pages.py` | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page |
 | `tests/test_maintenance.py`, `tests/test_instance.py`, `tests/test_health.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần, kiểm tra kết nối |
-| `tests/test_import.py` | Nhập bài từ CSV/Excel |
+| `tests/test_import.py`, `tests/test_library.py` | Nhập bài từ CSV/Excel, thư viện nội dung & ảnh |
 | `tests/test_e2e.py` | Giao diện thật bằng trình duyệt tự động (kể cả kéo thả trên Lịch) (cần `playwright install chromium`; tự bỏ qua nếu chưa cài) |
 
 Kiểm thử bộ tính lịch của Flow (cần Node.js 18+):

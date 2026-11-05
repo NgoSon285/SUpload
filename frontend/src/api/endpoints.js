@@ -18,6 +18,16 @@ export const mediaApi = {
     files.forEach((f) => fd.append("files", f));
     return (await api("/api/upload", { method: "POST", body: fd })).files;
   },
+  list: async () => (await api("/api/media")).media,
+  remove: (name) => del(`/api/media/${encodeURIComponent(name)}`),
+};
+
+export const libraryApi = {
+  list: () => api("/api/library"),
+  add: (body) => post("/api/library", body),
+  edit: (id, body) => put(`/api/library/${id}`, body),
+  remove: (id) => del(`/api/library/${id}`),
+  used: (id) => post(`/api/library/${id}/used`),
 };
 
 export const postsApi = {

@@ -570,3 +570,36 @@ def test_import_template_download(page):
     with page.expect_download() as dl:
         page.get_by_role("link", name="File mẫu Excel").click()
     assert dl.value.suggested_filename == "supload-mau.xlsx"
+
+
+# ---------------------------------------------------------------- thư viện
+def test_library_snippet_insert_and_reuse_photo(page, svc, tmp_path):
+    connect(page)
+    img = tmp_path / "logo.png"
+    img.write_bytes(PNG)
+    page.request.post(page.base + "/api/upload", multipart={"files": {"name": "logo.png", "mimeType": "image/png", "buffer": PNG}})
+    page.goto(page.base)
+    nav(page, "Thư viện")
+    page.get_by_role("button", name="Thêm").click()
+    dialog = page.get_by_role("dialog")
+    dialog.get_by_role("textbox", name="Nội dung").fill("#tiembanh #banhngon")
+    dialog.get_by_role("button", name="Lưu").click()
+    page.get_by_test_id("lib-item").wait_for()
+    page.get_by_role("tab", name="Ảnh & video").click()
+    page.get_by_test_id("media-item").wait_for()
+
+    nav(page, "Soạn bài")
+    page.get_by_label("Nội dung").fill("Bánh mới")
+    page.get_by_role("button", name="Chèn từ thư viện").click()
+    page.get_by_role("menuitem", name="#tiembanh #banhngon").first.click()
+    assert page.get_by_label("Nội dung").input_value() == "Bánh mới\n\n#tiembanh #banhngon"
+    page.get_by_role("button", name="Chọn ảnh đã tải").click()
+    page.get_by_test_id("media-picker").locator("button").first.click()
+    page.get_by_role("button", name="Thêm 1 ảnh").click()
+    page.locator(".thumb").first.wait_for()
+    page.get_by_role("button", name="Đăng ngay").last.click()
+    page.get_by_text("Đang đăng bài").wait_for()
+    p = api_state(page)["posts"][0]
+    assert p["message"].endswith("#tiembanh #banhngon") and len(p["photos"]) == 1
+    assert svc.store.load()["library"][0]["used"] == 1
+    assert page.errors == []

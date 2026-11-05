@@ -14,7 +14,7 @@ import { eventValue } from "../../lib/forms";
 import { configured, pagesOf, targetPage } from "../../lib/page";
 import { storage } from "../../lib/storage";
 import { dayLabel, hm, presetTimes, rel, toLocalIso, when } from "../../lib/time";
-import { PageHeader, PhotoPicker, PostPreview, notifyErr, usePasteImages } from "../../components";
+import { PageHeader, PhotoPicker, PostPreview, SnippetMenu, notifyErr, usePasteImages } from "../../components";
 
 const EMPTY = { message: "", link: "", photos: [], page: "" }; // page "" = Page mặc định
 
@@ -177,6 +177,10 @@ export default function ComposePage() {
                 description={`${post.message.length.toLocaleString("vi-VN")} ký tự · dán ảnh trực tiếp bằng Ctrl+V`}
                 inputWrapperOrder={["label", "input", "description"]} size="md"
               />
+
+              <Group gap="xs" mt={-8}>
+                <SnippetMenu value={post.message} onChange={(v) => setPost((p) => ({ ...p, message: v }))} onOpenLibrary={() => setView("library")} />
+              </Group>
 
               <div>
                 <Text size="sm" fw={500} mb={6}>Ảnh</Text>
