@@ -209,6 +209,17 @@ Trang **Lịch đăng → Nhập từ file**:
 
 Bài nhập vào vẫn tuân theo **giới hạn an toàn** của từng Page. Tối đa 500 bài mỗi lần.
 
+### Trợ lý AI (Claude)
+
+Trong **Soạn bài**, nút **✨ Trợ lý AI** có 4 việc: *Viết lại hay hơn*, *Tạo phiên bản khác* (có thể dùng tất cả làm
+“nhiều phiên bản” cho khối Bài viết trong Flow), *Gợi ý hashtag*, *Viết bài từ ý tưởng*. Mỗi lần cho 3 phương án, chọn
+giọng văn (thân thiện, chuyên nghiệp, vui nhộn, ngắn gọn) rồi bấm **Dùng bản này**.
+
+Cần **API key Claude của riêng bạn**: tạo tại <https://console.anthropic.com/settings/keys>, dán vào **Cài đặt → Trợ lý AI**
+(hoặc đặt biến môi trường `ANTHROPIC_API_KEY`). Mỗi lần gợi ý tính một khoản phí nhỏ vào tài khoản đó. Model mặc định
+Claude Opus 5.5 (chất lượng cao nhất); đổi sang Sonnet 5.5 hoặc Haiku 5.5 trong Cài đặt nếu muốn rẻ hơn.
+AI được dặn không bịa giá, ngày, địa chỉ hay khuyến mãi, nhưng **hãy đọc lại trước khi đăng**.
+
 ### Thư viện nội dung
 
 Trang **Thư viện** lưu những thứ dùng lại nhiều lần:
@@ -341,6 +352,7 @@ Facebook được giả lập trong mọi test, **không đăng bài thật**.
 | `tests/test_app.py` | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt |
 | `tests/test_pages.py` | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page |
 | `tests/test_maintenance.py`, `tests/test_instance.py`, `tests/test_health.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần, kiểm tra kết nối |
+| `tests/test_ai.py` | Trợ lý AI (Claude API giả lập: không gọi mạng, không tốn phí) |
 | `tests/test_insights.py` | Lấy chỉ số tương tác, tổng hợp, giờ hiệu quả |
 | `tests/test_video.py` | Video thường & Reels (tải lên 3 bước, hẹn giờ, đối soát) |
 | `tests/test_import.py`, `tests/test_library.py` | Nhập bài từ CSV/Excel, thư viện nội dung & ảnh |

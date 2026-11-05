@@ -14,7 +14,7 @@ import { eventValue } from "../../lib/forms";
 import { configured, pagesOf, targetPage } from "../../lib/page";
 import { storage } from "../../lib/storage";
 import { dayLabel, hm, presetTimes, rel, toLocalIso, when } from "../../lib/time";
-import { PageHeader, PhotoPicker, PostPreview, SnippetMenu, VideoPicker, notifyErr, usePasteImages } from "../../components";
+import { AiAssistant, PageHeader, PhotoPicker, PostPreview, SnippetMenu, VideoPicker, notifyErr, usePasteImages } from "../../components";
 
 const EMPTY = { message: "", link: "", photos: [], page: "", video: "", video_kind: "video" }; // page "" = Page mặc định
 
@@ -187,6 +187,7 @@ export default function ComposePage() {
 
               <Group gap="xs" mt={-8}>
                 <SnippetMenu value={post.message} onChange={(v) => setPost((p) => ({ ...p, message: v }))} onOpenLibrary={() => setView("library")} />
+                <AiAssistant text={post.message} page={post.page} onApply={(v) => setPost((p) => ({ ...p, message: v }))} onOpenSettings={() => setView("settings")} />
               </Group>
 
               <div>

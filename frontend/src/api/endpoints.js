@@ -70,6 +70,11 @@ export const insightsApi = {
   refresh: () => post("/api/insights/refresh"),
 };
 
+export const aiApi = {
+  models: () => api("/api/ai/models"),
+  suggest: (body) => post("/api/ai/suggest", body),
+};
+
 export const settingsApi = {
   save: (body) => post("/api/settings", body),
   testConnection: () => post("/api/test-connection"),

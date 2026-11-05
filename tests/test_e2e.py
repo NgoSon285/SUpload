@@ -658,3 +658,43 @@ def test_insights_page(page, svc):
     page.get_by_text("Đã đăng (6)").click()
     page.get_by_test_id("post-stats").first.wait_for()
     assert page.errors == []
+
+
+# ---------------------------------------------------------------- trợ lý AI
+def test_ai_assistant_rewrites_and_adds_hashtags(page, svc, monkeypatch):
+    import json as _json
+    from types import SimpleNamespace
+    from supload.integrations import ai
+
+    def fake(client, **kw):
+        prompt = kw["messages"][0]["content"]
+        out = ["#banhngon", "#tiembanh"] if "hashtag" in prompt else ["Bản viết lại A 🎂", "Bản viết lại B"]
+        return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text=_json.dumps({"suggestions": out}))])
+    monkeypatch.setattr(ai, "create", fake)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    connect(page)
+    page.goto(page.base)
+    nav(page, "Soạn bài")
+    page.get_by_label("Nội dung").fill("bánh kem mới")
+    page.get_by_role("button", name="Trợ lý AI").click()
+    page.get_by_role("menuitem", name="Viết lại hay hơn").click()
+    page.get_by_text("Chưa có API key Claude", exact=False).wait_for()   # chưa cấu hình key
+    page.get_by_role("dialog").get_by_role("button", name="Mở Cài đặt").click()
+    page.get_by_label("API key Claude").fill("sk-ant-test")
+    page.get_by_role("button", name="Lưu cài đặt").click()
+    page.get_by_text("Đã lưu cài đặt").wait_for()
+    assert "sk-ant-test" not in page.content()
+
+    nav(page, "Soạn bài")
+    page.get_by_role("button", name="Trợ lý AI").click()
+    page.get_by_role("menuitem", name="Viết lại hay hơn").click()
+    page.get_by_test_id("ai-suggestion").first.wait_for()
+    page.get_by_role("button", name="Dùng bản này").first.click()
+    assert page.get_by_label("Nội dung").input_value() == "Bản viết lại A 🎂"
+    page.get_by_role("button", name="Trợ lý AI").click()
+    page.get_by_role("menuitem", name="Gợi ý hashtag").click()
+    page.get_by_role("button", name="Thêm 2 hashtag vào bài").click()
+    assert page.get_by_label("Nội dung").input_value() == "Bản viết lại A 🎂\n\n#banhngon #tiembanh"
+    # lỗi 400 duy nhất là câu trả lời "chưa có API key" có chủ đích ở đầu bài test
+    assert [e for e in page.errors if "status of 400" not in e] == []
+    assert len(page.errors) <= 1

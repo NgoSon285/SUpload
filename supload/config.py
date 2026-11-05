@@ -30,10 +30,13 @@ def default_settings() -> dict:
         "daily_max": 20,  # số bài tối đa mỗi ngày, 0 = không giới hạn
         # dữ liệu
         "keep_done_days": 90,  # tự xoá bài đã đăng sau N ngày, 0 = giữ mãi
+        # trợ lý AI (Claude API); để trống key = dùng biến môi trường ANTHROPIC_API_KEY nếu có
+        "anthropic_api_key": "",
+        "ai_model": "claude-opus-5-5",
     }
 
 
-SECRET_KEYS = ("app_secret",)
+SECRET_KEYS = ("app_secret", "anthropic_api_key")
 
 
 def data_home() -> Path:

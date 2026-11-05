@@ -5,10 +5,13 @@ from ..config import SECRET_KEYS, default_settings
 
 def public_settings(s: dict) -> dict:
     """Bản cài đặt gửi cho trình duyệt: ẩn token/secret, chỉ cho biết đã lưu hay chưa."""
+    import os
+
     out = dict(s)
     for k in SECRET_KEYS:
         out[k + "_set"] = bool(out.get(k))
         out[k] = ""
+    out["ai_env_key"] = bool(os.getenv("ANTHROPIC_API_KEY"))
     return out
 
 
@@ -32,6 +35,9 @@ def apply_update(s: dict, body: dict) -> dict:
     s["min_gap"] = _int(s.get("min_gap"), 0, 86400)
     s["daily_max"] = _int(s.get("daily_max"), 0, 500)
     s["keep_done_days"] = _int(s.get("keep_done_days"), 0, 3650)
+    from ..integrations.ai import DEFAULT_MODEL, MODELS
+    if s.get("ai_model") not in MODELS:
+        s["ai_model"] = DEFAULT_MODEL
     s["headless"] = bool(s.get("headless"))
     s["fb_schedule"] = bool(s.get("fb_schedule"))
     return s

@@ -1,4 +1,5 @@
 /** UI dùng chung cho mọi tính năng. */
+export { AiAssistant } from "./AiAssistant";
 export { EmptyState } from "./EmptyState";
 export { HealthBanner } from "./HealthBanner";
 export { MediaPicker } from "./MediaPicker";

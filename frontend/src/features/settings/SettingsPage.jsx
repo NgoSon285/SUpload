@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Affix, Button, Code, Group, NumberInput, Paper, SegmentedControl, Stack, Switch, Text, Transition } from "@mantine/core";
+import { Affix, Anchor, Button, Code, Group, NumberInput, Paper, PasswordInput, SegmentedControl, Select, Stack, Switch, Text, Transition } from "@mantine/core";
 import { IconDatabase } from "@tabler/icons-react";
 
 import { useApp } from "../../app/context";
@@ -22,6 +22,7 @@ export default function SettingsPage() {
   const initial = () => ({
     fb_schedule: s.fb_schedule ?? true, headless: !!s.headless, min_gap: String(s.min_gap ?? 300),
     daily_max: s.daily_max ?? 20, keep_done_days: String(s.keep_done_days ?? 90),
+    anthropic_api_key: "", ai_model: s.ai_model || "claude-opus-5-5",
   });
   const [f, setF] = useState(initial);
   const [dirty, setDirty] = useState(false);
@@ -36,6 +37,7 @@ export default function SettingsPage() {
     try {
       await settingsApi.save({ ...f, min_gap: Number(f.min_gap), daily_max: Number(f.daily_max) || 0, keep_done_days: Number(f.keep_done_days) });
       setDirty(false);
+      setF((x) => ({ ...x, anthropic_api_key: "" }));
       await refresh();
       notifyOk("Đã lưu cài đặt");
     } catch (e) { notifyErr(e.message); }
@@ -93,7 +95,24 @@ export default function SettingsPage() {
           )}
         </Step>
 
-        <Step n={5} title="Dữ liệu & sao lưu">
+        <Step n={5} title="Trợ lý AI (Claude)">
+          <Text size="sm" c="dimmed">
+            Gợi ý nội dung, hashtag và viết bài từ ý tưởng trong trang Soạn bài. Cần API key Claude của riêng bạn
+            (tạo tại <Anchor href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</Anchor>);
+            mỗi lần gợi ý tính phí nhỏ vào tài khoản đó.
+          </Text>
+          <PasswordInput
+            label="API key Claude" placeholder="sk-ant-…" value={f.anthropic_api_key} onChange={set("anthropic_api_key")} autoComplete="new-password" maw={460}
+            description={s.anthropic_api_key_set ? "Đã lưu, để trống nếu không đổi" : s.ai_env_key ? "Đang dùng biến môi trường ANTHROPIC_API_KEY" : "Chưa có key"}
+          />
+          <Select
+            label="Model" maw={460} allowDeselect={false} comboboxProps={{ withinPortal: true }} value={f.ai_model} onChange={set("ai_model")}
+            data={[{ value: "claude-opus-5-5", label: "Claude Opus 5.5 (chất lượng cao nhất)" }, { value: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 (cân bằng)" },
+              { value: "claude-haiku-5-5", label: "Claude Haiku 5.5 (nhanh, rẻ nhất)" }]}
+          />
+        </Step>
+
+        <Step n={6} title="Dữ liệu & sao lưu">
           <Text size="sm" c="dimmed">
             Mỗi ngày ứng dụng tự sao lưu <Code>data.json</Code> vào thư mục <Code>backups/</Code> (giữ 14 bản gần nhất),
             dọn bài đã đăng lâu ngày và xoá ảnh không còn bài/flow nào dùng (sau 7 ngày).
