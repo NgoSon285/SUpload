@@ -42,7 +42,12 @@ def create_app(config: Config | None = None) -> Flask:
     return app
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    import sys
+
+    args = sys.argv[1:] if argv is None else argv
+    if "--no-browser" in args:  # chạy ẩn (tự khởi động cùng Windows)
+        os.environ["NO_BROWSER"] = "1"
     config = Config()
     port = int(os.getenv("PORT", "5000"))
     try:

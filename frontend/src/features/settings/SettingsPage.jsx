@@ -9,6 +9,7 @@ import { eventValue } from "../../lib/forms";
 import { pagesOf } from "../../lib/page";
 import { when } from "../../lib/time";
 import { AddPage } from "./AddPageCard";
+import { AppCard } from "./AppCard";
 import { PagesCard } from "./PagesCard";
 import { GAPS, Step } from "./ui";
 
@@ -130,6 +131,10 @@ export default function SettingsPage() {
             </Text>
             <Button variant="default" leftSection={<IconDatabase size={16} />} loading={busy} onClick={runMaintenance}>Sao lưu & dọn dẹp ngay</Button>
           </Group>
+        </Step>
+
+        <Step n={7} title="Ứng dụng">
+          <AppCard />
         </Step>
       </Stack>
 

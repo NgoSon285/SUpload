@@ -17,3 +17,5 @@ __pycache__/
 test-results/
 supload.lock
 backups/
+build/
+dist/

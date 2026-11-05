@@ -75,6 +75,12 @@ export const aiApi = {
   suggest: (body) => post("/api/ai/suggest", body),
 };
 
+export const systemApi = {
+  info: () => api("/api/system"),
+  setAutostart: (enabled) => post("/api/system/autostart", { enabled }),
+  shutdown: () => post("/api/system/shutdown"),
+};
+
 export const settingsApi = {
   save: (body) => post("/api/settings", body),
   testConnection: () => post("/api/test-connection"),

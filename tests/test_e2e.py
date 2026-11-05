@@ -698,3 +698,19 @@ def test_ai_assistant_rewrites_and_adds_hashtags(page, svc, monkeypatch):
     # lỗi 400 duy nhất là câu trả lời "chưa có API key" có chủ đích ở đầu bài test
     assert [e for e in page.errors if "status of 400" not in e] == []
     assert len(page.errors) <= 1
+
+
+# ---------------------------------------------------------------- ứng dụng / tự khởi động
+def test_autostart_switch_in_settings(page, tmp_path, monkeypatch):
+    startup = tmp_path / "Startup"
+    monkeypatch.setenv("SUPLOAD_FAKE_STARTUP_DIR", str(startup))  # giả lập thư mục Startup của Windows
+    connect(page)
+    page.goto(page.base)
+    nav(page, "Cài đặt")
+    page.get_by_text("Khởi động cùng Windows", exact=True).click()
+    page.get_by_text("tự chạy ẩn mỗi khi bạn đăng nhập Windows", exact=False).wait_for()
+    assert (startup / "SUpload.vbs").exists()
+    page.get_by_text("Khởi động cùng Windows", exact=True).click()
+    page.get_by_text("Đã tắt tự khởi động").wait_for()
+    assert not (startup / "SUpload.vbs").exists()
+    assert page.errors == []

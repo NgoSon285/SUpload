@@ -2,13 +2,18 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(ROOT / ".env")
+# Khi đóng gói bằng PyInstaller: giao diện nằm trong gói (_MEIPASS), dữ liệu nằm cạnh file .exe
+FROZEN = bool(getattr(sys, "frozen", False))
+BUNDLE_DIR = Path(getattr(sys, "_MEIPASS", ROOT))
+APP_DIR = Path(sys.executable).resolve().parent if FROZEN else ROOT
+load_dotenv(APP_DIR / ".env")
 
 ALLOWED_IMAGE_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 ALLOWED_VIDEO_EXT = {".mp4", ".mov", ".m4v", ".webm"}
@@ -40,8 +45,8 @@ SECRET_KEYS = ("app_secret", "anthropic_api_key")
 
 
 def data_home() -> Path:
-    """Thư mục dữ liệu: biến môi trường SUPLOAD_HOME nếu có, mặc định là thư mục dự án."""
-    return Path(os.getenv("SUPLOAD_HOME") or ROOT)
+    """Thư mục dữ liệu: biến môi trường SUPLOAD_HOME nếu có, mặc định là thư mục dự án (hoặc thư mục chứa .exe)."""
+    return Path(os.getenv("SUPLOAD_HOME") or APP_DIR)
 
 
 @dataclass
@@ -60,7 +65,7 @@ class Config:
         self.base_dir = b
         self.data_file = Path(self.data_file or b / "data.json")
         self.upload_dir = Path(self.upload_dir or b / "uploads")
-        self.web_dir = Path(self.web_dir or ROOT / "web")
+        self.web_dir = Path(self.web_dir or BUNDLE_DIR / "web")
         self.profile_dir = Path(self.profile_dir or b / "fb_profile")
         self.screenshot_dir = Path(self.screenshot_dir or b / "screenshots")
         self.upload_dir.mkdir(parents=True, exist_ok=True)

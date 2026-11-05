@@ -87,6 +87,24 @@ Trình duyệt sẽ tự mở <http://127.0.0.1:5000>. Nếu không tự mở, b
     nên cần đang chạy lúc đó. Tắt ứng dụng thì bài chưa tới giờ vẫn được giữ và đăng khi bạn mở lại.
 - Dừng ứng dụng: nhấn `Ctrl + C` trong cửa sổ dòng lệnh.
 
+### Cách không cần cài Python: SUpload.exe (Windows)
+
+1. Tải file `SUpload-windows.zip` (mục *Actions → Build Windows → Artifacts* trên GitHub của dự án, hoặc tự build
+   bằng `packaging\build_windows.bat`), giải nén vào một thư mục cố định, ví dụ `D:\SUpload`.
+2. Bấm đúp `SUpload.exe`. Lần đầu Windows có thể hiện *“Windows protected your PC”* vì file chưa được ký số:
+   bấm **More info → Run anyway**.
+3. Dữ liệu (`data.json`, `uploads/`, `backups/`) nằm ngay trong thư mục đó; chép cả thư mục là mang được sang máy khác.
+4. **Khởi động cùng Windows:** *Cài đặt → Ứng dụng → Khởi động cùng Windows*. Mỗi lần đăng nhập Windows, SUpload tự
+   chạy ẩn (không cửa sổ, không mở trình duyệt); mở giao diện bằng <http://127.0.0.1:5000>, tắt bằng nút **Tắt ứng dụng**.
+
+Bản `.exe` không có cách đăng **Trình duyệt** (cần Playwright + Chromium, rất nặng); dùng Page qua Graph API, hoặc chạy
+từ mã nguồn bằng Python nếu cần cách Trình duyệt.
+
+**Tự build `.exe`** trên máy Windows có Python 3.10+: bấm đúp `packaging\build_windows.bat`
+→ kết quả ở `dist\SUpload\SUpload.exe` và `dist\SUpload-windows.zip`. Trên GitHub, workflow
+*Build Windows* (`.github/workflows/build-windows.yml`) chạy test, build, chạy thử bản đóng gói và xuất file zip
+mỗi khi bấm *Run workflow* hoặc đẩy một tag `v*`.
+
 ## 5. Kết nối Page
 
 Lần đầu mở, ứng dụng tự chuyển tới trang **Cài đặt**. Bạn kết nối được **nhiều Page** (mục *Thêm Page*), mỗi Page
@@ -352,6 +370,7 @@ Facebook được giả lập trong mọi test, **không đăng bài thật**.
 | `tests/test_app.py` | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt |
 | `tests/test_pages.py` | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page |
 | `tests/test_maintenance.py`, `tests/test_instance.py`, `tests/test_health.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần, kiểm tra kết nối |
+| `tests/test_system.py` | Tự khởi động cùng Windows, đường dẫn khi đóng gói `.exe` |
 | `tests/test_ai.py` | Trợ lý AI (Claude API giả lập: không gọi mạng, không tốn phí) |
 | `tests/test_insights.py` | Lấy chỉ số tương tác, tổng hợp, giờ hiệu quả |
 | `tests/test_video.py` | Video thường & Reels (tải lên 3 bước, hẹn giờ, đối soát) |
@@ -404,6 +423,7 @@ Giá trị trong `.env` (`FB_PAGE_ID`, `FB_PAGE_TOKEN`…) cũng được giao d
 
 ```
 app.py, fb_poster.py, browser_poster.py   Lối vào (chỉ vài dòng, gọi vào package supload/)
+packaging/                    Đóng gói SUpload.exe (PyInstaller spec, launcher, build_windows.bat)
 
 supload/                      Backend (Python, Flask)
   app.py                      create_app(config): ghép các phần lại (application factory)
