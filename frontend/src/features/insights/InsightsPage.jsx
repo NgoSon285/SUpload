@@ -60,6 +60,7 @@ export default function InsightsPage() {
   const hourData = (data?.by_hour || []).map((b) => ({ key: b.key, label: `${b.key}h`, value: b.avg, tip: b.posts ? `${b.key}:00–${b.key}:59 · TB ${b.avg} tương tác · ${b.posts} bài` : `${b.key}:00–${b.key}:59 · chưa có bài` }));
   const dowData = (data?.by_dow || []).map((b) => ({ key: b.key, label: b.label, value: b.avg, tip: b.posts ? `${b.label} · TB ${b.avg} tương tác · ${b.posts} bài` : `${b.label} · chưa có bài` }));
   const t = data?.totals || {};
+  const noPerm = !data?.reach_note || data.reach_note.includes("read_insights");
 
   return (
     <>
@@ -88,12 +89,15 @@ export default function InsightsPage() {
             <Tile icon={IconChartBar} label="Bài có số liệu" value={nf(data.posts)} />
             <Tile icon={IconHeart} label="Tổng tương tác" value={nf(t.engagement)} note={`${nf(t.reactions)} cảm xúc · ${nf(t.comments)} bình luận · ${nf(t.shares)} chia sẻ`} />
             <Tile icon={IconSparkles} label="Tương tác trung bình / bài" value={nf(data.avg_engagement)} />
-            <Tile icon={IconEye} label="Tổng tiếp cận" value={nf(t.reach)} note={data.reach_missing ? "Cần quyền read_insights" : undefined} />
+            <Tile icon={IconEye} label="Tiếp cận / lượt xem" value={nf(t.reach)}
+              note={data.reach_missing ? (noPerm ? "Cần quyền read_insights" : "Chưa lấy được") : "Bài: người xem · Video/Reels: lượt xem"} />
           </SimpleGrid>
 
           {data.reach_missing && (
             <Alert variant="light" color="gray" icon={<IconInfoCircle />} py="xs">
-              Token chưa có quyền <b>read_insights</b> nên chưa xem được lượt tiếp cận. Tạo lại User Token với thêm quyền này rồi thêm lại Page (Cài đặt → Thêm Page).
+              {noPerm
+                ? <>Token chưa có quyền <b>read_insights</b> nên chưa xem được lượt tiếp cận. Tạo lại User Token với thêm quyền này rồi thêm lại Page (Cài đặt → Thêm Page).</>
+                : <>Chưa lấy được lượt tiếp cận: {data.reach_note}</>}
             </Alert>
           )}
 

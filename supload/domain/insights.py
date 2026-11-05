@@ -56,6 +56,8 @@ def summarize(posts: list[dict], since: datetime, page_of=lambda p: p.get("page"
         "totals": {**tot, "engagement": sum(tot.values()), "reach": sum(reach_rows) if reach_rows else None},
         "avg_engagement": round(overall, 1),
         "reach_missing": n > 0 and not reach_rows,
+        # lý do thiếu tiếp cận (thiếu quyền, hay Facebook ngừng hỗ trợ chỉ số) để giao diện báo đúng
+        "reach_note": next((p["stats"].get("reach_error") for p, _ in rows if p["stats"].get("reach_error")), None),
         "by_hour": by_hour, "by_dow": by_dow,
         "best_hours": [b["key"] for b in best],
         "top": [{"id": p["id"], "message": p.get("message", ""), "photos": p.get("photos", []), "video": p.get("video"),

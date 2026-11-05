@@ -55,6 +55,44 @@ def test_video_uses_likes_and_video_insights(connected, svc, graph):
     paths = [c["path"] for c in graph.calls]
     assert paths == ["111_v", "111_v/video_insights"]
     assert graph.calls[0]["params"]["fields"].startswith("likes.")
+    assert graph.calls[1]["params"]["metric"] == "total_video_views"
+    assert svc.store.load()["posts"][0]["stats"]["reach"] == 120
+
+
+def test_post_reach_uses_media_view_metric_and_lifetime_row(connected, svc, graph):
+    connected.post("/api/posts", json={"message": "x"})
+    now = datetime.now()
+    svc.scheduler.process_one(now=now)
+    svc.scheduler.process_one(now=now + timedelta(minutes=11))
+    ins = graph.by("GET", "/insights")[0]
+    assert ins["params"]["metric"] == "post_total_media_view_unique" and ins["params"]["period"] == "lifetime"
+    s = svc.store.load()["posts"][0]["stats"]
+    assert s["reach"] == 120 and s["reach_error"] is None  # lấy dòng lifetime, bỏ dòng theo ngày
+
+
+def test_retired_metric_error_is_not_reported_as_missing_permission():
+    from supload.integrations import facebook as fb
+    calls = []
+
+    def fake(method, path, base=fb.GRAPH, **kw):
+        calls.append(path)
+        if path.endswith("/insights"):
+            raise fb.FBError("[100] (#100) The value must be a valid insights metric", 100)
+        return {"reactions": {"summary": {"total_count": 3}}}
+
+    orig, fb.call = fb.call, fake
+    try:
+        s = fb.PagePoster("1", "t").engagement("1_2")
+    finally:
+        fb.call = orig
+    assert s["reactions"] == 3 and s["reach"] is None
+    assert "read_insights" not in s["reach_error"] and "không còn hỗ trợ" in s["reach_error"]
+
+
+def test_lifetime_value_sums_breakdowns():
+    from supload.integrations.facebook import _lifetime_value
+    assert _lifetime_value({"data": [{"period": "lifetime", "values": [{"value": {"a": 2, "b": 3}}]}]}) == 5
+    assert _lifetime_value({"data": []}) == 0
 
 
 def test_deleted_on_facebook_stops_tracking(connected, svc, graph):

@@ -29,6 +29,9 @@ class FakeGraph:
         self.fail_delete = False  # giả lập không huỷ được bài hẹn
         self.metrics = {"reactions": 5, "comments": 2, "shares": 1, "reach": 120}
         self.no_insights = False  # giả lập token thiếu quyền read_insights
+        # chỉ số Meta đã khai tử từ 06/2026
+        self.retired_metrics = {"post_impressions_unique", "post_impressions", "total_video_impressions", "total_video_impressions_unique"}
+        self.video_status = "ready"
         self._ids = itertools.count(1)
 
     def __call__(self, method, path, base=None, **kwargs):
@@ -57,12 +60,20 @@ class FakeGraph:
         if method == "GET" and path.endswith(("/insights", "/video_insights")):
             if self.no_insights:
                 raise facebook.FBError("[10] Requires read_insights permission", 10)
-            return {"data": [{"values": [{"value": self.metrics["reach"]}]}]}
+            if params.get("metric") in self.retired_metrics:  # Meta đã khai tử: báo lỗi cả yêu cầu
+                raise facebook.FBError("[100] (#100) The value must be a valid insights metric", 100)
+            return {"data": [{"name": params.get("metric"), "period": "day", "values": [{"value": 1}]},
+                             {"name": params.get("metric"), "period": "lifetime", "values": [{"value": self.metrics["reach"]}]}]}
         if method == "GET" and str(params.get("fields", "")).startswith(("reactions.", "likes.")):
             m = self.metrics
             key = "likes" if params["fields"].startswith("likes") else "reactions"
             return {key: {"summary": {"total_count": m["reactions"]}}, "comments": {"summary": {"total_count": m["comments"]}},
                     "shares": {"count": m["shares"]}}
+        if method == "GET" and str(params.get("fields", "")).startswith("status"):  # trạng thái xử lý video
+            return {"id": path, "status": {"video_status": self.video_status}, "published": self.video_status == "ready",
+                    "permalink_url": f"/reel/{path}"}
+        if method == "GET" and path.endswith("/posts"):
+            return {"data": [{"id": "111_latest"}]}
         if method == "GET" and params.get("fields") in ("is_published", "published"):
             return {"id": path, params["fields"]: path in self.published}
         if path.endswith("/video_reels") and data.get("upload_phase") == "start":

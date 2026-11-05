@@ -23,12 +23,12 @@ def test_video_upload_allowed_but_not_other_files(client):
     assert r.status_code == 400
 
 
-def test_video_post_published_via_graph_video(connected, svc, graph):
+def test_video_post_published_via_graph_host(connected, svc, graph):
     v = upload_video(connected)
     connected.post("/api/posts", json={"message": "Clip mới", "link": "https://x.vn", "video": v, "video_kind": "video"})
     svc.scheduler.process_one()
     call = graph.by("POST", "/videos")[0]
-    assert call["base"] == facebook.GRAPH_VIDEO and call["files"] == ["source"]
+    assert call["base"] == facebook.GRAPH and "graph-video" not in call["base"] and call["files"] == ["source"]
     assert call["data"]["description"] == "Clip mới\nhttps://x.vn"  # link gộp vào mô tả
     p = state(connected)["posts"][0]
     assert p["status"] == "done" and p["video"] == v
@@ -40,8 +40,8 @@ def test_reel_three_phase_upload(connected, svc, graph):
     svc.scheduler.process_one()
     start, upload, finish = graph.calls
     assert start["path"] == "111/video_reels" and start["data"]["upload_phase"] == "start"
-    vid = upload["path"]
-    assert upload["base"] == facebook.RUPLOAD and upload["data"]["_bytes"] == len(MP4)
+    vid = finish["data"]["video_id"]
+    assert upload["base"] == f"https://rupload.facebook.com/video-upload/v23.0/{vid}" and upload["path"] == "" and upload["data"]["_bytes"] == len(MP4)
     assert upload["headers"]["file_size"] == str(len(MP4)) and upload["headers"]["Authorization"].startswith("OAuth ")
     assert finish["data"] == {"upload_phase": "finish", "video_id": vid, "description": "Reel", "video_state": "PUBLISHED"}
     assert state(connected)["posts"][0]["result"].startswith(f"id={vid}")

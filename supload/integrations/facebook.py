@@ -12,8 +12,14 @@ import requests
 
 GRAPH_VERSION = os.getenv("FB_GRAPH_VERSION", "v23.0")
 GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
-GRAPH_VIDEO = f"https://graph-video.facebook.com/{GRAPH_VERSION}"      # tải video thường
-RUPLOAD = f"https://rupload.facebook.com/video-upload/{GRAPH_VERSION}"  # tải video Reels
+# Meta đã ngừng host graph-video.facebook.com cho việc tải video: tải video thường qua graph.facebook.com
+GRAPH_VIDEO = GRAPH
+RUPLOAD = f"https://rupload.facebook.com/video-upload/{GRAPH_VERSION}"  # tải video Reels (dự phòng nếu start không trả upload_url)
+
+# Chỉ số tiếp cận. Meta khai tử post_impressions_unique và total_video_impressions(_unique) từ 06/2026
+# (một tên chỉ số không hợp lệ làm hỏng cả yêu cầu), thay bằng nhóm "Media views/viewers".
+POST_REACH_METRIC = "post_total_media_view_unique"   # số người xem bài (thay post_impressions_unique)
+VIDEO_VIEWS_METRIC = "total_video_views"             # lượt xem video/Reels
 
 # Facebook chỉ nhận hẹn giờ từ 10 phút tới 30 ngày
 SCHEDULE_MIN_SECONDS = 600
@@ -28,7 +34,8 @@ class FBError(RuntimeError):
 
 def call(method: str, path: str, base: str = GRAPH, **kwargs) -> dict:
     """Gọi Graph API. Mọi lời gọi đi qua hàm này (test thay hàm này bằng bản giả)."""
-    resp = requests.request(method, f"{base}/{path.lstrip('/')}", timeout=600, **kwargs)
+    url = f"{base}/{path.lstrip('/')}" if path else base
+    resp = requests.request(method, url, timeout=600, **kwargs)
     try:
         data = resp.json()
     except ValueError:
@@ -121,7 +128,7 @@ class PagePoster:
         return {"published": "false", "scheduled_publish_time": str(ts)}
 
     def post_video(self, path: str, message: str = "", schedule: datetime | None = None) -> dict:
-        """Video thường (POST /{page}/videos trên graph-video). Trả về {'id': video_id}."""
+        """Video thường (POST /{page}/videos, gửi file qua trường source). Trả về {'id': video_id}."""
         p = Path(path)
         if not p.is_file():
             raise FBError(f"Không tìm thấy video: {path}")
@@ -138,7 +145,8 @@ class PagePoster:
         sched = self._schedule_fields(schedule)
         start = call("POST", f"{self.page_id}/video_reels", data={"access_token": self.token, "upload_phase": "start"})
         video_id = start["video_id"]
-        call("POST", video_id, base=RUPLOAD, data=p.read_bytes(),
+        upload_url = start.get("upload_url") or f"{RUPLOAD}/{video_id}"
+        call("POST", "", base=upload_url, data=p.read_bytes(),
              headers={"Authorization": f"OAuth {self.token}", "offset": "0", "file_size": str(p.stat().st_size)})
         finish = {"access_token": self.token, "upload_phase": "finish", "video_id": video_id, "description": message,
                   "video_state": "SCHEDULED" if sched else "PUBLISHED"}
@@ -161,13 +169,17 @@ class PagePoster:
         total = lambda k: int(((d.get(k) or {}).get("summary") or {}).get("total_count") or 0)  # noqa: E731
         out = {"reactions": total("likes" if video else "reactions"), "comments": total("comments"),
                "shares": int((d.get("shares") or {}).get("count") or 0), "reach": None, "reach_error": None}
-        edge, metric = ("video_insights", "total_video_impressions_unique") if video else ("insights", "post_impressions_unique")
+        edge, metric = ("video_insights", VIDEO_VIEWS_METRIC) if video else ("insights", POST_REACH_METRIC)
         try:
-            ins = call("GET", f"{post_id}/{edge}", params={"access_token": self.token, "metric": metric})
-            values = (ins.get("data") or [{}])[0].get("values") or [{}]
-            out["reach"] = int(values[0].get("value") or 0)
+            ins = call("GET", f"{post_id}/{edge}", params={"access_token": self.token, "metric": metric, "period": "lifetime"})
+            out["reach"] = _lifetime_value(ins)
         except FBError as e:
-            out["reach_error"] = "Cần quyền read_insights để xem lượt tiếp cận" if e.code in (10, 200, 100) else str(e)
+            if e.code in (10, 200):
+                out["reach_error"] = "Cần quyền read_insights để xem lượt tiếp cận"
+            elif e.code == 100 and "metric" in str(e).lower():
+                out["reach_error"] = "Facebook không còn hỗ trợ chỉ số tiếp cận này (cần cập nhật ứng dụng)"
+            else:
+                out["reach_error"] = str(e)
         return out
 
     def delete(self, post_id: str) -> None:
@@ -178,6 +190,15 @@ class PagePoster:
         """Bài (hoặc video/Reels nếu video=True) đã lên chưa."""
         field = "published" if video else "is_published"
         return bool(call("GET", post_id, params={"access_token": self.token, "fields": field}).get(field))
+
+
+def _lifetime_value(ins: dict) -> int:
+    """Lấy giá trị trọn đời từ kết quả insights; bỏ qua các dòng theo ngày nếu Facebook trả kèm."""
+    rows = ins.get("data") or []
+    row = next((r for r in rows if r.get("period") == "lifetime"), rows[0] if rows else {})
+    values = row.get("values") or [{}]
+    v = values[-1].get("value") or 0
+    return int(sum(v.values()) if isinstance(v, dict) else v)
 
 
 def parse_schedule(value: str | None) -> datetime | None:

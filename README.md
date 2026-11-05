@@ -199,7 +199,23 @@ Bài vượt giới hạn **không bị bỏ**, mà được tự dời sang th�
 
 **Video & Reels:** ở ô *Ảnh* chọn **Video** hoặc **Reels**, kéo thả một file MP4/MOV/WEBM (tối đa 1 GB).
 Reels cần video dọc 9:16, dài 3–90 giây. Cả hai hẹn giờ trên Facebook được như bài thường. Một bài chỉ có ảnh *hoặc* video.
-Reels chỉ đăng qua Graph API (chưa hỗ trợ cách Trình duyệt).
+Reels chỉ đăng qua Graph API (chưa hỗ trợ cách Trình duyệt). Facebook giới hạn 30 Reels đăng qua API mỗi Page trong 24 giờ.
+
+**Thử thật trên một Page phụ trước khi dùng cho Page chính:** dùng lệnh `kiemtra`. Lệnh đăng thử 1 video hoặc Reel,
+chờ Facebook xử lý xong, lấy số liệu (cả của bài mới nhất trên Page) rồi in kết quả từng bước:
+
+```bash
+python fb_poster.py kiemtra --video clip.mp4 --page "Tên Page phụ" --xoa
+```
+
+```bash
+python fb_poster.py kiemtra --video reel_doc.mp4 --reel --page "Tên Page phụ" --xoa
+```
+
+- `--page`: tên hoặc Page ID đã thêm trong ứng dụng; bỏ trống thì dùng `FB_PAGE_ID`/`FB_PAGE_TOKEN` trong `.env`.
+- `--xoa`: xoá video thử sau khi kiểm tra. Bỏ cờ này nếu muốn giữ lại để xem trên Page.
+- Số liệu của video vừa đăng sẽ là 0 (chưa ai xem), miễn là bước đó báo **[OK]** là API hoạt động.
+- Kết quả cũng được ghi vào `post_log.jsonl`. Nếu bước nào báo **[LỖI]**, gửi nguyên dòng lỗi đó để sửa.
 
 **Xem dạng Lịch:** ở trang **Lịch đăng**, chuyển *Danh sách → Lịch* để xem theo **Tháng** hoặc **Tuần**.
 - **Kéo một bài sang ngày khác** để dời lịch (giữ nguyên giờ). Bài *Đã hẹn trên Facebook* được huỷ và hẹn lại tự động.
@@ -302,7 +318,11 @@ Trang **Thống kê** cho biết các bài đăng qua **Graph API** đang đư�
 - **Giờ hiệu quả nhất**: khung giờ có từ 2 bài trở lên và tương tác trung bình cao hơn mức chung. Dùng nó để đặt khối
   **Khung giờ** trong Flow.
 - Biểu đồ theo giờ và theo thứ (rê chuột để xem số liệu, hoặc bật *Xem dạng bảng số liệu*), danh sách bài nổi bật.
-- **Lượt tiếp cận** cần thêm quyền `read_insights` khi tạo User Token; thiếu quyền này các số liệu khác vẫn hiện đủ.
+- **Tiếp cận / lượt xem** cần thêm quyền `read_insights` khi tạo User Token; thiếu quyền này các số liệu khác vẫn hiện đủ.
+  Với bài thường là số người xem (`post_total_media_view_unique`), với video/Reels là lượt xem (`total_video_views`).
+  Từ 06/2026 Meta đã khai tử `post_impressions_unique` và `total_video_impressions*`; ứng dụng đã chuyển sang chỉ số mới.
+  Nếu Meta đổi chỉ số lần nữa, trang Thống kê sẽ báo "Facebook không còn hỗ trợ chỉ số tiếp cận này" (các số khác vẫn đủ).
+- **Reels**: Facebook giới hạn **30 Reels đăng qua API mỗi Page trong 24 giờ**. Video nên dọc 9:16, dài 3–90 giây.
 
 ## 9. Dữ liệu được lưu ở đâu
 
