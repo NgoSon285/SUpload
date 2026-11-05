@@ -1,7 +1,7 @@
 import { ActionIcon, Alert, Badge, Card, Group, Image, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import {
   IconAlertTriangle, IconBrandFacebook, IconCheck, IconClock, IconCopy, IconLink, IconPencil, IconPhoto, IconRefresh,
-  IconSend, IconSitemap, IconTrash, IconArrowForward,
+  IconSend, IconSitemap, IconTrash, IconArrowForward, IconMovie,
 } from "@tabler/icons-react";
 
 import { imgUrl } from "../../api/client";
@@ -27,7 +27,9 @@ export function PostRow({ p, pageName, onAction }) {
   return (
     <Card p="sm" shadow="none" data-testid="post-row">
       <Group align="flex-start" wrap="nowrap" gap="md">
-        {p.photos.length ? (
+        {p.video ? (
+          <ThemeIcon size={64} radius="md" variant="light" color="grape"><IconMovie size={26} /></ThemeIcon>
+        ) : p.photos.length ? (
           <div style={{ position: "relative", flex: "none" }}>
             <Image src={imgUrl(p.photos[0])} w={64} h={64} radius="md" fit="cover" />
             {p.photos.length > 1 && <Badge size="xs" color="dark" style={{ position: "absolute", right: 4, bottom: 4 }}>+{p.photos.length - 1}</Badge>}
@@ -38,6 +40,7 @@ export function PostRow({ p, pageName, onAction }) {
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
           <Group gap={6}>
             <Badge variant="light" color={st.color} size="sm">{st.label}</Badge>
+            {p.video && <Badge variant="light" color="grape" size="sm">{p.video_kind === "reel" ? "Reels" : "Video"}</Badge>}
             {pageName && <Badge variant="outline" color="indigo" size="sm" style={{ textTransform: "none" }}>{pageName}</Badge>}
             {p.flow && <Badge variant="outline" color="gray" size="sm" leftSection={<IconSitemap size={11} />} style={{ textTransform: "none" }}>{p.flow}</Badge>}
           </Group>

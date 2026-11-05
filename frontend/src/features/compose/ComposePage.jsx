@@ -14,9 +14,9 @@ import { eventValue } from "../../lib/forms";
 import { configured, pagesOf, targetPage } from "../../lib/page";
 import { storage } from "../../lib/storage";
 import { dayLabel, hm, presetTimes, rel, toLocalIso, when } from "../../lib/time";
-import { PageHeader, PhotoPicker, PostPreview, SnippetMenu, notifyErr, usePasteImages } from "../../components";
+import { PageHeader, PhotoPicker, PostPreview, SnippetMenu, VideoPicker, notifyErr, usePasteImages } from "../../components";
 
-const EMPTY = { message: "", link: "", photos: [], page: "" }; // page "" = Page mặc định
+const EMPTY = { message: "", link: "", photos: [], page: "", video: "", video_kind: "video" }; // page "" = Page mặc định
 
 const confirmShift = (preview) =>
   new Promise((resolve) => modals.openConfirmModal({
@@ -34,6 +34,7 @@ const confirmShift = (preview) =>
 export default function ComposePage() {
   const { state, refresh, setView, draftPost, setDraftPost } = useApp();
   const [post, setPost] = useState(() => ({ ...EMPTY, ...(storage.get("draft", EMPTY) || {}) }));
+  const [mediaType, setMediaTypeState] = useState(() => (post.video ? (post.video_kind === "reel" ? "reel" : "video") : "photo"));
   const [showLink, setShowLink] = useState(!!post.link);
   const [mode, setMode] = useState("now");
   const [at, setAt] = useState(null);
@@ -46,7 +47,8 @@ export default function ComposePage() {
   useEffect(() => {
     if (!draftPost) return;
     const p = draftPost.post;
-    setPost({ message: p.message || "", link: p.link || "", photos: [...(p.photos || [])], page: p.page || "" });
+    setPost({ message: p.message || "", link: p.link || "", photos: [...(p.photos || [])], page: p.page || "", video: p.video || "", video_kind: p.video_kind || "video" });
+    setMediaTypeState(p.video ? (p.video_kind === "reel" ? "reel" : "video") : "photo");
     setShowLink(!!p.link);
     if (draftPost.mode === "schedule") {  // từ Lịch: soạn bài mới cho một ngày
       setEditingId(null);
@@ -73,7 +75,11 @@ export default function ComposePage() {
   const target = targetPage(state, post.page);
   const presets = useMemo(presetTimes, [mode, Math.floor(Date.now() / 60000)]); // eslint-disable-line
   const atValid = at && at > new Date();
-  const isEmpty = !post.message.trim() && !post.photos.length && !post.link.trim();
+  const isEmpty = !post.message.trim() && !post.photos.length && !post.link.trim() && !post.video;
+  const setMediaType = (t) => {
+    setMediaTypeState(t);
+    setPost((p) => ({ ...p, photos: t === "photo" ? p.photos : [], video: t === "photo" ? "" : p.video, video_kind: t === "reel" ? "reel" : "video" }));
+  };
 
   const chooseMode = (m) => {
     setMode(m);
@@ -81,7 +87,7 @@ export default function ComposePage() {
   };
 
   const reset = () => {
-    setPost(EMPTY); setShowLink(false); setMode("now"); setAt(null); setEditingId(null);
+    setPost(EMPTY); setMediaTypeState("photo"); setShowLink(false); setMode("now"); setAt(null); setEditingId(null);
     storage.set("draft", EMPTY);
   };
 
@@ -102,6 +108,7 @@ export default function ComposePage() {
     if (isEmpty) return notifyErr("Bài viết đang trống");
     if (mode === "later" && !atValid) return notifyErr("Chọn thời gian hẹn trong tương lai");
     const body = { ...post, scheduled_at: mode === "later" ? toLocalIso(at) : null };
+    if (!body.video) { delete body.video; delete body.video_kind; }
     setBusy(true);
     try {
       // Giới hạn an toàn có thể dời bài -> báo trước để người dùng quyết định
@@ -183,8 +190,14 @@ export default function ComposePage() {
               </Group>
 
               <div>
-                <Text size="sm" fw={500} mb={6}>Ảnh</Text>
-                <PhotoPicker value={post.photos} onChange={set("photos")} />
+                <Group justify="space-between" mb={6}>
+                  <Text size="sm" fw={500}>{mediaType === "photo" ? "Ảnh" : mediaType === "reel" ? "Video Reels" : "Video"}</Text>
+                  <SegmentedControl size="xs" value={mediaType} onChange={setMediaType} data-testid="media-type"
+                    data={[{ value: "photo", label: "Ảnh" }, { value: "video", label: "Video" }, { value: "reel", label: "Reels" }]} />
+                </Group>
+                {mediaType === "photo"
+                  ? <PhotoPicker value={post.photos} onChange={set("photos")} />
+                  : <VideoPicker value={post.video} onChange={set("video")} reel={mediaType === "reel"} />}
               </div>
 
               <div>

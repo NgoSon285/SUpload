@@ -22,7 +22,7 @@ def test_requires_page_id_and_token():
 
 def test_text_post_goes_to_feed(poster, graph):
     poster.post(message="Xin chào")
-    assert graph.calls == [{"method": "POST", "path": "111/feed", "data": {"message": "Xin chào"}, "params": {}, "files": []}]
+    assert graph.calls == [{"method": "POST", "path": "111/feed", "base": None, "data": {"message": "Xin chào"}, "params": {}, "files": []}]
 
 
 def test_link_post(poster, graph):

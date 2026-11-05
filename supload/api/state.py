@@ -7,7 +7,7 @@ from pathlib import Path
 from flask import Blueprint, jsonify, request, send_from_directory
 from werkzeug.utils import secure_filename
 
-from ..config import ALLOWED_IMAGE_EXT
+from ..config import ALLOWED_IMAGE_EXT, ALLOWED_VIDEO_EXT
 from ..domain import health
 from ..domain import pages as pages_domain
 from ..domain import planner
@@ -37,7 +37,7 @@ def upload():
     names = []
     for f in request.files.getlist("files"):
         ext = Path(f.filename or "").suffix.lower()
-        if ext not in ALLOWED_IMAGE_EXT:
+        if ext not in ALLOWED_IMAGE_EXT | ALLOWED_VIDEO_EXT:
             return error(f"Định dạng không hỗ trợ: {f.filename}")
         name = f"{new_id(n=8)}_{secure_filename(f.filename) or 'img' + ext}"
         f.save(services().config.upload_dir / name)

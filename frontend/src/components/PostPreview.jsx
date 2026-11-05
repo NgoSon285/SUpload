@@ -4,11 +4,11 @@ import { IconClock, IconLink, IconWorld } from "@tabler/icons-react";
 import { imgUrl } from "../api/client";
 
 /** Bản xem trước bài viết (minh hoạ, không mô phỏng giao diện Facebook). */
-export function PostPreview({ name, message, link, photos, timeLabel, scheduled }) {
+export function PostPreview({ name, message, link, photos, timeLabel, scheduled, video, video_kind: videoKind }) {
   const n = photos.length;
   const shown = photos.slice(0, Math.min(n, 4));
   const layout = { 1: ["1fr", "auto"], 2: ["1fr 1fr", "220px"], 3: ["2fr 1fr", "140px 140px"], 4: ["1fr 1fr", "140px 140px"] }[shown.length];
-  const empty = !message.trim() && !n && !link.trim();
+  const empty = !message.trim() && !n && !link.trim() && !video;
   return (
     <Card p={0}>
       <Group p="md" gap="sm">
@@ -31,6 +31,11 @@ export function PostPreview({ name, message, link, photos, timeLabel, scheduled 
           <IconLink size={16} />
           <Text size="sm" c="dimmed" truncate>{link.replace(/^https?:\/\//, "")}</Text>
         </Group>
+      )}
+      {video && (
+        <div style={{ background: "#000", display: "flex", justifyContent: "center" }}>
+          <video src={imgUrl(video)} controls style={{ maxHeight: 420, width: videoKind === "reel" ? "auto" : "100%", aspectRatio: videoKind === "reel" ? "9 / 16" : undefined }} />
+        </div>
       )}
       {shown.length > 0 && (
         <div className="pv-grid" style={{ gridTemplateColumns: layout[0], gridTemplateRows: layout[1] }}>

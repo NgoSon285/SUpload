@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from flask import Flask
 
 from . import api
-from .config import Config
+from .config import MAX_UPLOAD_BYTES, Config
 from .instance import AlreadyRunning, SingleInstance
 from .services.maintenance import Maintenance
 from .services.publisher import Publisher
@@ -31,6 +31,7 @@ class Services:
 def create_app(config: Config | None = None) -> Flask:
     config = config or Config()
     app = Flask(__name__, static_folder=str(config.web_dir / "assets"), static_url_path="/assets")
+    app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
     store = Store(config.data_file)
     runtime = Runtime()
     publisher = Publisher(config, runtime)

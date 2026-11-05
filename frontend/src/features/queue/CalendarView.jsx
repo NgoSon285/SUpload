@@ -21,7 +21,7 @@ function Chip({ p, pageName, onOpen, onDragStart }) {
         onClick={(e) => { e.stopPropagation(); onOpen(p); }}
         style={{ "--chip": `var(--mantine-color-${st.color}-6)`, cursor: movable ? "grab" : "pointer" }}
       >
-        <Text span size="xs" fw={700}>{hm(eventTime(p))}</Text>{" "}
+        <Text span size="xs" fw={700}>{hm(eventTime(p))}</Text>{" "}{p.video ? (p.video_kind === "reel" ? "🎞 " : "🎬 ") : ""}
         <Text span size="xs">{p.message || p.link || "Bài chỉ có ảnh"}</Text>
       </UnstyledButton>
     </Tooltip>

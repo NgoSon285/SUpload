@@ -12,6 +12,8 @@ import requests
 
 GRAPH_VERSION = os.getenv("FB_GRAPH_VERSION", "v23.0")
 GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
+GRAPH_VIDEO = f"https://graph-video.facebook.com/{GRAPH_VERSION}"      # tải video thường
+RUPLOAD = f"https://rupload.facebook.com/video-upload/{GRAPH_VERSION}"  # tải video Reels
 
 # Facebook chỉ nhận hẹn giờ từ 10 phút tới 30 ngày
 SCHEDULE_MIN_SECONDS = 600
@@ -24,9 +26,9 @@ class FBError(RuntimeError):
         self.code = code
 
 
-def call(method: str, path: str, **kwargs) -> dict:
+def call(method: str, path: str, base: str = GRAPH, **kwargs) -> dict:
     """Gọi Graph API. Mọi lời gọi đi qua hàm này (test thay hàm này bằng bản giả)."""
-    resp = requests.request(method, f"{GRAPH}/{path.lstrip('/')}", timeout=120, **kwargs)
+    resp = requests.request(method, f"{base}/{path.lstrip('/')}", timeout=600, **kwargs)
     try:
         data = resp.json()
     except ValueError:
@@ -108,12 +110,51 @@ class PagePoster:
             data[f"attached_media[{i}]"] = json.dumps({"media_fbid": media["id"]})
         return call("POST", f"{self.page_id}/feed", data=data)
 
+    # ------------------------------------------------------------ video
+    @staticmethod
+    def _schedule_fields(schedule: datetime | None) -> dict:
+        if not schedule:
+            return {}
+        ts = int(schedule.timestamp())
+        if not SCHEDULE_MIN_SECONDS <= ts - time.time() <= SCHEDULE_MAX_SECONDS:
+            raise FBError("Thời gian hẹn phải cách hiện tại từ 10 phút đến 30 ngày")
+        return {"published": "false", "scheduled_publish_time": str(ts)}
+
+    def post_video(self, path: str, message: str = "", schedule: datetime | None = None) -> dict:
+        """Video thường (POST /{page}/videos trên graph-video). Trả về {'id': video_id}."""
+        p = Path(path)
+        if not p.is_file():
+            raise FBError(f"Không tìm thấy video: {path}")
+        data = {"access_token": self.token, "description": message, **self._schedule_fields(schedule)}
+        mime = mimetypes.guess_type(p.name)[0] or "video/mp4"
+        with p.open("rb") as fh:
+            return call("POST", f"{self.page_id}/videos", base=GRAPH_VIDEO, data=data, files={"source": (p.name, fh, mime)})
+
+    def post_reel(self, path: str, message: str = "", schedule: datetime | None = None) -> dict:
+        """Reels: 3 bước start -> tải file lên rupload -> finish. Trả về {'id': video_id}."""
+        p = Path(path)
+        if not p.is_file():
+            raise FBError(f"Không tìm thấy video: {path}")
+        sched = self._schedule_fields(schedule)
+        start = call("POST", f"{self.page_id}/video_reels", data={"access_token": self.token, "upload_phase": "start"})
+        video_id = start["video_id"]
+        call("POST", video_id, base=RUPLOAD, data=p.read_bytes(),
+             headers={"Authorization": f"OAuth {self.token}", "offset": "0", "file_size": str(p.stat().st_size)})
+        finish = {"access_token": self.token, "upload_phase": "finish", "video_id": video_id, "description": message,
+                  "video_state": "SCHEDULED" if sched else "PUBLISHED"}
+        if sched:
+            finish["scheduled_publish_time"] = sched["scheduled_publish_time"]
+        call("POST", f"{self.page_id}/video_reels", data=finish)
+        return {"id": video_id}
+
     def delete(self, post_id: str) -> None:
         """Xoá bài (dùng để huỷ bài đã hẹn giờ)."""
         call("DELETE", post_id, params={"access_token": self.token})
 
-    def is_published(self, post_id: str) -> bool:
-        return bool(call("GET", post_id, params={"access_token": self.token, "fields": "is_published"}).get("is_published"))
+    def is_published(self, post_id: str, video: bool = False) -> bool:
+        """Bài (hoặc video/Reels nếu video=True) đã lên chưa."""
+        field = "published" if video else "is_published"
+        return bool(call("GET", post_id, params={"access_token": self.token, "fields": field}).get(field))
 
 
 def parse_schedule(value: str | None) -> datetime | None:

@@ -29,6 +29,18 @@ class Publisher:
     def _photos(self, post: dict) -> list[str]:
         return [str(self.config.upload_dir / f) for f in post.get("photos", [])]
 
+    def _video_message(self, post: dict) -> str:
+        msg = post.get("message", "")
+        return f"{msg}\n{post['link']}".strip() if post.get("link") else msg
+
+    def _post_api(self, post: dict, page: dict, schedule: datetime | None = None) -> dict:
+        poster = self.poster(page)
+        if post.get("video"):
+            path = str(self.config.upload_dir / post["video"])
+            fn = poster.post_reel if post.get("video_kind") == "reel" else poster.post_video
+            return fn(path, self._video_message(post), schedule=schedule)
+        return poster.post(message=post.get("message", ""), link=post.get("link") or None, photos=self._photos(post), schedule=schedule)
+
     @staticmethod
     def poster(page: dict | None) -> facebook.PagePoster:
         if not page:
@@ -40,7 +52,7 @@ class Publisher:
         if not page:
             raise ValueError(NO_PAGE)
         if page["kind"] == "api":
-            res = self.poster(page).post(message=post.get("message", ""), link=post.get("link") or None, photos=self._photos(post))
+            res = self._post_api(post, page)
             return f"id={res.get('post_id') or res.get('id')}"
         return self._publish_browser(post, page, settings)
 
@@ -49,13 +61,13 @@ class Publisher:
 
         if not page.get("url"):
             raise browser.PostError("Page này chưa có địa chỉ facebook.com/…")
+        if post.get("video_kind") == "reel" and post.get("video"):
+            raise browser.PostError("Reels chỉ đăng được qua Graph API, chưa hỗ trợ cách Trình duyệt")
         browser.configure(self.config.profile_dir, self.config.screenshot_dir)
-        message = post.get("message", "")
-        if post.get("link"):
-            message = f"{message}\n{post['link']}".strip()
+        files = [str(self.config.upload_dir / post["video"])] if post.get("video") else self._photos(post)
         with self.runtime.browser_lock:
             self.runtime.worker = f"Đang đăng qua trình duyệt lên {page['name']}..."
-            browser.post_once(page["url"], message, self._photos(post), settings.get("headless", False))
+            browser.post_once(page["url"], self._video_message(post), files, settings.get("headless", False))
         return "đã đăng qua trình duyệt"
 
     # ---------------------------------------------------------------- hẹn giờ trên Facebook
@@ -70,8 +82,7 @@ class Publisher:
 
     def hand_off(self, post: dict, page: dict, when: datetime) -> dict:
         """Gửi bài lên Facebook ở chế độ hẹn giờ. Trả về các trường cần cập nhật cho bài."""
-        res = self.poster(page).post(message=post.get("message", ""), link=post.get("link") or None,
-                                     photos=self._photos(post), schedule=when)
+        res = self._post_api(post, page, schedule=when)
         fb_id = res.get("post_id") or res.get("id")
         return {"status": SCHEDULED, "fb_id": fb_id, "fb_scheduled_at": when.isoformat(timespec="seconds"),
                 "page": page["id"], "result": f"đã hẹn trên Facebook (id={fb_id})", "error": ""}
@@ -111,7 +122,7 @@ class Publisher:
         """Hỏi Facebook xem bài hẹn đã lên chưa. Trả về các trường cần cập nhật."""
         when = parse_dt(post["fb_scheduled_at"])
         try:
-            published = self.poster(page).is_published(post["fb_id"])
+            published = self.poster(page).is_published(post["fb_id"], video=bool(post.get("video")))
         except facebook.FBError as e:
             if e.code in NOT_FOUND_CODES:
                 return {"status": ERROR, "done_at": now_iso(),

@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 
 ALLOWED_IMAGE_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+ALLOWED_VIDEO_EXT = {".mp4", ".mov", ".m4v", ".webm"}
+MAX_UPLOAD_BYTES = 1024 * 1024 * 1024  # 1 GB (giới hạn tải video đơn giản của Facebook)
 
 
 def default_settings() -> dict:

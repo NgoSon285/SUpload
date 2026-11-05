@@ -178,6 +178,10 @@ Bài vượt giới hạn **không bị bỏ**, mà được tự dời sang th�
      ứng dụng không xoá để tránh đăng trùng và hỏi bạn có muốn tự xoá trên Facebook không.
 5. Mở Page trên Facebook để kiểm tra bài (bài hẹn giờ nằm trong mục *Bài viết đã lên lịch* của Page).
 
+**Video & Reels:** ở ô *Ảnh* chọn **Video** hoặc **Reels**, kéo thả một file MP4/MOV/WEBM (tối đa 1 GB).
+Reels cần video dọc 9:16, dài 3–90 giây. Cả hai hẹn giờ trên Facebook được như bài thường. Một bài chỉ có ảnh *hoặc* video.
+Reels chỉ đăng qua Graph API (chưa hỗ trợ cách Trình duyệt).
+
 **Xem dạng Lịch:** ở trang **Lịch đăng**, chuyển *Danh sách → Lịch* để xem theo **Tháng** hoặc **Tuần**.
 - **Kéo một bài sang ngày khác** để dời lịch (giữ nguyên giờ). Bài *Đã hẹn trên Facebook* được huỷ và hẹn lại tự động.
   Không kéo được về ngày đã qua.
@@ -326,6 +330,7 @@ Facebook được giả lập trong mọi test, **không đăng bài thật**.
 | `tests/test_app.py` | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt |
 | `tests/test_pages.py` | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page |
 | `tests/test_maintenance.py`, `tests/test_instance.py`, `tests/test_health.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần, kiểm tra kết nối |
+| `tests/test_video.py` | Video thường & Reels (tải lên 3 bước, hẹn giờ, đối soát) |
 | `tests/test_import.py`, `tests/test_library.py` | Nhập bài từ CSV/Excel, thư viện nội dung & ảnh |
 | `tests/test_e2e.py` | Giao diện thật bằng trình duyệt tự động (kể cả kéo thả trên Lịch) (cần `playwright install chromium`; tự bỏ qua nếu chưa cài) |
 

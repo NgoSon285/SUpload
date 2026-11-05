@@ -603,3 +603,27 @@ def test_library_snippet_insert_and_reuse_photo(page, svc, tmp_path):
     assert p["message"].endswith("#tiembanh #banhngon") and len(p["photos"]) == 1
     assert svc.store.load()["library"][0]["used"] == 1
     assert page.errors == []
+
+
+# ---------------------------------------------------------------- video / reels
+def test_compose_reel_and_queue_badge(page, svc, graph, tmp_path):
+    connect(page)
+    clip = tmp_path / "reel.mp4"
+    clip.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64)
+    page.goto(page.base)
+    nav(page, "Soạn bài")
+    page.get_by_test_id("media-type").locator(".mantine-SegmentedControl-label", has_text="Reels").click()
+    page.get_by_text("video dọc 9:16", exact=False).wait_for()
+    page.get_by_test_id("video-drop").locator("input[type=file]").set_input_files(str(clip))
+    page.get_by_test_id("video-preview").wait_for()
+    page.get_by_label("Nội dung").fill("Reel đầu tiên")
+    page.get_by_role("button", name="Đăng ngay").last.click()
+    page.get_by_text("Đang đăng bài").wait_for()
+    p = api_state(page)["posts"][0]
+    assert p["video"].endswith("reel.mp4") and p["video_kind"] == "reel" and p["photos"] == []
+    svc.scheduler.process_one()
+    assert [c["path"] for c in graph.calls][0] == "111/video_reels"
+    nav(page, "Lịch đăng")
+    page.get_by_text("Đã đăng (1)").click()
+    page.get_by_test_id("post-row").get_by_text("Reels", exact=True).wait_for()
+    assert page.errors == []

@@ -29,12 +29,17 @@ class FakeGraph:
         self.fail_delete = False  # giả lập không huỷ được bài hẹn
         self._ids = itertools.count(1)
 
-    def __call__(self, method, path, **kwargs):
+    def __call__(self, method, path, base=None, **kwargs):
+        raw = kwargs.get("data")
+        if isinstance(raw, (bytes, bytearray)):  # tải file Reels lên rupload
+            self.calls.append({"method": method, "path": path, "base": base, "data": {"_bytes": len(raw)}, "params": {}, "files": [],
+                               "headers": kwargs.get("headers", {})})
+            return {"success": True}
         data = dict(kwargs.get("data") or {})
         data.pop("access_token", None)
         params = dict(kwargs.get("params") or {})
         params.pop("access_token", None)
-        self.calls.append({"method": method, "path": path, "data": data, "params": params, "files": list((kwargs.get("files") or {}).keys())})
+        self.calls.append({"method": method, "path": path, "base": base, "data": data, "params": params, "files": list((kwargs.get("files") or {}).keys())})
         if self.fail_on and self.fail_on in data.get("message", ""):
             raise facebook.FBError("[1] Lỗi giả lập", 1)
         if path == "oauth/access_token":
@@ -47,8 +52,13 @@ class FakeGraph:
             if self.fail_delete:
                 raise facebook.FBError("[2] Service temporarily unavailable", 2)
             return {"success": True}
-        if method == "GET" and params.get("fields") == "is_published":
-            return {"id": path, "is_published": path in self.published}
+        if method == "GET" and params.get("fields") in ("is_published", "published"):
+            return {"id": path, params["fields"]: path in self.published}
+        if path.endswith("/video_reels") and data.get("upload_phase") == "start":
+            vid = f"v_{next(self._ids)}"
+            return {"video_id": vid, "upload_url": f"https://rupload.facebook.com/video-upload/v23.0/{vid}"}
+        if path.endswith("/video_reels") and data.get("upload_phase") == "finish":
+            return {"success": True}
         if method == "GET":
             return {"id": path, "name": "Page Một"}
         return {"id": f"111_{next(self._ids)}"}
