@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert, Button, Card, Chip, Collapse, Grid, Group, Kbd, SegmentedControl, Select, Stack, Text, TextInput, Textarea, ThemeIcon,
+  Alert, Button, Card, Checkbox, Chip, Collapse, Grid, Group, Kbd, SegmentedControl, Select, Stack, Text, TextInput, Textarea, ThemeIcon,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useHotkeys, useInterval } from "@mantine/hooks";
@@ -48,6 +48,7 @@ export default function ComposePage() {
   const [at, setAt] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [alsoIg, setAlsoIg] = useState(() => storage.get("also-ig", false));
   const [, tick] = useState(0);
   useInterval(() => tick((x) => x + 1), 30000, { autoInvoke: true });
 
@@ -123,7 +124,7 @@ export default function ComposePage() {
     }
     if (isEmpty) return notifyErr("Bài viết đang trống");
     if (mode === "later" && !atValid) return notifyErr("Chọn thời gian hẹn trong tương lai");
-    const body = { ...post, scheduled_at: mode === "later" ? toLocalIso(at) : null };
+    const body = { ...post, scheduled_at: mode === "later" ? toLocalIso(at) : null, also_instagram: !editingId && !!igOk && alsoIg };
     if (!body.video) { delete body.video; delete body.video_kind; }
     setBusy(true);
     try {
@@ -140,7 +141,7 @@ export default function ComposePage() {
         const real = preview?.shifted ? new Date(preview.effective_at) : mode === "later" ? at : null;
         notifications.show({
           color: real ? "teal" : "indigo",
-          title: real ? "Đã lên lịch" : "Đang đăng bài",
+          title: (real ? "Đã lên lịch" : "Đang đăng bài") + (body.also_instagram ? " (Facebook + Instagram)" : ""),
           message: real ? `Bài sẽ được đăng lúc ${hm(real)}, ${dayLabel(real).toLowerCase()}.` : "Bài đã vào hàng đợi và sẽ được đăng ngay.",
         });
         reset();
@@ -154,6 +155,8 @@ export default function ComposePage() {
 
   useHotkeys([["mod+Enter", submit]], []);
   const fbSchedules = target?.kind === "api" && s.fb_schedule;
+  const ig = target?.kind === "api" ? target.instagram : null;
+  const igOk = ig && (post.photos.length > 0 || !!post.video);
   const onPaste = usePasteImages(async (files) => {
     try { const names = await mediaApi.upload(files); setPost((p) => ({ ...p, photos: [...p.photos, ...names] })); }
     catch (e) { notifyErr(e.message); }
@@ -235,6 +238,16 @@ export default function ComposePage() {
                   <TextInput label="Link" placeholder="https://..." leftSection={<IconLink size={16} />} value={post.link} onChange={set("link")} />
                 )}
               </div>
+
+              {ig && !editingId && (
+                <Checkbox
+                  data-testid="also-ig" checked={alsoIg && !!igOk} disabled={!igOk}
+                  onChange={(e) => { const v = e.currentTarget.checked; setAlsoIg(v); storage.set("also-ig", v); }}
+                  label={<>Đăng cả lên Instagram <b>@{ig.username}</b> <Text span size="xs" c="dimmed">(thử nghiệm)</Text></>}
+                  description={igOk ? (mediaType === "photo" ? "Đăng thành bài ảnh (nhiều ảnh = album, tối đa 10)." : "Video được đăng thành Reels trên Instagram.")
+                    : "Instagram cần ít nhất một ảnh hoặc video."}
+                />
+              )}
 
               <Card withBorder={false} shadow="none" bg="var(--mantine-color-default-hover)" p="md" radius="md">
                 <Group justify="space-between" wrap="wrap">

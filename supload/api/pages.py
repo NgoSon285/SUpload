@@ -113,7 +113,10 @@ def test_page(page_id):
         if ok and p and name:
             p["name"] = name
         if ok:
+            pages_domain.set_instagram(data, page_id, s.publisher.last_page_info)
+        if ok:
             add_log(data, "ok", f"Kết nối thành công tới Page: {name or page['name']}")
     if not ok:
         return error(err)
-    return jsonify(ok=True, text=f"Kết nối tốt tới Page “{name or page['name']}”")
+    ig = (pages_domain.find(s.store.load(), page_id) or {}).get("instagram")
+    return jsonify(ok=True, text=f"Kết nối tốt tới Page “{name or page['name']}”" + (f" · Instagram @{ig['username']}" if ig else ""))

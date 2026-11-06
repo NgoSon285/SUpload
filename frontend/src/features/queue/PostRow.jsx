@@ -41,6 +41,8 @@ export function PostRow({ p, pageName, onAction }) {
         <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
           <Group gap={6}>
             <Badge variant="light" color={st.color} size="sm">{st.label}</Badge>
+            {p.channel === "instagram" && <Badge variant="light" color="pink" size="sm" data-testid="ig-badge">Instagram</Badge>}
+            {p.source === "recycle" && <Badge variant="light" color="teal" size="sm">Đăng lại</Badge>}
             {p.video && <Badge variant="light" color="grape" size="sm">{p.video_kind === "reel" ? "Reels" : "Video"}</Badge>}
             {pageName && <Badge variant="outline" color="indigo" size="sm" style={{ textTransform: "none" }}>{pageName}</Badge>}
             {p.flow && <Badge variant="outline" color="gray" size="sm" leftSection={<IconSitemap size={11} />} style={{ textTransform: "none" }}>{p.flow}</Badge>}

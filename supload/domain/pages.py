@@ -104,3 +104,18 @@ def migrate(data: dict) -> dict:
     if s.get("default_page") and not find(data, s["default_page"]):
         s["default_page"] = data["pages"][0]["id"] if data["pages"] else ""
     return data
+
+
+def limit_key(data: dict, post: dict) -> str | None:
+    """Khoá tính giới hạn an toàn: mỗi Page, mỗi kênh (Facebook / Instagram) tính riêng."""
+    pid = (page_of(data, post) or {}).get("id")
+    return f"{pid}:ig" if pid and post.get("channel") == "instagram" else pid
+
+
+def set_instagram(data: dict, page_id: str, info: dict) -> None:
+    """Lưu tài khoản Instagram doanh nghiệp liên kết với Page (từ page_info)."""
+    page = find(data, page_id)
+    if page is None or not isinstance(info, dict):
+        return
+    ig = info.get("instagram_business_account") or None
+    page["instagram"] = {"id": ig["id"], "username": ig.get("username", "")} if ig and ig.get("id") else None

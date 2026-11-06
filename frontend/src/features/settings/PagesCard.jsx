@@ -61,6 +61,7 @@ export function PagesCard({ pages, perPageToday, dailyMax, onChanged }) {
                 <Group gap={6} wrap="nowrap">
                   <Text fw={600} size="sm" truncate>{p.name}</Text>
                   {p.default && <Badge size="xs" color="teal" variant="light">Mặc định</Badge>}
+                  {p.instagram && <Badge size="xs" color="pink" variant="light" style={{ textTransform: "none" }}>Instagram @{p.instagram.username}</Badge>}
                 </Group>
                 <Text size="xs" c="dimmed" truncate>
                   {KIND_LABEL[p.kind]} · {p.kind === "api" ? `ID ${p.fb_page_id}` : p.url}

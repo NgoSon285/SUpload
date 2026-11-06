@@ -54,7 +54,7 @@ def _used_today(posts: list[dict], now: datetime) -> int:
 
 
 def _page_key(data: dict):
-    return lambda p: (pages_domain.page_of(data, p) or {}).get("id")
+    return lambda p: pages_domain.limit_key(data, p)
 
 
 @bp.get("/api/state")
@@ -72,7 +72,8 @@ def state():
             page = pages_domain.page_of(data, p)
             p = {**p, "effective_at": slot.effective.isoformat(timespec="seconds"),
                  "shift_reason": planner.describe(slot, settings) if slot.shifted else "",
-                 "fb_handoff": s.publisher.fb_scheduling_enabled(page, settings) and slot.effective - now >= timedelta(minutes=12)}
+                 "fb_handoff": p.get("channel") != "instagram" and s.publisher.fb_scheduling_enabled(page, settings)
+                 and slot.effective - now >= timedelta(minutes=12)}
         posts.append(p)
     default = pages_domain.default_page(data)
     per_page = {pg["id"]: _used_today([p for p in data["posts"] if key(p) == pg["id"]], now) for pg in data["pages"]}

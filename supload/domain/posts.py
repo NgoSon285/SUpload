@@ -7,6 +7,7 @@ from ..config import ALLOWED_VIDEO_EXT
 from ..utils import new_id, now_iso
 
 VIDEO_KINDS = ("video", "reel")
+CHANNELS = ("facebook", "instagram")
 
 # Vòng đời bài viết:
 #   pending -> running -> done | error
@@ -39,6 +40,13 @@ def clean_body(body: dict, upload_dir: Path) -> dict:
         except (TypeError, ValueError):
             raise ValueError("Thời gian hẹn không hợp lệ") from None
     out = {"message": message, "photos": photos, "link": link, "scheduled_at": sched}
+    channel = body.get("channel") or "facebook"
+    if channel not in CHANNELS:
+        raise ValueError("Kênh đăng không hợp lệ")
+    if channel == "instagram":
+        if not (photos or video):
+            raise ValueError("Instagram cần ít nhất một ảnh hoặc video")
+        out["channel"] = channel
     if video:
         out.update(video=video, video_kind=video_kind)
     return out

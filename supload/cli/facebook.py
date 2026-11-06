@@ -154,6 +154,16 @@ def cmd_check(args, sleep=time.sleep) -> bool:
         return f"bài {posts[0]['id']}: cảm xúc={s['reactions']}, bình luận={s['comments']}, chia sẻ={s['shares']}, người xem={s['reach']}"
     step("Số liệu bài mới nhất (post_total_media_view_unique)", post_stats)
 
+    if args.instagram:
+        def ig_post():
+            info = fb.page_info(poster.page_id, poster.token).get("instagram_business_account")
+            if not info:
+                raise FBError("Page chưa liên kết tài khoản Instagram doanh nghiệp (hoặc token thiếu quyền instagram_basic)")
+            ig = fb.InstagramPoster(info["id"], poster)
+            res = ig.post_reel(args.video, args.message or f"SUpload kiểm tra Instagram {datetime.now():%H:%M %d/%m}")
+            return f"@{info.get('username', '')}: {ig.permalink(res['id']) or res['id']} (xoá thủ công trên Instagram nếu không cần)"
+        step("Đăng Reels lên Instagram liên kết (thử nghiệm)", ig_post)
+
     if args.xoa:
         step("Xoá video thử", lambda: poster.delete(st["id"]))
 
@@ -190,6 +200,7 @@ def main(argv=None) -> int:
     k.add_argument("-m", "--message", help="Chú thích (mặc định: 'SUpload kiểm tra …')")
     k.add_argument("--wait", type=int, default=300, help="Số giây chờ Facebook xử lý video (mặc định 300)")
     k.add_argument("--xoa", action="store_true", help="Xoá video thử sau khi kiểm tra")
+    k.add_argument("--instagram", action="store_true", help="Đăng thử thêm video đó dạng Reels lên Instagram liên kết với Page")
     k.set_defaults(func=cmd_check)
 
     args = ap.parse_args(argv)

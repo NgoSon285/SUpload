@@ -25,6 +25,8 @@ class Publisher:
         self.config = config
         self.runtime = runtime
         self.last_fb_id: str | None = None  # mã bài trên Facebook của lần publish_now gần nhất (cách API)
+        self.last_ig_id: str | None = None
+        self.last_page_info: dict = {}       # kết quả page_info của lần check_page gần nhất (tên, Instagram liên kết)
 
     # ---------------------------------------------------------------- helpers
     def _photos(self, post: dict) -> list[str]:
@@ -52,12 +54,31 @@ class Publisher:
     def publish_now(self, post: dict, page: dict | None, settings: dict) -> str:
         if not page:
             raise ValueError(NO_PAGE)
+        if post.get("channel") == "instagram":
+            self.last_fb_id = None
+            return self._publish_instagram(post, page)
         if page["kind"] == "api":
             res = self._post_api(post, page)
             self.last_fb_id = res.get("post_id") or res.get("id")
             return f"id={self.last_fb_id}"
         self.last_fb_id = None
         return self._publish_browser(post, page, settings)
+
+    def instagram(self, page: dict) -> facebook.InstagramPoster:
+        if page.get("kind") != "api":
+            raise facebook.FBError("Instagram chỉ đăng được với Page kết nối qua Graph API")
+        return facebook.InstagramPoster((page.get("instagram") or {}).get("id", ""), self.poster(page))
+
+    def _publish_instagram(self, post: dict, page: dict) -> str:
+        ig = self.instagram(page)
+        caption = self._video_message(post)
+        if post.get("video"):
+            res = ig.post_reel(str(self.config.upload_dir / post["video"]), caption)
+        else:
+            res = ig.post_photos(self._photos(post), caption)
+        self.last_ig_id = res.get("id")
+        link = ig.permalink(self.last_ig_id) if self.last_ig_id else ""
+        return f"Instagram id={self.last_ig_id}" + (f" {link}" if link else "")
 
     def _publish_browser(self, post: dict, page: dict, settings: dict) -> str:
         from ..integrations import browser  # chỉ cần playwright khi dùng cách này
@@ -79,8 +100,10 @@ class Publisher:
         return bool(settings.get("fb_schedule")) and has_api_credentials(page)
 
     @classmethod
-    def can_hand_off(cls, when: datetime, page: dict | None, settings: dict, now: datetime) -> bool:
-        """Bài đăng lúc `when` lên `page` có giao được cho Facebook tự đăng không."""
+    def can_hand_off(cls, when: datetime, page: dict | None, settings: dict, now: datetime, post: dict | None = None) -> bool:
+        """Bài đăng lúc `when` lên `page` có giao được cho Facebook tự đăng không (bài Instagram: không, ứng dụng tự đăng)."""
+        if post and post.get("channel") == "instagram":
+            return False
         return cls.fb_scheduling_enabled(page, settings) and FB_MIN_LEAD <= when - now <= FB_MAX_LEAD
 
     def hand_off(self, post: dict, page: dict, when: datetime) -> dict:
@@ -112,6 +135,7 @@ class Publisher:
 
         try:
             info = facebook.page_info(page["fb_page_id"], page["token"])
+            self.last_page_info = info
             return True, "", None, info.get("name", "")
         except facebook.FBError as e:
             return False, describe(e.code, str(e)), e.code, ""

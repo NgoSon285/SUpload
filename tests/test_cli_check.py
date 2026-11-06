@@ -44,3 +44,13 @@ def test_check_uses_page_saved_in_app(tmp_path, clip, graph, monkeypatch, capsys
     assert cli.main(["kiemtra", "--video", str(clip), "--page", "Page Phụ"]) == 0
     assert graph.calls[0]["path"] == "222"
     assert cli.main(["kiemtra", "--video", str(clip), "--page", "Không có"]) == 1
+
+
+def test_check_instagram_step(clip, graph, capsys):
+    graph.instagram = {"id": "ig1", "username": "tiembanh"}
+    assert cli.main(["kiemtra", "--video", str(clip), "--reel", "--instagram"]) == 0
+    out = capsys.readouterr().out
+    assert "@tiembanh: https://www.instagram.com/p/" in out and "6/6 bước qua" in out
+    graph.instagram = None
+    assert cli.main(["kiemtra", "--video", str(clip), "--instagram"]) == 1
+    assert "chưa liên kết" in capsys.readouterr().out

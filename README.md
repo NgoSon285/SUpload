@@ -130,7 +130,8 @@ riêng sẽ đăng lên Page này.
 2. Ở ô **Meta App**, chọn App vừa tạo. Ở ô **User or Page**, chọn **User Token**.
 3. Ở **Permissions**, thêm 3 quyền: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`
    (thêm `read_insights` nếu muốn xem lượt tiếp cận trong trang Thống kê; thêm `pages_read_user_content`,
-   `pages_manage_engagement`, `pages_messaging` để dùng trang Bình luận).
+   `pages_manage_engagement`, `pages_messaging` để dùng trang Bình luận; `instagram_basic`, `instagram_content_publish`
+   để đăng chéo Instagram).
 4. Bấm **Generate Access Token**, đăng nhập và **chọn mọi Page muốn quản lý** trong hộp thoại cấp quyền.
 5. Chép chuỗi token vừa tạo.
 
@@ -281,6 +282,18 @@ Bấm **Tự động** để đặt quy tắc cho bình luận mới:
 
 **Quyền cần thêm** khi tạo User Token (ngoài 3 quyền đăng bài): `pages_read_user_content` (đọc bình luận),
 `pages_manage_engagement` (trả lời, ẩn), `pages_messaging` (nhắn riêng). Thiếu quyền, trang Bình luận sẽ báo rõ.
+
+### Đăng chéo Instagram (thử nghiệm)
+
+Nếu Page đã liên kết **tài khoản Instagram doanh nghiệp/nhà sáng tạo**, bấm **Kiểm tra** ở Cài đặt → Page sẽ hiện nhãn
+*Instagram @tên*. Khi đó trang Soạn bài có ô **Đăng cả lên Instagram**: ứng dụng tạo thêm một bài riêng cho Instagram
+(nhãn *Instagram* trong Lịch đăng, giới hạn an toàn tính riêng).
+- Ảnh → bài ảnh (nhiều ảnh = album, tối đa 10). Video/Reels → Reels. Instagram **bắt buộc có ảnh hoặc video**; link không bấm được.
+- API Instagram chỉ nhận ảnh qua link public, nên ảnh được tải lên Facebook ở chế độ ẩn để lấy link rồi xoá sau khi đăng.
+  Video được tải thẳng lên. Instagram **không có hẹn giờ qua API**: bài hẹn giờ do ứng dụng tự đăng khi tới giờ (cần để máy chạy).
+- **Quyền cần thêm** khi tạo User Token: `instagram_basic`, `instagram_content_publish`.
+- Đây là tính năng **thử nghiệm** (mới chạy với Graph API giả lập). Thử trước bằng:
+  `python fb_poster.py kiemtra --video reel.mp4 --reel --instagram --page "Tên Page"`.
 
 ### Thư viện nội dung
 

@@ -814,3 +814,34 @@ def test_comments_inbox_reply_hide_and_rules(page, svc, graph):
     page.wait_for_timeout(500)
     assert all(c["seen"] for c in svc.store.load()["comments"])  # rời trang: đánh dấu đã xem
     assert page.errors == []
+
+
+
+# ---------------------------------------------------------------- Instagram
+def test_compose_also_instagram(page, svc, graph, tmp_path):
+    connect(page)
+    graph.instagram = {"id": "ig1", "username": "tiembanh"}
+    pid = svc.store.load()["pages"][0]["id"]
+    page.request.post(f"{page.base}/api/pages/{pid}/test")
+    img = tmp_path / "banh.png"
+    from conftest import PNG
+    img.write_bytes(PNG)
+    page.goto(page.base)
+    nav(page, "Soạn bài")
+    box = page.get_by_test_id("also-ig")  # ô tick (input)
+    page.get_by_text("Đăng cả lên Instagram").wait_for()
+    assert "@tiembanh" in page.get_by_text("Đăng cả lên Instagram").inner_text()
+    assert box.is_disabled()  # chưa có ảnh/video
+    page.get_by_label("Nội dung").fill("Bánh mới cho cả Instagram")
+    page.locator("input[type=file]").first.set_input_files(str(img))
+    page.wait_for_function("!document.querySelector('[data-testid=also-ig]').disabled")
+    box.check()
+    page.get_by_role("button", name="Đăng ngay").last.click()
+    page.get_by_text("(Facebook + Instagram)").wait_for()
+    posts = api_state(page)["posts"]
+    assert sorted(p.get("channel", "facebook") for p in posts) == ["facebook", "instagram"]
+    nav(page, "Lịch đăng")
+    page.get_by_test_id("ig-badge").wait_for()
+    nav(page, "Cài đặt")
+    page.get_by_text("Instagram @tiembanh").wait_for()
+    assert page.errors == []

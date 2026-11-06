@@ -17,7 +17,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from ..domain import health, insights, planner
-from ..domain.pages import page_of
+from ..domain.pages import limit_key, page_of, set_instagram
 from ..integrations.facebook import FBError
 from ..domain.posts import ERROR, PENDING, RUNNING, label
 from ..storage import Store, add_log, find
@@ -100,7 +100,7 @@ class Scheduler:
         for p in posts:
             if self.publisher.needs_check(p, now):
                 return "check", p, None
-        page_key = lambda p: (page_of(data, p) or {}).get("id")  # noqa: E731 - giới hạn tính riêng từng Page
+        page_key = lambda p: limit_key(data, p)  # noqa: E731 - giới hạn tính riêng từng Page (và từng kênh)
         plan = planner.plan(posts, settings, now, key=page_key)
         # sắp xếp ổn định: cùng thời điểm thì giữ thứ tự ưu tiên mà planner đã quyết định
         order = [(slot.effective, pid) for pid, slot in sorted(plan.items(), key=lambda kv: kv[1].effective)]
@@ -109,7 +109,7 @@ class Scheduler:
                 return "publish", find(posts, pid), when
         for when, pid in order:
             post = find(posts, pid)
-            if self.publisher.can_hand_off(when, page_of(data, post), settings, now):
+            if self.publisher.can_hand_off(when, page_of(data, post), settings, now, post):
                 return "handoff", post, when
         for c in comment_sync.unhide_due(data, now):
             return "unhide", c, None
@@ -190,6 +190,8 @@ class Scheduler:
         with self.store.transaction() as data:
             before = health.of(data, page["id"])
             health.record(data, page["id"], ok, now, err, code)
+            if ok:
+                set_instagram(data, page["id"], self.publisher.last_page_info)
             if not ok and (before is None or before.get("ok")):
                 add_log(data, "error", f"Page “{page['name']}” mất kết nối: {err}")
             elif ok and before is not None and not before.get("ok"):

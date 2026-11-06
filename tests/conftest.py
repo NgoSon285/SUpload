@@ -32,6 +32,8 @@ class FakeGraph:
         # chỉ số Meta đã khai tử từ 06/2026
         self.retired_metrics = {"post_impressions_unique", "post_impressions", "total_video_impressions", "total_video_impressions_unique"}
         self.video_status = "ready"
+        self.instagram = None          # {"id","username"} tài khoản Instagram liên kết với Page
+        self.ig_status = "FINISHED"
         self.page_posts = []           # GET {page}/posts
         self.post_comments = {}        # post_id -> [bình luận]
         self.comments_error = None
@@ -73,6 +75,19 @@ class FakeGraph:
             key = "likes" if params["fields"].startswith("likes") else "reactions"
             return {key: {"summary": {"total_count": m["reactions"]}}, "comments": {"summary": {"total_count": m["comments"]}},
                     "shares": {"count": m["shares"]}}
+        if method == "GET" and params.get("fields") == "status_code,status":  # container Instagram
+            return {"id": path, "status_code": self.ig_status, "status": "giả lập"}
+        if method == "GET" and params.get("fields") == "images":
+            return {"images": [{"width": 320, "source": f"https://fbcdn.test/{path}_s.jpg"}, {"width": 1080, "source": f"https://fbcdn.test/{path}.jpg"}]}
+        if method == "GET" and params.get("fields") == "permalink":
+            return {"permalink": f"https://www.instagram.com/p/{path}/"}
+        if method == "POST" and path.endswith("/media_publish"):
+            return {"id": "igm_" + data["creation_id"]}
+        if method == "POST" and path.endswith("/media"):
+            cid = f"ctn_{next(self._ids)}"
+            return {"id": cid, "uri": f"https://rupload.facebook.com/ig-api-upload/v23.0/{cid}"} if data.get("upload_type") else {"id": cid}
+        if method == "GET" and "instagram_business_account" in str(params.get("fields", "")):
+            return {"id": path, "name": "Page Một", **({"instagram_business_account": self.instagram} if self.instagram else {})}
         if method == "GET" and str(params.get("fields", "")).startswith("status"):  # trạng thái xử lý video
             return {"id": path, "status": {"video_status": self.video_status}, "published": self.video_status == "ready",
                     "permalink_url": f"/reel/{path}"}

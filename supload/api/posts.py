@@ -18,9 +18,15 @@ def add_post():
     body = request.get_json(force=True)
     try:
         fields = clean_body(body, s.config.upload_dir)
+        ig_fields = clean_body({**body, "channel": "instagram"}, s.config.upload_dir) if body.get("also_instagram") else None
         with s.store.transaction() as data:
-            post = new_post(fields, page=pages_domain.resolve(data, body.get("page")))
+            page_id = pages_domain.resolve(data, body.get("page"))
+            if ig_fields and not (pages_domain.find(data, page_id) or {}).get("instagram"):
+                raise ValueError("Page này chưa liên kết tài khoản Instagram doanh nghiệp")
+            post = new_post(fields, page=page_id)
             data["posts"].append(post)
+            if ig_fields:
+                data["posts"].append(new_post(ig_fields, page=page_id))
             sched = fields["scheduled_at"]
             add_log(data, "info", "Đã thêm bài " + (f"hẹn {sched.replace('T', ' ')}" if sched else "đăng ngay"))
     except ValueError as e:
@@ -44,8 +50,8 @@ def edit_post(post_id):
     body = request.get_json(force=True)
     data = s.store.load()
     try:
-        fields = clean_body(body, s.config.upload_dir)
         existing = find(data["posts"], post_id) or {}
+        fields = clean_body({**body, "channel": existing.get("channel") or "facebook"}, s.config.upload_dir)
         fields["page"] = pages_domain.resolve(data, body.get("page") or existing.get("page"))
     except ValueError as e:
         return error(str(e))

@@ -60,7 +60,8 @@ def list_pages(user_token: str) -> list[dict]:
 
 
 def page_info(page_id: str, token: str) -> dict:
-    return call("GET", page_id, params={"access_token": token, "fields": "name"})
+    """Tên Page và tài khoản Instagram doanh nghiệp liên kết (nếu có)."""
+    return call("GET", page_id, params={"access_token": token, "fields": "name,instagram_business_account{id,username}"})
 
 
 # ---------------------------------------------------------------- posting
@@ -229,6 +230,99 @@ def _lifetime_value(ins: dict) -> int:
     values = row.get("values") or [{}]
     v = values[-1].get("value") or 0
     return int(sum(v.values()) if isinstance(v, dict) else v)
+
+
+# ---------------------------------------------------------------- Instagram (thử nghiệm)
+IG_RUPLOAD = f"https://rupload.facebook.com/ig-api-upload/{GRAPH_VERSION}"
+IG_CAPTION_MAX = 2200
+IG_CAROUSEL_MAX = 10
+
+
+class InstagramPoster:
+    """Đăng lên tài khoản Instagram doanh nghiệp liên kết với Page (Graph API, đăng nhập bằng Facebook).
+
+    API Instagram chỉ nhận ảnh qua link public, nên ảnh được tải lên Facebook ở chế độ ẩn để lấy link,
+    đăng xong thì xoá. Video/Reels được tải thẳng lên (resumable upload).
+    """
+
+    def __init__(self, ig_user_id: str, page: PagePoster, sleep=time.sleep, wait_seconds: int = 300):
+        if not ig_user_id:
+            raise FBError("Page chưa liên kết tài khoản Instagram doanh nghiệp (bấm Kiểm tra ở Cài đặt để tìm lại)")
+        self.ig = ig_user_id
+        self.page = page
+        self.token = page.token
+        self.sleep = sleep
+        self.wait_seconds = wait_seconds
+
+    def _photo_url(self, path: str) -> tuple[str, str]:
+        """Tải ảnh lên Facebook (ẩn) rồi lấy link ảnh public. Trả về (link, id ảnh tạm)."""
+        photo_id = self.page._upload_photo(path, published=False)["id"]
+        d = call("GET", photo_id, params={"access_token": self.token, "fields": "images"})
+        images = sorted(d.get("images") or [], key=lambda i: i.get("width", 0), reverse=True)
+        if not images:
+            raise FBError("Không lấy được link ảnh để gửi Instagram")
+        return images[0]["source"], photo_id
+
+    def _container(self, **params) -> str:
+        return call("POST", f"{self.ig}/media", data={"access_token": self.token, **params})["id"]
+
+    def _wait(self, container_id: str) -> None:
+        waited = 0
+        while True:
+            st = call("GET", container_id, params={"access_token": self.token, "fields": "status_code,status"})
+            code = st.get("status_code")
+            if code == "FINISHED":
+                return
+            if code in ("ERROR", "EXPIRED"):
+                raise FBError(f"Instagram xử lý media bị lỗi ({code}): {st.get('status') or ''}".strip())
+            if waited >= self.wait_seconds:
+                raise FBError("Instagram xử lý media quá lâu, thử lại sau")
+            self.sleep(3)
+            waited += 3
+
+    def _publish(self, container_id: str) -> dict:
+        self._wait(container_id)
+        return call("POST", f"{self.ig}/media_publish", data={"access_token": self.token, "creation_id": container_id})
+
+    def post_photos(self, paths: list[str], caption: str = "") -> dict:
+        if not paths:
+            raise FBError("Instagram cần ít nhất một ảnh hoặc video")
+        caption = caption[:IG_CAPTION_MAX]
+        temp = []
+        try:
+            urls = []
+            for p in paths[:IG_CAROUSEL_MAX]:
+                url, pid = self._photo_url(p)
+                urls.append(url)
+                temp.append(pid)
+            if len(urls) == 1:
+                return self._publish(self._container(image_url=urls[0], caption=caption))
+            children = [self._container(image_url=u, is_carousel_item="true") for u in urls]
+            return self._publish(self._container(media_type="CAROUSEL", children=",".join(children), caption=caption))
+        finally:
+            for pid in temp:  # dọn ảnh tạm trên Facebook
+                try:
+                    self.page.delete(pid)
+                except FBError:
+                    pass
+
+    def post_reel(self, path: str, caption: str = "") -> dict:
+        p = Path(path)
+        if not p.is_file():
+            raise FBError(f"Không tìm thấy video: {path}")
+        start = call("POST", f"{self.ig}/media", data={
+            "access_token": self.token, "media_type": "REELS", "upload_type": "resumable",
+            "caption": caption[:IG_CAPTION_MAX], "share_to_feed": "true"})
+        cid = start["id"]
+        call("POST", "", base=start.get("uri") or f"{IG_RUPLOAD}/{cid}", data=p.read_bytes(),
+             headers={"Authorization": f"OAuth {self.token}", "offset": "0", "file_size": str(p.stat().st_size)})
+        return self._publish(cid)
+
+    def permalink(self, media_id: str) -> str:
+        try:
+            return call("GET", media_id, params={"access_token": self.token, "fields": "permalink"}).get("permalink", "")
+        except FBError:
+            return ""
 
 
 def parse_schedule(value: str | None) -> datetime | None:
