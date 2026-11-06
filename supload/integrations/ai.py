@@ -50,7 +50,7 @@ def create(client: openai.OpenAI, **kwargs):
 
 def clean_model(model) -> str:
     model = str(model or "").strip()
-    return model if model and len(model) <= MAX_MODEL_LEN and not model.startswith("claude") else DEFAULT_MODEL
+    return model if model and len(model) <= MAX_MODEL_LEN else DEFAULT_MODEL
 
 
 def clean_base_url(url) -> str:

@@ -9,7 +9,7 @@ from pathlib import Path
 import os
 
 from .config import default_settings
-from .domain.pages import migrate
+from .domain.pages import LEGACY_KEYS, migrate
 from .utils import now_iso
 
 LOG_LIMIT = 300
@@ -28,7 +28,11 @@ class Store:
         if "pages" not in data:  # lần đầu: nhận Page từ .env (FB_PAGE_ID/FB_PAGE_TOKEN) nếu có
             raw.setdefault("page_id", os.getenv("FB_PAGE_ID", ""))
             raw.setdefault("page_token", os.getenv("FB_PAGE_TOKEN", ""))
-        data["settings"] = {**default_settings(), **raw}
+        defaults = default_settings()
+        if "ai_base_url" not in raw:  # dữ liệu từ bản cũ (trước khi dùng OpenAI): model cũ không còn dùng được
+            raw.pop("ai_model", None)
+        # chỉ giữ các cài đặt đang dùng (khoá cũ, kể cả key API cũ, bị bỏ đi)
+        data["settings"] = {**defaults, **{k: v for k, v in raw.items() if k in defaults or k in LEGACY_KEYS}}
         data.setdefault("posts", [])
         data.setdefault("flows", [])
         data.setdefault("log", [])

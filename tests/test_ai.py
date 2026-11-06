@@ -73,19 +73,27 @@ def test_custom_model_and_compatible_base_url(connected, svc, gpt):
     assert gpt.calls[0]["model"] == "llama3.1" and gpt.calls[0]["base_url"].startswith("http://localhost:11434/v1")
 
 
-@pytest.mark.parametrize("model,base", [("", "ftp://x"), ("claude-opus-5-5", "không phải url"), ("x" * 200, "")])
+@pytest.mark.parametrize("model,base", [("", "ftp://x"), ("x" * 101, "không phải url"), ("x" * 200, "")])
 def test_invalid_model_or_url_falls_back(connected, svc, gpt, model, base):
     connected.post("/api/settings", json={"ai_model": model, "ai_base_url": base})
     s = svc.store.load()["settings"]
     assert s["ai_model"] == "gpt-5.4-mini" and s["ai_base_url"] == ""
 
 
-def test_old_claude_settings_are_migrated(tmp_path):
+def test_old_settings_are_cleaned_on_load(tmp_path):
     from supload.storage import Store
-    (tmp_path / "data.json").write_text(json.dumps({"settings": {"anthropic_api_key": "sk-ant-OLD", "ai_model": "claude-opus-5-5"},
-                                                    "posts": [], "flows": [], "pages": []}), encoding="utf-8")
+    old = {"settings": {"old_ai_key": "sk-OLD", "ai_model": "old-model", "min_gap": 60}, "posts": [], "flows": [], "pages": []}
+    (tmp_path / "data.json").write_text(json.dumps(old), encoding="utf-8")
     s = Store(tmp_path / "data.json").load()["settings"]
-    assert "anthropic_api_key" not in s and s["ai_model"] == "gpt-5.4-mini" and s["openai_api_key"] == ""
+    assert "old_ai_key" not in s and s["min_gap"] == 60  # khoá lạ bị bỏ, cài đặt hợp lệ giữ nguyên
+    assert s["ai_model"] == "gpt-5.4-mini" and s["openai_api_key"] == ""  # dữ liệu trước bản OpenAI: về model mặc định
+
+
+def test_model_kept_once_saved_with_openai_version(tmp_path):
+    from supload.storage import Store
+    new = {"settings": {"ai_model": "gpt-5.4", "ai_base_url": ""}, "posts": [], "flows": [], "pages": []}
+    (tmp_path / "data.json").write_text(json.dumps(new), encoding="utf-8")
+    assert Store(tmp_path / "data.json").load()["settings"]["ai_model"] == "gpt-5.4"
 
 
 def test_hashtags_are_normalised(connected, gpt):
