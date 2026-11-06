@@ -43,6 +43,9 @@ def preview():
         for ph in r["photos"]:
             if not re.match(r"^https?://", ph) and not (upload_dir / ph).is_file():
                 r["errors"].append(f"Không có ảnh “{ph}” trong thư viện ảnh")
+        v = r.get("video")
+        if v and not re.match(r"^https?://", v) and not (upload_dir / v).is_file():
+            r["errors"].append(f"Không có video “{v}” trong thư viện")
     bad = sum(bool(r["errors"]) for r in rows)
     return jsonify(rows=rows, ok=len(rows) - bad, bad=bad)
 
@@ -62,7 +65,13 @@ def commit():
             continue
         try:
             photos = [media.download_image(p, s.config.upload_dir) if re.match(r"^https?://", p) else p for p in r.get("photos", [])]
-            fields = clean_body({**r, "photos": photos}, s.config.upload_dir)
+            video = r.get("video") or ""
+            if re.match(r"^https?://", video):
+                video = media.download_video(video, s.config.upload_dir)
+            body_row = {**r, "photos": photos, "video": video or None}
+            if not video:
+                body_row.pop("video_kind", None)
+            fields = clean_body(body_row, s.config.upload_dir)
             if len(fields["photos"]) != len(photos):
                 raise ValueError("Có ảnh không còn trong thư viện")
             page = pages_domain.resolve(data, r.get("page") or body.get("page"))

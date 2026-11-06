@@ -53,7 +53,8 @@ export function ImportModal({ opened, onClose, pageName, onDone }) {
         <Stack gap="md">
           <Text size="sm" c="dimmed">
             Mỗi dòng là một bài. Cột bắt buộc: <b>Nội dung</b>. Cột tuỳ chọn: <b>Link</b>, <b>Ảnh</b> (link ảnh hoặc tên ảnh trong thư viện,
-            nhiều ảnh cách nhau bởi dấu phẩy), <b>Thời gian</b> (vd 01/12/2026 20:00, để trống = đăng ngay), <b>Page</b> (tên Page, để trống = mặc định).
+            nhiều ảnh cách nhau bởi dấu phẩy), <b>Thời gian</b> (vd 01/12/2026 20:00, để trống = đăng ngay), <b>Page</b> (tên Page, để trống = mặc định),
+            <b>Video</b> (link .mp4 hoặc tên video trong thư viện) và <b>Loại</b> (Bài viết / Video / <b>Reels</b>).
           </Text>
           <Group gap="xs">
             <Button component="a" href={importApi.templateUrl("xlsx")} variant="default" size="xs" leftSection={<IconDownload size={14} />}>File mẫu Excel</Button>
@@ -84,19 +85,19 @@ export function ImportModal({ opened, onClose, pageName, onDone }) {
           <ScrollArea.Autosize mah={420}>
             <Table striped highlightOnHover verticalSpacing={6} fz="sm" data-testid="import-table">
               <Table.Thead>
-                <Table.Tr><Table.Th w={50}>Dòng</Table.Th><Table.Th>Nội dung</Table.Th><Table.Th w={150}>Thời gian</Table.Th><Table.Th w={60}>Ảnh</Table.Th><Table.Th w={130}>Page</Table.Th></Table.Tr>
+                <Table.Tr><Table.Th w={50}>Dòng</Table.Th><Table.Th>Nội dung</Table.Th><Table.Th w={150}>Thời gian</Table.Th><Table.Th w={80}>Ảnh/Video</Table.Th><Table.Th w={130}>Page</Table.Th></Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {result.rows.map((r) => (
                   <Table.Tr key={r.row} style={r.errors.length ? { background: "var(--mantine-color-red-light)" } : undefined}>
                     <Table.Td>{r.row}</Table.Td>
                     <Table.Td>
-                      <Text size="sm" lineClamp={2}>{r.message || r.link || <i>(chỉ có ảnh)</i>}</Text>
+                      <Text size="sm" lineClamp={2}>{r.message || r.link || <i>{r.video ? "(chỉ có video)" : "(chỉ có ảnh)"}</i>}</Text>
                       {r.errors.map((e) => <Text key={e} size="xs" c="red">✕ {e}</Text>)}
                       {r.warnings.map((w) => <Text key={w} size="xs" c="orange">! {w}</Text>)}
                     </Table.Td>
                     <Table.Td>{r.scheduled_at ? when(r.scheduled_at) : "Đăng ngay"}</Table.Td>
-                    <Table.Td>{r.photos.length || ""}</Table.Td>
+                    <Table.Td>{r.video ? (r.video_kind === "reel" ? "Reels" : "Video") : r.photos.length || ""}</Table.Td>
                     <Table.Td>{pageName(r.page)}</Table.Td>
                   </Table.Tr>
                 ))}

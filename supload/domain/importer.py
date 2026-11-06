@@ -2,6 +2,7 @@
 
 Cột (tên tiếng Việt hoặc tiếng Anh, có dấu hay không đều được; chỉ cần cột Nội dung):
   Nội dung | Link | Ảnh (nhiều ảnh cách nhau bởi xuống dòng, dấu phẩy hoặc ;) | Thời gian | Page
+  | Video (link .mp4 hoặc tên video trong thư viện) | Loại (Bài viết / Video / Reels)
 """
 from __future__ import annotations
 
@@ -18,17 +19,22 @@ COLUMNS = {
     "photos": ("anh", "hinh", "hinh anh", "photos", "photo", "images", "image"),
     "scheduled_at": ("thoi gian", "gio dang", "lich", "ngay gio", "scheduled_at", "time", "schedule", "datetime"),
     "page": ("page", "trang", "fanpage"),
+    "video": ("video", "clip", "file video"),
+    "kind": ("loai", "loai bai", "kind", "type", "dang"),
 }
+KINDS = {"reels": "reel", "reel": "reel", "thuoc phim": "reel", "video": "video", "bai viet": "", "bai": "",
+         "anh": "", "post": "", "photo": "", "": ""}
 TIME_FORMATS = (
     "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S",
     "%d/%m/%Y %H:%M", "%d/%m/%Y %H:%M:%S", "%d-%m-%Y %H:%M", "%H:%M %d/%m/%Y", "%d/%m/%Y",
     "%Y-%m-%d",
 )
 TEMPLATE_ROWS = [
-    ["Nội dung", "Link", "Ảnh", "Thời gian", "Page"],
-    ["Chào buổi sáng cả nhà ☀️ #tiembanh", "", "", "01/12/2026 08:00", ""],
-    ["Bánh mới ra lò, mời mọi người ghé thử!", "https://example.com/menu", "https://example.com/banh.jpg", "01/12/2026 20:00", ""],
-    ["Bài đăng ngay khi nhập (để trống Thời gian)", "", "", "", ""],
+    ["Nội dung", "Link", "Ảnh", "Thời gian", "Page", "Video", "Loại"],
+    ["Chào buổi sáng cả nhà ☀️ #tiembanh", "", "", "01/12/2026 08:00", "", "", "Bài viết"],
+    ["Bánh mới ra lò, mời mọi người ghé thử!", "https://example.com/menu", "https://example.com/banh.jpg", "01/12/2026 20:00", "", "", "Bài viết"],
+    ["Hậu trường làm bánh 🎬", "", "", "02/12/2026 19:00", "", "https://example.com/hau-truong.mp4", "Reels"],
+    ["Bài đăng ngay khi nhập (để trống Thời gian)", "", "", "", "", "", ""],
 ]
 
 
@@ -112,7 +118,21 @@ def parse_rows(table: list[list], pages: list[dict], now: datetime) -> list[dict
         row = {"row": i, "errors": [], "warnings": [],
                "message": str(cells.get("message") or "").strip(),
                "link": str(cells.get("link") or "").strip(),
-               "photos": split_photos(cells.get("photos")), "page": ""}
+               "photos": split_photos(cells.get("photos")), "page": "",
+               "video": str(cells.get("video") or "").strip(), "video_kind": "video"}
+        kind_raw = _norm(cells.get("kind"))
+        kind = KINDS.get(kind_raw)
+        if kind is None:
+            row["errors"].append(f"Loại “{cells.get('kind')}” không hợp lệ (dùng Bài viết, Video hoặc Reels)")
+            kind = ""
+        if kind and not row["video"]:
+            row["errors"].append("Loại Video/Reels cần cột Video (link .mp4 hoặc tên video trong thư viện)")
+        if row["video"]:
+            row["video_kind"] = "reel" if kind == "reel" else "video"
+            if row["photos"]:
+                row["errors"].append("Một bài chỉ có ảnh hoặc video, không có cả hai")
+            if not re.match(r"^https?://", row["video"]) and ("/" in row["video"] or "\\" in row["video"]):
+                row["errors"].append(f"Video “{row['video']}”: dùng link video (https://…) hoặc tên video đã có trong thư viện")
         when, err = parse_time(cells.get("scheduled_at"), now)
         if err:
             row["errors"].append(err)
@@ -127,8 +147,8 @@ def parse_rows(table: list[list], pages: list[dict], now: datetime) -> list[dict
                 row["page"] = pid
             else:
                 row["errors"].append(f"Không tìm thấy Page “{page_ref}”")
-        if not (row["message"] or row["photos"] or row["link"]):
-            row["errors"].append("Dòng không có nội dung, ảnh hay link")
+        if not (row["message"] or row["photos"] or row["link"] or row["video"]):
+            row["errors"].append("Dòng không có nội dung, ảnh, video hay link")
         if row["link"] and not re.match(r"^https?://", row["link"]):
             row["errors"].append("Link phải bắt đầu bằng http:// hoặc https://")
         for ph in row["photos"]:
@@ -159,7 +179,7 @@ def template_xlsx() -> bytes:
         ws.append(r)
     for c in ws[1]:
         c.font = Font(bold=True)
-    for col, width in zip("ABCDE", (60, 30, 40, 20, 20)):
+    for col, width in zip("ABCDEFG", (60, 30, 40, 20, 20, 40, 12)):
         ws.column_dimensions[col].width = width
     buf = io.BytesIO()
     wb.save(buf)

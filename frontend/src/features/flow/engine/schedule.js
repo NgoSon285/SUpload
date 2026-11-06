@@ -78,7 +78,9 @@ export function computeSchedule(nodes, edges, now = new Date(), seed = "") {
       const body = spin(item.message, rand);
       const message = [...ctx.prefix.map((x) => spin(x, rand)), body, ...ctx.suffix.map((x) => spin(x, rand))].filter((x) => x?.trim()).join("\n\n");
       if (!(id in times)) times[id] = at;
-      posts.push({ nodeId: id, time: at, message, link: item.link || "", photos: item.photos || [] });
+      const post = { nodeId: id, time: at, message, link: item.link || "", photos: item.photos || [] };
+      if (item.video) Object.assign(post, { video: item.video, video_kind: item.video_kind || "video" });
+      posts.push(post);
       return at;
     };
     if (problem && (node.type === "post" || node.type === "batch")) return go(t);

@@ -16,11 +16,15 @@ RUN_EVERY = timedelta(hours=24)
 
 
 def referenced_photos(data: dict) -> set[str]:
-    """Mọi tên ảnh còn được bài viết hoặc flow dùng tới."""
+    """Mọi tên ảnh/video còn được bài viết hoặc flow dùng tới."""
     used = {p for post in data["posts"] for p in post.get("photos", [])}
+    used.update(post["video"] for post in data["posts"] if isinstance(post.get("video"), str) and post["video"])
     for flow in data.get("flows", []):
         for node in flow.get("nodes", []):
-            used.update(x for x in (node.get("data") or {}).get("photos", []) if isinstance(x, str))
+            d = node.get("data") or {}
+            used.update(x for x in d.get("photos", []) if isinstance(x, str))
+            if isinstance(d.get("video"), str) and d["video"]:
+                used.add(d["video"])
     return used
 
 

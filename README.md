@@ -197,7 +197,8 @@ Bài vượt giới hạn **không bị bỏ**, mà được tự dời sang th�
      ứng dụng không xoá để tránh đăng trùng và hỏi bạn có muốn tự xoá trên Facebook không.
 5. Mở Page trên Facebook để kiểm tra bài (bài hẹn giờ nằm trong mục *Bài viết đã lên lịch* của Page).
 
-**Video & Reels:** ở ô *Ảnh* chọn **Video** hoặc **Reels**, kéo thả một file MP4/MOV/WEBM (tối đa 1 GB).
+**Video & Reels:** bấm mục **Đăng Reels** ở menu bên trái, hoặc chọn **Bài viết / Video / Reels** ở đầu trang Soạn bài,
+rồi kéo thả một file MP4/MOV/WEBM (tối đa 1 GB).
 Reels cần video dọc 9:16, dài 3–90 giây. Cả hai hẹn giờ trên Facebook được như bài thường. Một bài chỉ có ảnh *hoặc* video.
 Reels chỉ đăng qua Graph API (chưa hỗ trợ cách Trình duyệt). Facebook giới hạn 30 Reels đăng qua API mỗi Page trong 24 giờ.
 
@@ -242,6 +243,9 @@ Trang **Lịch đăng → Nhập từ file**:
 3. Bấm **Nhập N bài**. Có dòng lỗi thì sửa file rồi chọn lại, hoặc **Nhập các dòng hợp lệ, bỏ qua dòng lỗi**.
 
 Bài nhập vào vẫn tuân theo **giới hạn an toàn** của từng Page. Tối đa 500 bài mỗi lần.
+
+**Video / Reels từ file:** thêm cột **Video** (link `.mp4` hoặc tên video đã có trong Thư viện) và cột **Loại**
+(`Bài viết`, `Video` hoặc `Reels`). Video dạng link được tải về khi bấm Nhập. Một dòng chỉ có ảnh *hoặc* video.
 
 ### Trợ lý AI (OpenAI)
 
@@ -294,7 +298,7 @@ số bài đang chờ / đã đăng / lỗi, lần sửa và lần chạy gần 
 | Nhóm | Khối | Dùng để |
 |---|---|---|
 | Khởi đầu | **Bắt đầu** | Chạy ngay khi bấm *Chạy flow*, hoặc từ một thời điểm cụ thể. |
-| Nội dung | **Bài viết** | Một bài. Bật *Nhiều phiên bản* (cách nhau bằng dòng `---`) để mỗi lần chọn ngẫu nhiên 1 bản. |
+| Nội dung | **Bài viết** | Một bài: chọn *Loại bài* là Bài viết (ảnh), **Video** hoặc **Reels**. Bật *Nhiều phiên bản* (cách nhau bằng dòng `---`) để mỗi lần chọn ngẫu nhiên 1 bản. |
 | | **Nhiều bài** | Dán nhiều bài (tách theo dòng trống / dòng `---` / mỗi dòng), thả nhiều ảnh, chọn khoảng cách giữa các bài, xáo trộn, giới hạn số bài. |
 | | **Định dạng** | Thêm phần đầu/cuối (hashtag, chữ ký, hotline) cho mọi bài phía sau. |
 | Thời gian | **Chờ** | Chờ cố định, ngẫu nhiên trong khoảng, tới giờ cố định hằng ngày, hoặc tới thứ trong tuần. |

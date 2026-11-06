@@ -5,7 +5,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useInterval } from "@mantine/hooks";
 import {
-  IconPencil, IconCalendarEvent, IconSitemap, IconListDetails, IconAdjustments, IconSun, IconMoon,
+  IconPencil, IconMovie, IconCalendarEvent, IconSitemap, IconListDetails, IconAdjustments, IconSun, IconMoon,
   IconDeviceDesktop, IconSend, IconBooks, IconChartBar,
 } from "@tabler/icons-react";
 
@@ -24,6 +24,7 @@ import { AppContext } from "./context";
 
 const VIEWS = [
   { id: "compose", label: "Soạn bài", icon: IconPencil },
+  { id: "reels", label: "Đăng Reels", icon: IconMovie }, // mở Soạn bài ở chế độ Reels
   { id: "queue", label: "Lịch đăng", icon: IconCalendarEvent },
   { id: "flow", label: "Flow chiến dịch", icon: IconSitemap },
   { id: "insights", label: "Thống kê", icon: IconChartBar },
@@ -74,6 +75,7 @@ export default function App() {
   const [state, setState] = useState(null);
   const [offline, setOffline] = useState(false);
   const [view, setViewRaw] = useState(() => storage.get("view", "compose"));
+  const [composeType, setComposeType] = useState(() => storage.get("compose-type", "photo")); // để menu tô đúng "Đăng Reels"
   const [draftPost, setDraftPost] = useState(null); // {post, mode: 'edit'|'dup'} chuyển sang trang Soạn bài
   const [opened, { toggle, close }] = useDisclosure(false);
 
@@ -108,7 +110,7 @@ export default function App() {
   const ok = configured(state);
   const isFlow = view === "flow";
 
-  const ctx = { state, refresh, setView, draftPost, setDraftPost, offline };
+  const ctx = { state, refresh, setView, draftPost, setDraftPost, setComposeType, offline };
 
   return (
     <AppContext.Provider value={ctx}>
@@ -145,7 +147,9 @@ export default function App() {
                 if (id === "settings" && state && !ok) right = <Badge size="sm" color="red" circle>!</Badge>;
                 return (
                   <NavLink
-                    key={id} label={label} active={view === id} onClick={() => setView(id)}
+                    key={id} label={label}
+                    active={id === "reels" ? view === "compose" && composeType === "reel" : id === "compose" ? view === "compose" && composeType !== "reel" : view === id}
+                    onClick={() => (id === "reels" ? (setDraftPost({ post: { video_kind: "reel" }, mode: "type" }), setView("compose")) : setView(id))}
                     leftSection={<Icon size={19} stroke={1.8} />} rightSection={right}
                     style={{ borderRadius: "var(--mantine-radius-md)" }} fw={500}
                   />

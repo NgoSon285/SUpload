@@ -23,6 +23,18 @@ describe("Bắt đầu", () => {
 });
 
 describe("Bài viết", () => {
+  it("khối Bài viết đăng được Video/Reels (không kèm ảnh)", () => {
+    const r = run(chain(n("start"), n("post", { media: "reel", message: "R", video: "a.mp4", photos: ["x.png"] }), n("post", { message: "Ảnh", photos: ["y.png"] })));
+    expect(r.posts[0]).toMatchObject({ message: "R", video: "a.mp4", video_kind: "reel", photos: [] });
+    expect(r.posts[1].video).toBeUndefined();
+    expect(r.posts[1].photos).toEqual(["y.png"]);
+  });
+  it("Reels chưa chọn video thì cảnh báo và bỏ qua", () => {
+    const reel = n("post", { media: "reel", message: "R" });
+    const r = run(chain(n("start"), reel));
+    expect(r.issues[reel.id]).toBe("Chưa chọn video Reels");
+    expect(r.posts).toEqual([]);
+  });
   it("bỏ qua bài trống và báo cảnh báo, nhưng vẫn chạy tiếp", () => {
     const empty = n("post");
     const r = run(chain(n("start"), empty, n("post", { message: "B" })));

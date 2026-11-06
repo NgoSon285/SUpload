@@ -16,6 +16,8 @@ import {
 } from "@tabler/icons-react";
 import { unitLabel, unitMs } from "../../../lib/time";
 
+const isPhoto = (d) => !d.media || d.media === "photo";
+
 export const DAYS = [
   { value: "1", label: "T2" }, { value: "2", label: "T3" }, { value: "3", label: "T4" }, { value: "4", label: "T5" },
   { value: "5", label: "T6" }, { value: "6", label: "T7" }, { value: "0", label: "CN" },
@@ -69,20 +71,28 @@ export const NODES = {
   },
 
   post: {
-    label: "Bài viết", color: "indigo", icon: IconPencil, group: "Nội dung", desc: "Một bài với nội dung, ảnh, link",
-    defaults: () => ({ message: "", link: "", photos: [], variants: false }),
+    label: "Bài viết", color: "indigo", icon: IconPencil, group: "Nội dung", desc: "Một bài với nội dung, ảnh, video/Reels, link",
+    defaults: () => ({ media: "photo", message: "", link: "", photos: [], video: "", variants: false }),
     fields: [
+      { key: "media", kind: "segmented", label: "Loại bài",
+        options: [{ value: "photo", label: "Bài viết" }, { value: "video", label: "Video" }, { value: "reel", label: "Reels" }] },
       { key: "variants", kind: "switch", label: "Nhiều phiên bản nội dung", desc: "Viết nhiều phiên bản, cách nhau bởi một dòng ---; mỗi lần chạy chọn ngẫu nhiên 1 bản." },
       { key: "message", kind: "textarea", label: "Nội dung", minRows: 4, placeholder: "Nội dung bài viết…",
         desc: (d) => (d.variants ? `${splitBy(d.message, "dashes").length} phiên bản · ` : "") + "Có thể dùng {a|b|c} để chọn ngẫu nhiên một từ" },
-      { key: "photos", kind: "photos", label: "Ảnh" },
+      { key: "photos", kind: "photos", label: "Ảnh", show: (d) => isPhoto(d) },
+      { key: "video", kind: "video", label: (d) => (d.media === "reel" ? "Video Reels" : "Video"), show: (d) => !isPhoto(d),
+        desc: (d) => (d.media === "reel" ? "Video dọc 9:16, dài 3–90 giây. Chỉ đăng được với Page qua Graph API." : null) },
       { key: "link", kind: "text", label: "Link", placeholder: "https://..." },
     ],
-    summary: (d) => d.message?.trim() || d.link || (d.photos?.length ? "Bài chỉ có ảnh" : null),
-    validate: (d) => (!d.message?.trim() && !d.photos?.length && !d.link?.trim() ? "Bài viết đang trống" : null),
+    summary: (d) => d.message?.trim() || d.link || (!isPhoto(d) && d.video ? (d.media === "reel" ? "Reels chỉ có video" : "Bài chỉ có video") : d.photos?.length ? "Bài chỉ có ảnh" : null),
+    validate: (d) => {
+      if (!isPhoto(d) && !d.video) return d.media === "reel" ? "Chưa chọn video Reels" : "Chưa chọn video";
+      return !d.message?.trim() && !d.photos?.length && !d.link?.trim() && !d.video ? "Bài viết đang trống" : null;
+    },
     run: ({ d, t, rand, emit, go }) => {
       const msg = d.variants ? rand.pick(splitBy(d.message, "dashes")) || "" : d.message || "";
-      const at = emit({ message: msg, link: d.link || "", photos: d.photos || [] }, t);
+      const media = isPhoto(d) ? { photos: d.photos || [] } : { photos: [], video: d.video, video_kind: d.media === "reel" ? "reel" : "video" };
+      const at = emit({ message: msg, link: d.link || "", ...media }, t);
       go(at);
     },
   },

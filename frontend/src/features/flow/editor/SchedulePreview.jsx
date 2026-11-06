@@ -1,4 +1,4 @@
-import { Alert, Group, Image, Paper, Stack, Text, Timeline } from "@mantine/core";
+import { Alert, Badge, Group, Image, Paper, Stack, Text, Timeline } from "@mantine/core";
 import { IconCalendarEvent, IconClock } from "@tabler/icons-react";
 
 import { imgUrl } from "../../../api/client";
@@ -22,7 +22,8 @@ export function SchedulePreview({ schedule, onPick }) {
           <Timeline.Item key={i} bullet={<IconClock size={12} />} title={<Text size="sm" fw={600}>{hm(p.time)} · {dayLabel(p.time)}</Text>}>
             <Group gap="xs" wrap="nowrap" mt={4} style={{ cursor: "pointer" }} onClick={() => onPick(p.nodeId)}>
               {p.photos[0] && <Image src={imgUrl(p.photos[0])} w={36} h={36} radius="sm" />}
-              <Text size="xs" c="dimmed" lineClamp={3} style={{ whiteSpace: "pre-wrap" }}>{p.message || (p.photos.length ? "Bài chỉ có ảnh" : p.link)}</Text>
+              {p.video && <Badge size="xs" variant="light" color={p.video_kind === "reel" ? "violet" : "blue"} style={{ flex: "none" }}>{p.video_kind === "reel" ? "Reels" : "Video"}</Badge>}
+              <Text size="xs" c="dimmed" lineClamp={3} style={{ whiteSpace: "pre-wrap" }}>{p.message || (p.video ? "Chỉ có video" : p.photos.length ? "Bài chỉ có ảnh" : p.link)}</Text>
             </Group>
           </Timeline.Item>
         ))}

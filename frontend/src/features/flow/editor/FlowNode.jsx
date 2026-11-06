@@ -18,7 +18,8 @@ const FlowNode = memo(function FlowNode({ id, type, data, selected }) {
   const nPosts = schedule.perNode[id] || 0;
   const nRuns = schedule.runs[id] || 0;
   const summary = def.summary(d) ?? (type === "start" && t ? `Lúc ${when(t)}` : "Chưa cấu hình");
-  const photos = (d.photos || []).slice(0, 5);
+  const hasVideo = type === "post" && d.media && d.media !== "photo";
+  const photos = hasVideo ? [] : (d.photos || []).slice(0, 5);
   const timeBadge = t && !d.disabled ? `${["wait", "window"].includes(type) ? "→ " : ""}${hm(t)} · ${dayLabel(t)}` : null;
 
   return (
@@ -48,6 +49,7 @@ const FlowNode = memo(function FlowNode({ id, type, data, selected }) {
             {(d.photos || []).length > 5 && <Badge variant="light" color="gray" h={40} radius="sm">+{d.photos.length - 5}</Badge>}
           </div>
         )}
+        {hasVideo && <Badge mt={8} size="sm" variant="light" color={d.media === "reel" ? "violet" : "blue"}>{d.media === "reel" ? "Reels" : "Video"}{d.video ? "" : " · chưa chọn video"}</Badge>}
         {!d.disabled && (nPosts > 0 || nRuns > 1) && (
           <Group gap={6} mt={8}>
             {nPosts > 0 && <Badge size="xs" variant="dot" color={def.color} style={{ textTransform: "none" }}>{nPosts} bài</Badge>}

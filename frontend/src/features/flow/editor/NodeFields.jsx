@@ -3,7 +3,7 @@ import { DateTimePicker, TimeInput } from "@mantine/dates";
 import { IconClock } from "@tabler/icons-react";
 
 import { toLocalIso, UNITS } from "../../../lib/time";
-import { PhotoPicker } from "../../../components";
+import { PhotoPicker, VideoPicker } from "../../../components";
 import { eventValue } from "../../../lib/forms";
 
 const unitData = UNITS.map(({ value, label }) => ({ value, label }));
@@ -96,6 +96,14 @@ export function NodeFields({ fields, data, onChange }) {
                 <Text size="sm" fw={500} mb={desc ? 2 : 6}>{label}</Text>
                 {desc && <Text size="xs" c="dimmed" mb={6}>{desc}</Text>}
                 <PhotoPicker compact value={data[f.key] || []} onChange={set(f.key)} />
+              </div>
+            );
+          case "video":
+            return (
+              <div key={key}>
+                <Text size="sm" fw={500} mb={desc ? 2 : 6}>{label}</Text>
+                {desc && <Text size="xs" c="dimmed" mb={6}>{desc}</Text>}
+                <VideoPicker value={data[f.key] || ""} onChange={set(f.key)} reel={data.media === "reel"} />
               </div>
             );
           case "note":

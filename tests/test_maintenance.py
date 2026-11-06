@@ -72,3 +72,21 @@ def test_maintenance_api_and_state(connected, svc):
     assert r["backups"] == 1 and r["last_backup"].startswith("data-")
     m = connected.get("/api/state").get_json()["maintenance"]
     assert m["backups"] == 1 and m["last_backup"] == r["last_backup"]
+
+
+def test_videos_used_by_posts_or_flows_are_kept(connected, svc):
+    import io
+    mp4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64
+
+    def up(name):
+        r = connected.post("/api/upload", data={"files": (io.BytesIO(mp4), name)}, content_type="multipart/form-data")
+        return r.get_json()["files"][0]
+    reel_post, reel_flow, orphan = up("a.mp4"), up("b.mp4"), up("c.mp4")
+    later = (datetime.now() + timedelta(days=20)).isoformat(timespec="minutes")
+    connected.post("/api/posts", json={"message": "x", "video": reel_post, "video_kind": "reel", "scheduled_at": later})
+    connected.put("/api/flows/f_v", json={"name": "V", "nodes": [{"id": "s", "type": "start"},
+                  {"id": "p", "type": "post", "data": {"media": "reel", "video": reel_flow}}], "edges": []})
+    for f in (reel_post, reel_flow, orphan):
+        age(svc.config.upload_dir / f, 30)
+    assert svc.maintenance.run()["removed_files"] == 1
+    assert {f.name for f in svc.config.upload_dir.iterdir()} == {reel_post, reel_flow}

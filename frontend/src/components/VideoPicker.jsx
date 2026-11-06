@@ -40,7 +40,6 @@ export function VideoPicker({ value, onChange, reel = false }) {
           </div>
         </Group>
       </Dropzone>
-      {reel && <Text size="xs" c="dimmed">Reels: video dọc 9:16, dài 3–90 giây (Facebook sẽ từ chối nếu không đúng).</Text>}
     </Stack>
   );
 }

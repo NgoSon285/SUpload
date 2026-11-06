@@ -30,8 +30,9 @@ def test_template_downloads(client):
 
 def test_template_parses_cleanly():
     rows = importer.parse_rows(importer.read_table("m.xlsx", importer.template_xlsx()), [], datetime(2026, 1, 1))
-    assert len(rows) == 3 and not any(r["errors"] for r in rows)
-    assert rows[0]["scheduled_at"] == "2026-12-01T08:00" and rows[2]["scheduled_at"] is None
+    assert len(rows) == 4 and not any(r["errors"] for r in rows)
+    assert rows[0]["scheduled_at"] == "2026-12-01T08:00" and rows[3]["scheduled_at"] is None
+    assert rows[2]["video"].endswith(".mp4") and rows[2]["video_kind"] == "reel" and rows[0]["video"] == ""
 
 
 def test_preview_accepts_vietnamese_headers_without_accents_and_semicolons(connected):
@@ -122,3 +123,48 @@ def test_commit_rejects_non_image_url(connected, svc, monkeypatch):
 def test_library_photo_missing_is_flagged_in_preview(connected):
     r = preview(connected, csv_file("Nội dung,Ảnh\nA,khong-co.png\n")).get_json()
     assert "Không có ảnh" in r["rows"][0]["errors"][0]
+
+
+MP4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64
+
+
+def test_import_reels_from_link_and_video_from_library(connected, svc, monkeypatch):
+    r = connected.post("/api/upload", data={"files": (io.BytesIO(MP4), "co-san.mp4")}, content_type="multipart/form-data")
+    lib = r.get_json()["files"][0]
+
+    def fake_fetch(url, dest, max_bytes=0):
+        dest.write_bytes(MP4)
+        return "video/mp4"
+    monkeypatch.setattr(media, "fetch_to_file", fake_fetch)
+    text = (f"Nội dung,Video,Loại,Thời gian\nReel mới,https://cdn.vn/hau-truong.mp4,Reels,{FUTURE:%d/%m/%Y %H:%M}\n"
+            f"Video thư viện,{lib},Video,\n")
+    rows = preview(connected, csv_file(text)).get_json()["rows"]
+    assert [x["errors"] for x in rows] == [[], []] and rows[0]["video_kind"] == "reel"
+    assert connected.post("/api/import/commit", json={"rows": rows}).get_json()["count"] == 2
+    posts = {p["message"]: p for p in svc.store.load()["posts"]}
+    reel = posts["Reel mới"]
+    assert reel["video_kind"] == "reel" and reel["video"].endswith("_hau-truong.mp4") and (svc.config.upload_dir / reel["video"]).is_file()
+    assert posts["Video thư viện"]["video"] == lib and posts["Video thư viện"]["video_kind"] == "video"
+    assert not list(svc.config.upload_dir.glob(".tai_*"))  # không để lại file tạm
+
+
+@pytest.mark.parametrize("text,err", [
+    ("Nội dung,Loại\nA,Reels\n", "cần cột Video"),
+    ("Nội dung,Video,Loại\nA,x.mp4,Story\n", "không hợp lệ"),
+    ("Nội dung,Video,Ảnh\nA,https://x.vn/a.mp4,https://x.vn/a.png\n", "ảnh hoặc video"),
+    ("Nội dung,Video\nA,khong-co.mp4\n", "Không có video"),
+])
+def test_video_rows_are_validated(connected, text, err):
+    r = preview(connected, csv_file(text)).get_json()
+    assert any(err in e for e in r["rows"][0]["errors"]), r["rows"][0]["errors"]
+
+
+def test_commit_rejects_non_video_link(connected, svc, monkeypatch):
+    def fake_fetch(url, dest, max_bytes=0):
+        dest.write_bytes(b"<html>")
+        return "text/html"
+    monkeypatch.setattr(media, "fetch_to_file", fake_fetch)
+    rows = preview(connected, csv_file("Nội dung,Video,Loại\nA,https://x.vn/trang,Reels\n")).get_json()["rows"]
+    r = connected.post("/api/import/commit", json={"rows": rows})
+    assert r.status_code == 400 and "không phải video" in r.get_json()["failed"][0]["errors"][0]
+    assert not list(svc.config.upload_dir.glob(".tai_*"))

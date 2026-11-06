@@ -612,11 +612,13 @@ def test_compose_reel_and_queue_badge(page, svc, graph, tmp_path):
     clip.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64)
     page.goto(page.base)
     nav(page, "Soạn bài")
-    page.get_by_test_id("media-type").locator(".mantine-SegmentedControl-label", has_text="Reels").click()
-    page.get_by_text("video dọc 9:16", exact=False).wait_for()
+    page.get_by_label("Nội dung").fill("Reel đầu tiên")
+    nav(page, "Đăng Reels")  # menu riêng: chuyển sang Reels, giữ nội dung đang soạn
+    page.get_by_role("heading", name="Đăng Reels").wait_for()
+    page.get_by_test_id("reel-hint").get_by_text("Video dọc 9:16", exact=False).wait_for()
+    assert page.get_by_label("Nội dung").input_value() == "Reel đầu tiên"
     page.get_by_test_id("video-drop").locator("input[type=file]").set_input_files(str(clip))
     page.get_by_test_id("video-preview").wait_for()
-    page.get_by_label("Nội dung").fill("Reel đầu tiên")
     page.get_by_role("button", name="Đăng ngay").last.click()
     page.get_by_text("Đang đăng bài").wait_for()
     p = api_state(page)["posts"][0]
@@ -626,6 +628,33 @@ def test_compose_reel_and_queue_badge(page, svc, graph, tmp_path):
     nav(page, "Lịch đăng")
     page.get_by_text("Đã đăng (1)").click()
     page.get_by_test_id("post-row").get_by_text("Reels", exact=True).wait_for()
+    nav(page, "Soạn bài")  # sau khi đăng vẫn ở chế độ Reels để đăng tiếp
+    page.get_by_role("heading", name="Đăng Reels").wait_for()
+    assert page.errors == []
+
+
+def test_flow_post_node_can_be_reel(page, svc, tmp_path):
+    connect(page)
+    clip = tmp_path / "flow-reel.mp4"
+    clip.write_bytes(b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 64)
+    page.goto(page.base)
+    nav(page, "Flow chiến dịch")
+    page.get_by_role("button", name="Tạo flow đầu tiên").click()
+    page.get_by_label("Tên flow").fill("Chiến dịch Reels")
+    page.get_by_role("button", name="Tạo và mở").click()
+    node = page.locator(".react-flow__node-post").first
+    node.click()
+    page.locator(".mantine-SegmentedControl-label", has_text="Reels").last.click()
+    node.get_by_text("Reels · chưa chọn video").wait_for()
+    page.get_by_test_id("video-drop").locator("input[type=file]").set_input_files(str(clip))
+    page.get_by_test_id("video-preview").wait_for()
+    node.get_by_text("Reels", exact=True).wait_for()
+    n_posts = int(page.get_by_test_id("flow-count").inner_text().split()[0])
+    page.get_by_role("button", name="Chạy flow").click()
+    page.get_by_role("button", name=f"Lên lịch {n_posts} bài").click()
+    page.get_by_text(f"Đã lên lịch {n_posts} bài").wait_for()
+    reels = [p for p in api_state(page)["posts"] if p.get("video_kind") == "reel"]
+    assert reels and all(p["video"].endswith("flow-reel.mp4") and p["photos"] == [] for p in reels)
     assert page.errors == []
 
 

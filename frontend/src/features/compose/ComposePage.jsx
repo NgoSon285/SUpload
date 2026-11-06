@@ -6,7 +6,7 @@ import { DateTimePicker } from "@mantine/dates";
 import { useHotkeys, useInterval } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
-import { IconAlertCircle, IconClock, IconLink, IconPencil, IconPlugConnected, IconSend } from "@tabler/icons-react";
+import { IconAlertCircle, IconClock, IconLink, IconMovie, IconPencil, IconPhoto, IconPlugConnected, IconSend, IconVideo } from "@tabler/icons-react";
 
 import { useApp } from "../../app/context";
 import { mediaApi, postsApi, stateApi } from "../../api/endpoints";
@@ -15,6 +15,14 @@ import { configured, pagesOf, targetPage } from "../../lib/page";
 import { storage } from "../../lib/storage";
 import { dayLabel, hm, presetTimes, rel, toLocalIso, when } from "../../lib/time";
 import { AiAssistant, PageHeader, PhotoPicker, PostPreview, SnippetMenu, VideoPicker, notifyErr, usePasteImages } from "../../components";
+
+const TYPES = [
+  { value: "photo", label: "Bài viết", icon: IconPhoto },
+  { value: "video", label: "Video", icon: IconVideo },
+  { value: "reel", label: "Reels", icon: IconMovie },
+];
+const TITLES = { photo: "Soạn bài viết", video: "Đăng video", reel: "Đăng Reels" };
+const kindOf = (p) => (p.video ? (p.video_kind === "reel" ? "reel" : "video") : "photo");
 
 const EMPTY = { message: "", link: "", photos: [], page: "", video: "", video_kind: "video" }; // page "" = Page mặc định
 
@@ -32,9 +40,9 @@ const confirmShift = (preview) =>
   }));
 
 export default function ComposePage() {
-  const { state, refresh, setView, draftPost, setDraftPost } = useApp();
+  const { state, refresh, setView, draftPost, setDraftPost, setComposeType } = useApp();
   const [post, setPost] = useState(() => ({ ...EMPTY, ...(storage.get("draft", EMPTY) || {}) }));
-  const [mediaType, setMediaTypeState] = useState(() => (post.video ? (post.video_kind === "reel" ? "reel" : "video") : "photo"));
+  const [mediaType, setMediaTypeState] = useState(() => storage.get("compose-type", kindOf(post)));
   const [showLink, setShowLink] = useState(!!post.link);
   const [mode, setMode] = useState("now");
   const [at, setAt] = useState(null);
@@ -47,6 +55,11 @@ export default function ComposePage() {
   useEffect(() => {
     if (!draftPost) return;
     const p = draftPost.post;
+    if (draftPost.mode === "type") {  // từ menu "Đăng Reels": chỉ đổi loại bài, giữ nội dung đang soạn
+      setMediaType(p.video_kind);
+      setDraftPost(null);
+      return;
+    }
     setPost({ message: p.message || "", link: p.link || "", photos: [...(p.photos || [])], page: p.page || "", video: p.video || "", video_kind: p.video_kind || "video" });
     setMediaTypeState(p.video ? (p.video_kind === "reel" ? "reel" : "video") : "photo");
     setShowLink(!!p.link);
@@ -76,7 +89,9 @@ export default function ComposePage() {
   const presets = useMemo(presetTimes, [mode, Math.floor(Date.now() / 60000)]); // eslint-disable-line
   const atValid = at && at > new Date();
   const isEmpty = !post.message.trim() && !post.photos.length && !post.link.trim() && !post.video;
+  useEffect(() => { storage.set("compose-type", mediaType); setComposeType?.(mediaType); }, [mediaType, setComposeType]);
   const setMediaType = (t) => {
+    t = TYPES.some((x) => x.value === t) ? t : "photo";
     setMediaTypeState(t);
     setPost((p) => ({ ...p, photos: t === "photo" ? p.photos : [], video: t === "photo" ? "" : p.video, video_kind: t === "reel" ? "reel" : "video" }));
   };
@@ -87,7 +102,8 @@ export default function ComposePage() {
   };
 
   const reset = () => {
-    setPost(EMPTY); setMediaTypeState("photo"); setShowLink(false); setMode("now"); setAt(null); setEditingId(null);
+    // giữ loại bài đang chọn (vd đăng nhiều Reels liên tiếp)
+    setPost((p) => ({ ...EMPTY, video_kind: p.video_kind || "video" })); setShowLink(false); setMode("now"); setAt(null); setEditingId(null);
     storage.set("draft", EMPTY);
   };
 
@@ -145,7 +161,8 @@ export default function ComposePage() {
 
   return (
     <>
-      <PageHeader title={editingId ? "Sửa bài viết" : "Soạn bài viết"} desc="Viết nội dung, thêm ảnh và chọn thời điểm đăng lên Page." />
+      <PageHeader title={editingId ? "Sửa bài viết" : TITLES[mediaType]}
+        desc={mediaType === "reel" ? "Đăng video dọc ngắn dạng Reels lên Page, đăng ngay hoặc hẹn giờ." : "Viết nội dung, thêm ảnh hoặc video và chọn thời điểm đăng lên Page."} />
 
       {!ok && (
         <Alert mb="lg" variant="light" color="indigo" radius="lg" icon={<IconPlugConnected />} title="Kết nối Page để bắt đầu">
@@ -169,6 +186,11 @@ export default function ComposePage() {
                 </Alert>
               )}
 
+              <SegmentedControl
+                fullWidth size="md" radius="md" value={mediaType} onChange={setMediaType} data-testid="media-type"
+                data={TYPES.map(({ value, label, icon: Icon }) => ({ value, label: <Group gap={8} justify="center" wrap="nowrap"><Icon size={18} />{label}</Group> }))}
+              />
+
               {pages.length > 1 && (
                 <Select
                   label="Đăng lên Page" data-testid="page-select" allowDeselect={false} comboboxProps={{ withinPortal: true }}
@@ -191,11 +213,16 @@ export default function ComposePage() {
               </Group>
 
               <div>
-                <Group justify="space-between" mb={6}>
-                  <Text size="sm" fw={500}>{mediaType === "photo" ? "Ảnh" : mediaType === "reel" ? "Video Reels" : "Video"}</Text>
-                  <SegmentedControl size="xs" value={mediaType} onChange={setMediaType} data-testid="media-type"
-                    data={[{ value: "photo", label: "Ảnh" }, { value: "video", label: "Video" }, { value: "reel", label: "Reels" }]} />
-                </Group>
+                <Text size="sm" fw={500} mb={6}>{mediaType === "photo" ? "Ảnh" : mediaType === "reel" ? "Video Reels" : "Video"}</Text>
+                {mediaType === "reel" && (
+                  <Alert variant="light" color={target?.kind === "browser" ? "red" : "violet"} py="xs" mb="xs" icon={<IconMovie size={18} />} data-testid="reel-hint">
+                    <Text size="sm">
+                      {target?.kind === "browser"
+                        ? "Page này đăng qua Trình duyệt: Reels chỉ đăng được với Page kết nối qua Graph API."
+                        : "Video dọc 9:16, dài 3–90 giây. Facebook cho tối đa 30 Reels qua API mỗi Page trong 24 giờ."}
+                    </Text>
+                  </Alert>
+                )}
                 {mediaType === "photo"
                   ? <PhotoPicker value={post.photos} onChange={set("photos")} />
                   : <VideoPicker value={post.video} onChange={set("video")} reel={mediaType === "reel"} />}

@@ -125,7 +125,8 @@ export default function FlowPage() {
       return;
     }
     const soon = Date.now() + 60000;
-    const items = schedule.posts.map((p) => ({ message: p.message, link: p.link, photos: p.photos, scheduled_at: +p.time > soon ? toLocalIso(p.time) : null }));
+    const items = schedule.posts.map((p) => ({ message: p.message, link: p.link, photos: p.photos, scheduled_at: +p.time > soon ? toLocalIso(p.time) : null,
+      ...(p.video ? { video: p.video, video_kind: p.video_kind } : {}) }));
     let preview = null;
     const page = targetPage(state, current.page);
     try { preview = await stateApi.previewPlan(items.map((it) => ({ ...it, page: page.id }))); } catch (e) { notifyErr(e.message); return; }
