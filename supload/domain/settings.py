@@ -38,6 +38,8 @@ def apply_update(s: dict, body: dict) -> dict:
     from ..integrations.ai import clean_base_url, clean_model
     s["ai_model"] = clean_model(s.get("ai_model"))
     s["ai_base_url"] = clean_base_url(s.get("ai_base_url"))
+    from .comments import clean_config
+    s["comments"] = clean_config(s.get("comments"))
     s["headless"] = bool(s.get("headless"))
     s["fb_schedule"] = bool(s.get("fb_schedule"))
     return s

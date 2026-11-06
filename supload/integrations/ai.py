@@ -28,6 +28,7 @@ TASKS = {
     "improve": "Viết lại bài đăng dưới đây cho hấp dẫn và dễ đọc hơn, giữ nguyên mọi thông tin. Đưa ra 3 phương án khác nhau rõ rệt.",
     "variants": "Viết 3 phiên bản khác nhau của bài đăng dưới đây: cùng nội dung và thông tin, khác cách mở bài và diễn đạt, để đăng luân phiên không bị trùng lặp.",
     "hashtags": "Gợi ý 8 đến 12 hashtag phù hợp với bài đăng dưới đây (ưu tiên hashtag tiếng Việt không dấu và hashtag phổ biến). Mỗi phần tử là MỘT hashtag bắt đầu bằng #.",
+    "reply": "Dưới đây là một bình luận của khách trên Page (có thể kèm nội dung bài viết). Viết 3 câu trả lời ngắn (1–3 câu), lịch sự, xưng hô phù hợp, mời khách nhắn tin nếu cần tư vấn thêm. Không hứa hẹn giá hay khuyến mãi không có trong nội dung.",
     "idea": "Từ ý tưởng dưới đây, viết 3 bài đăng Facebook hoàn chỉnh, mỗi bài một hướng tiếp cận khác nhau.",
 }
 SCHEMA = {

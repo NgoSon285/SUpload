@@ -182,6 +182,36 @@ class PagePoster:
                 out["reach_error"] = str(e)
         return out
 
+    # ------------------------------------------------------------ bình luận
+    COMMENT_FIELDS = "id,message,from{id,name},created_time,is_hidden,can_hide,can_reply_privately,permalink_url"
+
+    def recent_posts(self, since: datetime, limit: int = 25) -> list[dict]:
+        """Bài trên Page từ `since` (cần để đọc bình luận)."""
+        d = call("GET", f"{self.page_id}/posts", params={
+            "access_token": self.token, "fields": "id,message,created_time,permalink_url",
+            "since": str(int(since.timestamp())), "limit": str(limit)})
+        return d.get("data") or []
+
+    def comments(self, post_id: str, limit: int = 100) -> list[dict]:
+        """Bình luận mới nhất của một bài (cả trả lời lồng nhau)."""
+        d = call("GET", f"{post_id}/comments", params={
+            "access_token": self.token, "fields": self.COMMENT_FIELDS, "filter": "stream",
+            "order": "reverse_chronological", "limit": str(limit)})
+        return d.get("data") or []
+
+    def hide_comment(self, comment_id: str, hidden: bool = True) -> None:
+        call("POST", comment_id, data={"access_token": self.token, "is_hidden": str(hidden).lower()})
+
+    def reply_comment(self, comment_id: str, message: str) -> dict:
+        """Trả lời công khai dưới bình luận."""
+        return call("POST", f"{comment_id}/comments", data={"access_token": self.token, "message": message})
+
+    def private_reply(self, comment_id: str, message: str) -> dict:
+        """Nhắn riêng (Messenger) cho người bình luận. Facebook chỉ cho 1 tin mỗi bình luận, trong 7 ngày."""
+        return call("POST", f"{self.page_id}/messages", data={
+            "access_token": self.token, "recipient": json.dumps({"comment_id": comment_id}),
+            "message": json.dumps({"text": message}, ensure_ascii=False), "messaging_type": "RESPONSE"})
+
     def delete(self, post_id: str) -> None:
         """Xoá bài (dùng để huỷ bài đã hẹn giờ)."""
         call("DELETE", post_id, params={"access_token": self.token})

@@ -143,3 +143,9 @@ def test_input_validation(connected, gpt, body, msg):
     connected.post("/api/settings", json={"openai_api_key": "k"})
     r = connected.post("/api/ai/suggest", json=body)
     assert r.status_code == 400 and msg in r.get_json()["error"] and gpt.calls == []
+
+
+def test_reply_suggestions_for_comment(connected, gpt):
+    connected.post("/api/settings", json={"openai_api_key": "k"})
+    r = connected.post("/api/ai/suggest", json={"action": "reply", "text": "Bình luận của An: giá sao ạ"})
+    assert r.status_code == 200 and "Viết 3 câu trả lời" in gpt.calls[0]["messages"][1]["content"]

@@ -38,7 +38,10 @@ def default_settings() -> dict:
         # trợ lý AI (OpenAI API); để trống key = dùng biến môi trường OPENAI_API_KEY nếu có
         "openai_api_key": "",
         "ai_model": "gpt-5.4-mini",
-        "ai_base_url": "",  # để trống = OpenAI; điền địa chỉ nếu dùng dịch vụ tương thích OpenAI
+        "ai_base_url": "",
+        # bình luận: đồng bộ + quy tắc tự động (domain/comments.py)
+        "comments": {"enabled": False, "inbox": True, "hide_phone": True, "unhide_after_h": 0, "hide_words": "",
+                     "rules": [], "poll_minutes": 3, "days": 7},  # để trống = OpenAI; điền địa chỉ nếu dùng dịch vụ tương thích OpenAI
     }
 
 

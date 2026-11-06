@@ -4,9 +4,10 @@
 2. Tự đăng bài đã đến giờ (việc gấp nhất về thời gian)
 3. Giao bài sắp tới (trong 12 phút – 30 ngày) cho Facebook tự đăng   [cách API + bật hẹn giờ FB]
    Bài còn dưới 12 phút hoặc hơn 30 ngày nữa thì chờ, tới giờ tự đăng / tới lúc vào khung 30 ngày thì giao.
-4. Kiểm tra kết nối từng Page qua API, mỗi 6 giờ (domain/health.py)
-5. Lấy chỉ số tương tác của bài đã đăng trong 14 ngày, mỗi bài 6 giờ/lần (domain/insights.py)
-6. Bảo trì hằng ngày: sao lưu, dọn dữ liệu cũ (services/maintenance.py)
+4. Hiện lại bình luận đã ẩn tạm; đồng bộ bình luận mới + quy tắc tự động, vài phút/lần (services/comments.py)
+5. Kiểm tra kết nối từng Page qua API, mỗi 6 giờ (domain/health.py)
+6. Lấy chỉ số tương tác của bài đã đăng trong 14 ngày, mỗi bài 6 giờ/lần (domain/insights.py)
+7. Bảo trì hằng ngày: sao lưu, dọn dữ liệu cũ (services/maintenance.py)
 
 Thời điểm đăng do domain.planner quyết định (giãn cách tối thiểu, số bài tối đa mỗi ngày).
 """
@@ -20,6 +21,8 @@ from ..integrations.facebook import FBError
 from ..domain.posts import ERROR, PENDING, RUNNING, label
 from ..storage import Store, add_log, find
 from ..utils import now_iso
+from . import comments as comment_sync
+from .comments import CommentSync
 from .maintenance import Maintenance
 from .publisher import Publisher
 from .runtime import Runtime
@@ -29,6 +32,7 @@ class Scheduler:
     def __init__(self, store: Store, publisher: Publisher, runtime: Runtime, idle_seconds: float = 10.0,
                  maintenance: Maintenance | None = None):
         self.store = store
+        self.comments = CommentSync(store, publisher)
         self.publisher = publisher
         self.maintenance = maintenance
         self.runtime = runtime
@@ -63,11 +67,17 @@ class Scheduler:
             job = self._pick(data, settings, now)
             if job:
                 kind, post, when = job
-                page = page_of(data, post) if post else None
+                page = page_of(data, post) if post and kind != "unhide" else None
+                if kind == "unhide":
+                    page = next((p for p in data["pages"] if p["id"] == post.get("page")), None)
                 if kind == "check":
                     post["last_check_at"] = now.isoformat(timespec="seconds")
                 elif kind == "stats":  # đánh dấu đã thử, lỗi thì 6 giờ sau thử lại
                     post["stats"] = {**(post.get("stats") or {}), "fetched_at": now.isoformat(timespec="seconds")}
+                elif kind == "comments":  # giữ chỗ: lỗi giữa chừng cũng không hỏi lại liên tục
+                    comment_sync.state(data, page["id"])["last_at"] = now.isoformat(timespec="seconds")
+                elif kind == "unhide":
+                    post["unhide_at"] = None
                 elif kind in ("publish", "handoff"):
                     post["status"] = RUNNING  # giữ chỗ, tránh xử lý trùng
         if not job:
@@ -76,6 +86,7 @@ class Scheduler:
         try:
             {"check": self._do_check, "handoff": self._do_handoff, "publish": self._do_publish,
              "health": self._do_health, "stats": self._do_stats,
+             "comments": self._do_comments, "unhide": self._do_unhide,
              "maintenance": self._do_maintenance}[kind](post, page, settings, now, when)
         finally:
             self.runtime.worker = "Đang rảnh"
@@ -97,6 +108,11 @@ class Scheduler:
             post = find(posts, pid)
             if self.publisher.can_hand_off(when, page_of(data, post), settings, now):
                 return "handoff", post, when
+        for c in comment_sync.unhide_due(data, now):
+            return "unhide", c, None
+        for pg in data["pages"]:
+            if comment_sync.due(data, pg, now):
+                return "comments", {"id": None, "page": pg["id"]}, None
         for pg in data["pages"]:
             if health.due(data, pg, now):
                 return "health", {"id": None, "page": pg["id"]}, None
@@ -184,6 +200,14 @@ class Scheduler:
                                                     "gone": True}, "fb_id": None}, None, None)
             return
         self._finish(post["id"], {"stats": stats}, None, None)
+
+    def _do_comments(self, post, page, settings: dict, now: datetime, when) -> None:
+        self.runtime.worker = f"Đang đọc bình luận Page {page['name']}…"
+        self.comments.sync(page, now)
+
+    def _do_unhide(self, comment, page, settings: dict, now: datetime, when) -> None:
+        self.runtime.worker = "Đang hiện lại bình luận đã ẩn tạm…"
+        self.comments.unhide(comment, page, now)
 
     def _do_maintenance(self, post, page, settings: dict, now: datetime, when) -> None:
         self.runtime.worker = "Đang sao lưu & dọn dữ liệu…"

@@ -70,6 +70,16 @@ export const insightsApi = {
   refresh: () => post("/api/insights/refresh"),
 };
 
+export const commentsApi = {
+  list: ({ page = "", filter = "all", q = "" } = {}) =>
+    api(`/api/comments?filter=${filter}${page ? `&page=${page}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
+  sync: () => post("/api/comments/sync"),
+  seen: (ids) => post("/api/comments/seen", { ids }),
+  reply: (id, message, priv = false) => post(`/api/comments/${encodeURIComponent(id)}/reply`, { message, private: priv }),
+  hide: (id, hidden) => post(`/api/comments/${encodeURIComponent(id)}/hide`, { hidden }),
+  saveConfig: (cfg) => api("/api/comments/config", { method: "PUT", body: cfg }),
+};
+
 export const aiApi = {
   models: () => api("/api/ai/models"),
   suggest: (body) => post("/api/ai/suggest", body),

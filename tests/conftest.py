@@ -32,6 +32,10 @@ class FakeGraph:
         # chỉ số Meta đã khai tử từ 06/2026
         self.retired_metrics = {"post_impressions_unique", "post_impressions", "total_video_impressions", "total_video_impressions_unique"}
         self.video_status = "ready"
+        self.page_posts = []           # GET {page}/posts
+        self.post_comments = {}        # post_id -> [bình luận]
+        self.comments_error = None
+        self.fail_reply = None
         self._ids = itertools.count(1)
 
     def __call__(self, method, path, base=None, **kwargs):
@@ -73,7 +77,13 @@ class FakeGraph:
             return {"id": path, "status": {"video_status": self.video_status}, "published": self.video_status == "ready",
                     "permalink_url": f"/reel/{path}"}
         if method == "GET" and path.endswith("/posts"):
-            return {"data": [{"id": "111_latest"}]}
+            return {"data": self.page_posts} if self.page_posts else {"data": [{"id": "111_latest"}]}
+        if method == "GET" and path.endswith("/comments"):
+            if self.comments_error:
+                raise self.comments_error
+            return {"data": list(reversed(self.post_comments.get(path.rsplit("/", 1)[0], [])))}
+        if method == "POST" and (path.endswith("/comments") or path.endswith("/messages")) and self.fail_reply:
+            raise self.fail_reply
         if method == "GET" and params.get("fields") in ("is_published", "published"):
             return {"id": path, params["fields"]: path in self.published}
         if path.endswith("/video_reels") and data.get("upload_phase") == "start":
@@ -107,6 +117,8 @@ def app(tmp_path, graph):
     from datetime import datetime
     with a.extensions["supload"].store.transaction() as data:
         data["maintenance"] = {"last_run": datetime.now().isoformat(timespec="seconds")}
+        # tắt đồng bộ bình luận (có test riêng trong test_comments.py)
+        data["settings"]["comments"] = {**data["settings"]["comments"], "inbox": False, "enabled": False}
     return a
 
 

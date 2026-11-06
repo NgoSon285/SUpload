@@ -744,3 +744,44 @@ def test_autostart_switch_in_settings(page, tmp_path, monkeypatch):
     page.get_by_text("Đã tắt tự khởi động").wait_for()
     assert not (startup / "SUpload.vbs").exists()
     assert page.errors == []
+
+
+# ---------------------------------------------------------------- bình luận
+def test_comments_inbox_reply_hide_and_rules(page, svc, graph):
+    connect(page)
+    from supload.domain import comments as cm
+    now = datetime.now()
+    with svc.store.transaction() as data:
+        pid = data["pages"][0]["id"]
+        raw = [{"id": "c1", "message": "Giá bao nhiêu shop?", "from": {"id": "u1", "name": "Lê Hoa"}, "created_time": now.isoformat()},
+               {"id": "c2", "message": "Đẹp quá", "from": {"id": "u2", "name": "Minh"}, "created_time": now.isoformat()}]
+        data["comments"] = [cm.record(c, pid, {"id": "111_p", "message": "Bánh kem dâu"}) for c in raw]
+        data["settings"]["comments"]["inbox"] = False
+    page.goto(page.base)
+    page.locator(".mantine-NavLink-root", has_text="Bình luận").get_by_text("2").wait_for()  # 2 bình luận chưa xem
+    nav(page, "Bình luận")
+    card = page.get_by_test_id("comment").filter(has_text="Lê Hoa")
+    card.get_by_text("Trên bài: Bánh kem dâu").wait_for()
+    card.get_by_role("button", name="Trả lời").click()
+    card.get_by_label("Nội dung trả lời").fill("Dạ shop nhắn riêng cho bạn ạ")
+    card.get_by_role("button", name="Gửi").click()
+    page.get_by_text("Đã trả lời").wait_for()
+    assert any(c["path"] == "c1/comments" and c["data"]["message"] == "Dạ shop nhắn riêng cho bạn ạ" for c in graph.calls)
+    card.get_by_text("Page trả lời").wait_for()
+
+    page.get_by_test_id("comment").filter(has_text="Minh").get_by_role("button", name="Ẩn").click()
+    page.get_by_test_id("comment").filter(has_text="Minh").get_by_text("Đã ẩn").wait_for()
+    assert any(c["path"] == "c2" and c["data"]["is_hidden"] == "true" for c in graph.calls)
+
+    page.get_by_test_id("toggle-rules").click()
+    rules = page.get_by_test_id("comment-rules")
+    rules.get_by_text("Bật tự động xử lý bình luận mới").click()
+    rules.get_by_role("button", name="Thêm quy tắc").click()
+    rules.get_by_role("button", name="Lưu quy tắc").click()
+    page.get_by_text("Đã lưu quy tắc bình luận").wait_for()
+    cfg = svc.store.load()["settings"]["comments"]
+    assert cfg["enabled"] and cfg["rules"][0]["keywords"] == "giá, ib, bao nhiêu"
+    nav(page, "Soạn bài")
+    page.wait_for_timeout(500)
+    assert all(c["seen"] for c in svc.store.load()["comments"])  # rời trang: đánh dấu đã xem
+    assert page.errors == []

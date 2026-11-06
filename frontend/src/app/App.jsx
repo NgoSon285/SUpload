@@ -5,12 +5,13 @@ import {
 } from "@mantine/core";
 import { useDisclosure, useInterval } from "@mantine/hooks";
 import {
-  IconPencil, IconMovie, IconCalendarEvent, IconSitemap, IconListDetails, IconAdjustments, IconSun, IconMoon,
+  IconPencil, IconMovie, IconMessageCircle, IconCalendarEvent, IconSitemap, IconListDetails, IconAdjustments, IconSun, IconMoon,
   IconDeviceDesktop, IconSend, IconBooks, IconChartBar,
 } from "@tabler/icons-react";
 
 import { stateApi } from "../api/endpoints";
 import ComposePage from "../features/compose/ComposePage";
+import CommentsPage from "../features/comments/CommentsPage";
 import FlowPage from "../features/flow/FlowPage";
 import InsightsPage from "../features/insights/InsightsPage";
 import LibraryPage from "../features/library/LibraryPage";
@@ -26,6 +27,7 @@ const VIEWS = [
   { id: "compose", label: "Soạn bài", icon: IconPencil },
   { id: "reels", label: "Đăng Reels", icon: IconMovie }, // mở Soạn bài ở chế độ Reels
   { id: "queue", label: "Lịch đăng", icon: IconCalendarEvent },
+  { id: "comments", label: "Bình luận", icon: IconMessageCircle },
   { id: "flow", label: "Flow chiến dịch", icon: IconSitemap },
   { id: "insights", label: "Thống kê", icon: IconChartBar },
   { id: "library", label: "Thư viện", icon: IconBooks },
@@ -144,6 +146,7 @@ export default function App() {
               {VIEWS.map(({ id, label, icon: Icon }) => {
                 let right = null;
                 if (id === "queue" && nPending + nErr > 0) right = <Badge size="sm" circle={nPending + nErr < 10} color={nErr ? "red" : "indigo"}>{nPending + nErr}</Badge>;
+                if (id === "comments" && state?.comments_unseen) right = <Badge size="sm" circle={state.comments_unseen < 10} color="indigo">{state.comments_unseen}</Badge>;
                 if (id === "settings" && state && !ok) right = <Badge size="sm" color="red" circle>!</Badge>;
                 return (
                   <NavLink
@@ -171,7 +174,7 @@ export default function App() {
               <HealthBanner pages={pagesOf(state)} onFix={() => setView("settings")} />
             </div>
           )}
-          {!state ? null : view === "compose" ? <ComposePage /> : view === "queue" ? <QueuePage /> : view === "flow" ? <FlowPage /> : view === "insights" ? <InsightsPage /> : view === "library" ? <LibraryPage /> : view === "log" ? <LogPage /> : <SettingsPage />}
+          {!state ? null : view === "compose" ? <ComposePage /> : view === "queue" ? <QueuePage /> : view === "comments" ? <CommentsPage /> : view === "flow" ? <FlowPage /> : view === "insights" ? <InsightsPage /> : view === "library" ? <LibraryPage /> : view === "log" ? <LogPage /> : <SettingsPage />}
         </AppShell.Main>
       </AppShell>
     </AppContext.Provider>

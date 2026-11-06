@@ -129,7 +129,8 @@ riêng sẽ đăng lên Page này.
 1. Mở **Graph API Explorer**: <https://developers.facebook.com/tools/explorer>.
 2. Ở ô **Meta App**, chọn App vừa tạo. Ở ô **User or Page**, chọn **User Token**.
 3. Ở **Permissions**, thêm 3 quyền: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`
-   (thêm `read_insights` nếu muốn xem lượt tiếp cận trong trang Thống kê).
+   (thêm `read_insights` nếu muốn xem lượt tiếp cận trong trang Thống kê; thêm `pages_read_user_content`,
+   `pages_manage_engagement`, `pages_messaging` để dùng trang Bình luận).
 4. Bấm **Generate Access Token**, đăng nhập và **chọn mọi Page muốn quản lý** trong hộp thoại cấp quyền.
 5. Chép chuỗi token vừa tạo.
 
@@ -262,6 +263,24 @@ Nếu báo "Không tìm thấy model", hãy đổi sang model mà tài khoản c
 cho Ollama), tên model của dịch vụ đó, và key của dịch vụ (Ollama nhận key bất kỳ). Model phải hỗ trợ trả JSON theo
 schema (structured outputs).
 AI được dặn không bịa giá, ngày, địa chỉ hay khuyến mãi, nhưng **hãy đọc lại trước khi đăng**.
+
+### Bình luận: hộp bình luận và tự động xử lý
+
+Trang **Bình luận** gom bình luận trên các bài trong 7 ngày gần đây của mọi Page (qua Graph API). Ứng dụng tự đọc bình luận mới
+mỗi 3 phút (bấm **Đồng bộ ngay** để đọc liền). Với mỗi bình luận bạn có thể:
+- **Trả lời** công khai, hoặc tick **Nhắn riêng qua Messenger** (Facebook chỉ cho nhắn riêng **1 lần** mỗi bình luận, trong **7 ngày**).
+- **AI gợi ý**: 3 câu trả lời mẫu dựa trên bình luận và nội dung bài (cần API key OpenAI).
+- **Ẩn / Hiện lại** bình luận; **Mở trên Facebook**.
+
+Bấm **Tự động** để đặt quy tắc cho bình luận mới:
+- **Ẩn bình luận có số điện thoại** (0912…, +84…, có dấu cách/chấm ở giữa vẫn nhận ra), ẩn luôn hoặc tự hiện lại sau 1 giờ – 7 ngày.
+- **Ẩn bình luận chứa từ** (vd tên đối thủ, từ thô tục).
+- **Trả lời theo từ khoá**: bình luận có “giá”, “ib”… → trả lời công khai và/hoặc nhắn riêng. Dùng `{ten}` để gọi tên khách,
+  `{a|b}` để chọn ngẫu nhiên cho đỡ trùng lặp. Không phân biệt hoa thường, có dấu hay không dấu.
+- Chỉ bình luận đến **sau khi bật** mới được xử lý; lần đồng bộ đầu tiên chỉ ghi nhận bình luận cũ.
+
+**Quyền cần thêm** khi tạo User Token (ngoài 3 quyền đăng bài): `pages_read_user_content` (đọc bình luận),
+`pages_manage_engagement` (trả lời, ẩn), `pages_messaging` (nhắn riêng). Thiếu quyền, trang Bình luận sẽ báo rõ.
 
 ### Thư viện nội dung
 

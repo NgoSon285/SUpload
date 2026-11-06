@@ -83,6 +83,7 @@ def state():
         limits={"daily_max": settings["daily_max"], "min_gap": settings["min_gap"],
                 "today": per_page.get(default["id"], 0) if default else 0, "per_page": per_page},
         maintenance={**(data.get("maintenance") or {}), "backups": len(s.maintenance.backups())},
+        comments_unseen=sum(1 for c in data.get("comments", []) if not c.get("seen")),
     )
 
 
