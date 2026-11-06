@@ -68,6 +68,13 @@ export const importApi = {
 export const insightsApi = {
   get: ({ days = 30, page = "" } = {}) => api(`/api/insights?days=${days}${page ? `&page=${page}` : ""}`),
   refresh: () => post("/api/insights/refresh"),
+  reportUrl: ({ days = 30, page = "" } = {}) => `/api/insights/report.xlsx?days=${days}${page ? `&page=${page}` : ""}`,
+};
+
+export const recycleApi = {
+  get: () => api("/api/recycle"),
+  saveConfig: (cfg) => api("/api/recycle/config", { method: "PUT", body: cfg }),
+  run: (page) => post("/api/recycle/run", { page }),
 };
 
 export const commentsApi = {

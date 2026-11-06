@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Alert, Badge, Button, Card, Group, Image, Paper, SegmentedControl, Select, SimpleGrid, Stack, Switch, Table, Text, ThemeIcon,
 } from "@mantine/core";
-import { IconChartBar, IconClock, IconEye, IconHeart, IconInfoCircle, IconMessageCircle, IconRefresh, IconShare3, IconSparkles } from "@tabler/icons-react";
+import { IconChartBar, IconClock, IconFileSpreadsheet, IconRepeat, IconEye, IconHeart, IconInfoCircle, IconMessageCircle, IconRefresh, IconShare3, IconSparkles } from "@tabler/icons-react";
 
 import { useApp } from "../../app/context";
 import { imgUrl } from "../../api/client";
@@ -10,6 +10,7 @@ import { insightsApi } from "../../api/endpoints";
 import { BarChart } from "../../components/BarChart";
 import { EmptyState, PageHeader, notifyErr, notifyOk } from "../../components";
 import { pagesOf } from "../../lib/page";
+import { RecycleCard } from "./RecycleCard";
 import { when } from "../../lib/time";
 
 const nf = (n) => (n == null ? "—" : Number(n).toLocaleString("vi-VN"));
@@ -43,7 +44,7 @@ export function StatsLine({ stats }) {
 
 /** Thống kê tương tác: tổng quan, khung giờ hiệu quả, bài nổi bật. */
 export default function InsightsPage() {
-  const { state } = useApp();
+  const { state, refresh: refreshState, setView, setDraftPost } = useApp();
   const pages = pagesOf(state);
   const [days, setDays] = useState("30");
   const [page, setPage] = useState("");
@@ -66,7 +67,10 @@ export default function InsightsPage() {
     <>
       <PageHeader
         title="Thống kê" desc="Tương tác của các bài đã đăng qua Graph API, và khung giờ đăng hiệu quả nhất."
-        right={<Button variant="default" leftSection={<IconRefresh size={16} />} onClick={refresh}>Cập nhật số liệu</Button>}
+        right={<Group gap="xs">
+          <Button component="a" href={insightsApi.reportUrl({ days, page })} variant="default" leftSection={<IconFileSpreadsheet size={16} />}>Xuất Excel</Button>
+          <Button variant="default" leftSection={<IconRefresh size={16} />} onClick={refresh}>Cập nhật số liệu</Button>
+        </Group>}
       />
       <Group mb="lg" gap="sm">
         <SegmentedControl value={days} onChange={setDays} data={[{ value: "7", label: "7 ngày" }, { value: "30", label: "30 ngày" }, { value: "90", label: "90 ngày" }]} />
@@ -136,7 +140,7 @@ export default function InsightsPage() {
           <Card p="lg">
             <Text fw={600} mb="sm">Bài nổi bật</Text>
             <Table verticalSpacing="xs" highlightOnHover data-testid="top-posts">
-              <Table.Thead><Table.Tr><Table.Th>Bài</Table.Th><Table.Th w={150}>Đăng lúc</Table.Th><Table.Th w={220}>Tương tác</Table.Th></Table.Tr></Table.Thead>
+              <Table.Thead><Table.Tr><Table.Th>Bài</Table.Th><Table.Th w={150}>Đăng lúc</Table.Th><Table.Th w={220}>Tương tác</Table.Th><Table.Th w={60} /></Table.Tr></Table.Thead>
               <Table.Tbody>
                 {data.top.map((p) => (
                   <Table.Tr key={p.id}>
@@ -148,6 +152,12 @@ export default function InsightsPage() {
                     </Table.Td>
                     <Table.Td><Text size="xs">{when(p.done_at)}</Text></Table.Td>
                     <Table.Td><StatsLine stats={p.stats} /></Table.Td>
+                    <Table.Td>
+                      <Button size="compact-xs" variant="subtle" leftSection={<IconRepeat size={13} />} aria-label="Đăng lại bài này"
+                        onClick={() => { const orig = state.posts.find((x) => x.id === p.id); if (orig) { setDraftPost({ post: orig, mode: "dup" }); setView("compose"); } }}>
+                        Đăng lại
+                      </Button>
+                    </Table.Td>
                   </Table.Tr>
                 ))}
               </Table.Tbody>
@@ -155,6 +165,7 @@ export default function InsightsPage() {
           </Card>
         </Stack>
       )}
+      {data && <div style={{ marginTop: "var(--mantine-spacing-lg)" }}><RecycleCard onPosted={refreshState} /></div>}
     </>
   );
 }

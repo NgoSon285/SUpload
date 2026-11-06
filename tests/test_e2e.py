@@ -670,6 +670,35 @@ def seed_stats(svc):
                                   "stats": {"reactions": r, "comments": 2, "shares": 1, "reach": r * 10, "fetched_at": now.isoformat()}})
 
 
+def test_insights_recycle_and_excel_report(page, svc):
+    connect(page)
+    seed_stats(svc)
+    with svc.store.transaction() as data:  # dời số liệu về 40 ngày trước để đủ điều kiện đăng lại
+        for p in data["posts"]:
+            t = datetime.fromisoformat(p["done_at"]) - timedelta(days=39)
+            p["done_at"] = p["created_at"] = t.isoformat()
+    page.goto(page.base)
+    nav(page, "Thống kê")
+    card = page.get_by_test_id("recycle-card")  # hiện cả khi khoảng 30 ngày chưa có số liệu
+    card.get_by_text("Bài kế tiếp: Bài 0 lúc 20h").wait_for()
+    card.get_by_text("Bật", exact=True).click()
+    card.get_by_text("Đang bật").wait_for()
+    assert svc.store.load()["settings"]["recycle"]["enabled"] is True
+    card.get_by_role("button", name="Đăng lại ngay").click()
+    page.get_by_text("Đã đưa vào lịch đăng lúc").wait_for()
+    new = [p for p in api_state(page)["posts"] if p.get("source") == "recycle"]
+    assert len(new) == 1 and new[0]["message"] == "Bài 0 lúc 20h"
+
+    with page.expect_download() as dl:
+        page.get_by_role("link", name="Xuất Excel").click()
+    assert dl.value.suggested_filename.endswith("30ngay.xlsx")
+    page.locator(".mantine-SegmentedControl-label", has_text="90 ngày").click()
+    page.get_by_role("button", name="Đăng lại bài này").first.click()
+    page.get_by_label("Nội dung").wait_for()
+    assert page.get_by_label("Nội dung").input_value().startswith("Bài ")
+    assert page.errors == []
+
+
 def test_insights_page(page, svc):
     connect(page)
     seed_stats(svc)

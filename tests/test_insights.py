@@ -138,3 +138,27 @@ def test_insights_api_filters_by_page_and_refresh(connected, svc, graph):
     assert connected.get("/api/insights?days=7&page=pg_khac").get_json()["posts"] == 0
     assert connected.post("/api/insights/refresh").get_json()["queued"] == 1
     assert svc.scheduler.process_one() is True  # lấy lại ngay
+
+
+def test_report_xlsx_has_all_sheets_and_filters_by_page(connected, svc):
+    import io
+    from openpyxl import load_workbook
+    with svc.store.transaction() as data:
+        pid = data["pages"][0]["id"]
+        now = datetime.now()
+        st = {"reactions": 3, "comments": 1, "shares": 0, "reach": 50}
+        data["posts"] += [done_post("a", now - timedelta(days=2), st, page=pid, fb_id="111_a"),
+                          done_post("b", now - timedelta(days=60), st, page=pid)]
+        data["comments"] = [{"id": "c1", "page": pid, "from_name": "An", "message": "Giá?", "created_time": now.isoformat(),
+                             "replies": [{"text": "ib"}], "hidden": True, "post_text": "Bài a"}]
+    r = connected.get("/api/insights/report.xlsx?days=30")
+    assert r.status_code == 200 and "attachment" in r.headers["Content-Disposition"]
+    wb = load_workbook(io.BytesIO(r.data))
+    assert wb.sheetnames == ["Tổng quan", "Bài viết", "Theo giờ", "Theo thứ", "Bình luận"]
+    posts = list(wb["Bài viết"].iter_rows(min_row=2, values_only=True))
+    assert len(posts) == 1 and posts[0][9] == "https://www.facebook.com/111_a"  # bài 60 ngày trước nằm ngoài khoảng
+    overview = {r[0]: r[1] for r in wb["Tổng quan"].iter_rows(min_row=4, values_only=True) if r[0]}
+    assert overview["Số bài có số liệu"] == 1 and overview["Đã trả lời"] == 1 and overview["Đã ẩn"] == 1
+    assert list(wb["Bình luận"].iter_rows(min_row=2, values_only=True))[0][1] == "An"
+    r = connected.get("/api/insights/report.xlsx?days=30&page=khac")
+    assert len(list(load_workbook(io.BytesIO(r.data))["Bài viết"].iter_rows(min_row=2))) == 0

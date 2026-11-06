@@ -352,6 +352,15 @@ Trang **Thống kê** cho biết các bài đăng qua **Graph API** đang đư�
   Nếu Meta đổi chỉ số lần nữa, trang Thống kê sẽ báo "Facebook không còn hỗ trợ chỉ số tiếp cận này" (các số khác vẫn đủ).
 - **Reels**: Facebook giới hạn **30 Reels đăng qua API mỗi Page trong 24 giờ**. Video nên dọc 9:16, dài 3–90 giây.
 
+**Xuất báo cáo Excel:** bấm **Xuất Excel** ở trang Thống kê để tải file `.xlsx` theo khoảng ngày và Page đang xem, gồm các
+trang *Tổng quan*, *Bài viết* (từng bài kèm số liệu và link), *Theo giờ*, *Theo thứ*, *Bình luận*. Tiện gửi sếp hoặc khách hàng.
+
+**Tự đăng lại bài hiệu quả** (thẻ cuối trang Thống kê): bật lên thì mỗi tuần ứng dụng chọn 1–7 bài (tuỳ chọn) có tương tác từ
+mức trung bình của Page trở lên, đã đăng lâu hơn 14/30/60/90 ngày, rồi đưa lại vào lịch vào **giờ hiệu quả nhất** của Page
+(ngày hôm sau). Một bài không bị đăng lại quá thường xuyên. Bật **Nhờ AI viết lại** để mỗi lần đăng lại có câu chữ khác
+(cần API key OpenAI; AI lỗi thì đăng nguyên văn). Nút **Đăng lại ngay** đưa bài kế tiếp vào lịch luôn; nút **Đăng lại**
+cạnh từng bài nổi bật mở bài đó trong Soạn bài để chỉnh trước khi đăng.
+
 ## 9. Dữ liệu được lưu ở đâu
 
 | File / thư mục | Nội dung |

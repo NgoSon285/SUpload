@@ -40,6 +40,8 @@ def apply_update(s: dict, body: dict) -> dict:
     s["ai_base_url"] = clean_base_url(s.get("ai_base_url"))
     from .comments import clean_config
     s["comments"] = clean_config(s.get("comments"))
+    from .recycle import clean_config as clean_recycle
+    s["recycle"] = clean_recycle(s.get("recycle"))
     s["headless"] = bool(s.get("headless"))
     s["fb_schedule"] = bool(s.get("fb_schedule"))
     return s

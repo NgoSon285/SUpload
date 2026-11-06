@@ -7,7 +7,8 @@
 4. Hiện lại bình luận đã ẩn tạm; đồng bộ bình luận mới + quy tắc tự động, vài phút/lần (services/comments.py)
 5. Kiểm tra kết nối từng Page qua API, mỗi 6 giờ (domain/health.py)
 6. Lấy chỉ số tương tác của bài đã đăng trong 14 ngày, mỗi bài 6 giờ/lần (domain/insights.py)
-7. Bảo trì hằng ngày: sao lưu, dọn dữ liệu cũ (services/maintenance.py)
+7. Tự đăng lại bài hiệu quả, theo số bài/tuần đã chọn (services/recycle.py)
+8. Bảo trì hằng ngày: sao lưu, dọn dữ liệu cũ (services/maintenance.py)
 
 Thời điểm đăng do domain.planner quyết định (giãn cách tối thiểu, số bài tối đa mỗi ngày).
 """
@@ -24,6 +25,7 @@ from ..utils import now_iso
 from . import comments as comment_sync
 from .comments import CommentSync
 from .maintenance import Maintenance
+from .recycle import Recycler
 from .publisher import Publisher
 from .runtime import Runtime
 
@@ -33,6 +35,7 @@ class Scheduler:
                  maintenance: Maintenance | None = None):
         self.store = store
         self.comments = CommentSync(store, publisher)
+        self.recycler = Recycler(store, publisher.config)
         self.publisher = publisher
         self.maintenance = maintenance
         self.runtime = runtime
@@ -86,7 +89,7 @@ class Scheduler:
         try:
             {"check": self._do_check, "handoff": self._do_handoff, "publish": self._do_publish,
              "health": self._do_health, "stats": self._do_stats,
-             "comments": self._do_comments, "unhide": self._do_unhide,
+             "comments": self._do_comments, "recycle": self._do_recycle, "unhide": self._do_unhide,
              "maintenance": self._do_maintenance}[kind](post, page, settings, now, when)
         finally:
             self.runtime.worker = "Đang rảnh"
@@ -119,6 +122,8 @@ class Scheduler:
         for p in posts:
             if insights.needs_refresh(p, now) and (page_of(data, p) or {}).get("kind") == "api":
                 return "stats", p, None
+        for pg in self.recycler.due_pages(data, now):
+            return "recycle", {"id": None, "page": pg["id"]}, None
         if self.maintenance and self.maintenance.due(data, now):
             return "maintenance", None, None
         return None
@@ -208,6 +213,10 @@ class Scheduler:
     def _do_unhide(self, comment, page, settings: dict, now: datetime, when) -> None:
         self.runtime.worker = "Đang hiện lại bình luận đã ẩn tạm…"
         self.comments.unhide(comment, page, now)
+
+    def _do_recycle(self, post, page, settings: dict, now: datetime, when) -> None:
+        self.runtime.worker = f"Đang chọn bài hiệu quả để đăng lại ({page['name']})…"
+        self.recycler.run(page, now)
 
     def _do_maintenance(self, post, page, settings: dict, now: datetime, when) -> None:
         self.runtime.worker = "Đang sao lưu & dọn dữ liệu…"
