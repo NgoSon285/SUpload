@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Affix, Anchor, Button, Code, Group, NumberInput, Paper, PasswordInput, SegmentedControl, Select, Stack, Switch, Text, Transition } from "@mantine/core";
+import { Affix, Anchor, Autocomplete, Button, Code, Group, NumberInput, Paper, PasswordInput, SegmentedControl, Stack, Switch, Text, TextInput, Transition } from "@mantine/core";
 import { IconDatabase } from "@tabler/icons-react";
 
 import { useApp } from "../../app/context";
@@ -23,7 +23,7 @@ export default function SettingsPage() {
   const initial = () => ({
     fb_schedule: s.fb_schedule ?? true, headless: !!s.headless, min_gap: String(s.min_gap ?? 300),
     daily_max: s.daily_max ?? 20, keep_done_days: String(s.keep_done_days ?? 90),
-    anthropic_api_key: "", ai_model: s.ai_model || "claude-opus-5-5",
+    openai_api_key: "", ai_model: s.ai_model || "gpt-5.4-mini", ai_base_url: s.ai_base_url || "",
   });
   const [f, setF] = useState(initial);
   const [dirty, setDirty] = useState(false);
@@ -38,7 +38,7 @@ export default function SettingsPage() {
     try {
       await settingsApi.save({ ...f, min_gap: Number(f.min_gap), daily_max: Number(f.daily_max) || 0, keep_done_days: Number(f.keep_done_days) });
       setDirty(false);
-      setF((x) => ({ ...x, anthropic_api_key: "" }));
+      setF((x) => ({ ...x, openai_api_key: "" }));
       await refresh();
       notifyOk("Đã lưu cài đặt");
     } catch (e) { notifyErr(e.message); }
@@ -96,20 +96,24 @@ export default function SettingsPage() {
           )}
         </Step>
 
-        <Step n={5} title="Trợ lý AI (Claude)">
+        <Step n={5} title="Trợ lý AI (OpenAI)">
           <Text size="sm" c="dimmed">
-            Gợi ý nội dung, hashtag và viết bài từ ý tưởng trong trang Soạn bài. Cần API key Claude của riêng bạn
-            (tạo tại <Anchor href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</Anchor>);
+            Gợi ý nội dung, hashtag và viết bài từ ý tưởng trong trang Soạn bài. Cần API key OpenAI của riêng bạn
+            (tạo tại <Anchor href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</Anchor>);
             mỗi lần gợi ý tính phí nhỏ vào tài khoản đó.
           </Text>
           <PasswordInput
-            label="API key Claude" placeholder="sk-ant-…" value={f.anthropic_api_key} onChange={set("anthropic_api_key")} autoComplete="new-password" maw={460}
-            description={s.anthropic_api_key_set ? "Đã lưu, để trống nếu không đổi" : s.ai_env_key ? "Đang dùng biến môi trường ANTHROPIC_API_KEY" : "Chưa có key"}
+            label="API key OpenAI" placeholder="sk-…" value={f.openai_api_key} onChange={set("openai_api_key")} autoComplete="new-password" maw={460}
+            description={s.openai_api_key_set ? "Đã lưu, để trống nếu không đổi" : s.ai_env_key ? "Đang dùng biến môi trường OPENAI_API_KEY" : "Chưa có key"}
           />
-          <Select
-            label="Model" maw={460} allowDeselect={false} comboboxProps={{ withinPortal: true }} value={f.ai_model} onChange={set("ai_model")}
-            data={[{ value: "claude-opus-5-5", label: "Claude Opus 5.5 (chất lượng cao nhất)" }, { value: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 (cân bằng)" },
-              { value: "claude-haiku-5-5", label: "Claude Haiku 5.5 (nhanh, rẻ nhất)" }]}
+          <Autocomplete
+            label="Model" maw={460} comboboxProps={{ withinPortal: true }} value={f.ai_model} onChange={set("ai_model")}
+            description="Chọn gợi ý hoặc gõ tên model khác"
+            data={[{ value: "gpt-5.4-mini", label: "gpt-5.4-mini" }, { value: "gpt-5.4", label: "gpt-5.4" }, { value: "gpt-5-mini", label: "gpt-5-mini" }]}
+          />
+          <TextInput
+            label="Địa chỉ API (tuỳ chọn)" placeholder="https://api.openai.com/v1" value={f.ai_base_url} onChange={set("ai_base_url")} maw={460}
+            description="Để trống nếu dùng OpenAI. Điền địa chỉ nếu dùng dịch vụ tương thích OpenAI (vd http://localhost:11434/v1)."
           />
         </Step>
 

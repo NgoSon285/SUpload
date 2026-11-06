@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 
+from ..config import default_settings
 from ..utils import new_id, now_iso
 from .posts import ACTIVE
 
@@ -101,6 +102,10 @@ def migrate(data: dict) -> dict:
                     post["page"] = preferred["id"]
     for k in LEGACY_KEYS:
         s.pop(k, None)
+    # trợ lý AI chuyển từ Claude sang OpenAI: key Anthropic cũ không dùng được nữa
+    s.pop("anthropic_api_key", None)
+    if str(s.get("ai_model", "")).startswith("claude"):
+        s["ai_model"] = default_settings()["ai_model"]
     if s.get("default_page") and not find(data, s["default_page"]):
         s["default_page"] = data["pages"][0]["id"] if data["pages"] else ""
     return data

@@ -1,17 +1,21 @@
-"""Gợi ý nội dung bằng Claude API (Anthropic SDK)."""
+"""Gợi ý nội dung bằng OpenAI API (SDK `openai`, Chat Completions + Structured Outputs).
+
+Dùng được cả dịch vụ tương thích OpenAI (đặt `ai_base_url`), ví dụ máy chủ nội bộ hoặc nhà cung cấp khác.
+"""
 from __future__ import annotations
 
 import json
 
-import anthropic
+import openai
 
-DEFAULT_MODEL = "claude-opus-5-5"
+DEFAULT_MODEL = "gpt-5.4-mini"
+# gợi ý hiện trong Cài đặt; vẫn gõ được tên model khác (vd khi dùng dịch vụ tương thích OpenAI)
 MODELS = {
-    "claude-opus-5-5": "Claude Opus 5.5 (chất lượng cao nhất)",
-    "claude-sonnet-5-5": "Claude Sonnet 5.5 (cân bằng)",
-    "claude-haiku-5-5": "Claude Haiku 5.5 (nhanh, rẻ nhất)",
+    "gpt-5.4-mini": "GPT-5.4 mini (nhanh, rẻ: khuyên dùng)",
+    "gpt-5.4": "GPT-5.4 (chất lượng cao nhất, đắt hơn)",
+    "gpt-5-mini": "GPT-5 mini (đời trước, rẻ)",
 }
-FALLBACK_MODELS = {"claude-opus-5-5", "claude-sonnet-5-5"}  # hỗ trợ fallbacks="default" (server-side refusal fallback)
+MAX_MODEL_LEN = 100
 TONES = {"": "", "friendly": "thân thiện, gần gũi", "pro": "chuyên nghiệp, tin cậy", "fun": "vui nhộn, hài hước", "short": "ngắn gọn, súc tích"}
 
 SYSTEM = (
@@ -39,9 +43,19 @@ class AIError(RuntimeError):
     pass
 
 
-def create(client: anthropic.Anthropic, **kwargs):
-    """Gọi Messages API (tách riêng để test thay bằng bản giả)."""
-    return client.beta.messages.create(**kwargs)
+def create(client: openai.OpenAI, **kwargs):
+    """Gọi Chat Completions API (tách riêng để test thay bằng bản giả)."""
+    return client.chat.completions.create(**kwargs)
+
+
+def clean_model(model) -> str:
+    model = str(model or "").strip()
+    return model if model and len(model) <= MAX_MODEL_LEN and not model.startswith("claude") else DEFAULT_MODEL
+
+
+def clean_base_url(url) -> str:
+    url = str(url or "").strip().rstrip("/")
+    return url if url.startswith(("http://", "https://")) else ""
 
 
 def build_prompt(action: str, text: str, page_name: str = "", tone: str = "") -> str:
@@ -54,7 +68,8 @@ def build_prompt(action: str, text: str, page_name: str = "", tone: str = "") ->
     return "\n\n".join(parts)
 
 
-def suggest(api_key: str | None, model: str, action: str, text: str, page_name: str = "", tone: str = "") -> list[str]:
+def suggest(api_key: str | None, model: str, action: str, text: str, page_name: str = "", tone: str = "",
+            base_url: str = "") -> list[str]:
     """Trả về danh sách gợi ý. Ném AIError với thông báo dễ hiểu nếu có lỗi."""
     if action not in TASKS:
         raise AIError("Thao tác không hợp lệ")
@@ -63,35 +78,40 @@ def suggest(api_key: str | None, model: str, action: str, text: str, page_name: 
         raise AIError("Hãy viết nội dung hoặc ý tưởng trước")
     if len(text) > MAX_INPUT:
         raise AIError(f"Nội dung quá dài (tối đa {MAX_INPUT} ký tự)")
-    model = model if model in MODELS else DEFAULT_MODEL
     params = dict(
-        model=model, max_tokens=8000, system=SYSTEM,
-        output_config={"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}},
-        messages=[{"role": "user", "content": build_prompt(action, text, page_name, tone)}],
+        model=clean_model(model),
+        max_completion_tokens=8000,  # model suy luận (GPT-5) không nhận max_tokens/temperature
+        messages=[{"role": "system", "content": SYSTEM},
+                  {"role": "user", "content": build_prompt(action, text, page_name, tone)}],
+        response_format={"type": "json_schema",
+                         "json_schema": {"name": "goi_y", "strict": True, "schema": SCHEMA}},
     )
-    if model in FALLBACK_MODELS:  # bị từ chối nhầm -> server tự chạy lại trên model dự phòng
-        params.update(betas=["server-side-fallback-2026-07-01"], fallbacks="default")
     try:
-        client = anthropic.Anthropic(api_key=api_key or None, timeout=120, max_retries=2)
+        client = openai.OpenAI(api_key=api_key or None, base_url=clean_base_url(base_url) or None, timeout=120, max_retries=2)
         resp = create(client, **params)
-    except anthropic.AuthenticationError:
-        raise AIError("API key Claude không hợp lệ: kiểm tra lại trong Cài đặt → Trợ lý AI") from None
-    except anthropic.PermissionDeniedError:
+    except openai.AuthenticationError:
+        raise AIError("API key OpenAI không hợp lệ: kiểm tra lại trong Cài đặt → Trợ lý AI") from None
+    except openai.PermissionDeniedError:
         raise AIError("API key không có quyền dùng model này") from None
-    except anthropic.RateLimitError:
-        raise AIError("Claude API đang giới hạn tốc độ, thử lại sau ít phút") from None
-    except anthropic.APIStatusError as e:
-        raise AIError(f"Claude API báo lỗi ({e.status_code}): {e.message}") from None
-    except anthropic.APIConnectionError:
-        raise AIError("Không kết nối được tới Claude API: kiểm tra mạng") from None
-    except anthropic.AnthropicError as e:  # thiếu key, cấu hình sai…
-        raise AIError(f"Chưa dùng được Claude API: {e}") from None
+    except openai.NotFoundError:
+        raise AIError(f"Không tìm thấy model '{params['model']}': kiểm tra tên model trong Cài đặt") from None
+    except openai.RateLimitError:
+        raise AIError("OpenAI đang giới hạn tốc độ hoặc tài khoản hết hạn mức, thử lại sau") from None
+    except openai.APIStatusError as e:
+        raise AIError(f"OpenAI API báo lỗi ({e.status_code}): {e.message}") from None
+    except openai.APIConnectionError:
+        raise AIError("Không kết nối được tới OpenAI API: kiểm tra mạng (hoặc địa chỉ API)") from None
+    except openai.OpenAIError as e:  # thiếu key, cấu hình sai…
+        raise AIError(f"Chưa dùng được OpenAI API: {e}") from None
 
-    if resp.stop_reason == "refusal":
+    choice = resp.choices[0] if resp.choices else None
+    if choice is None:
+        raise AIError("AI không trả lời, thử lại")
+    if getattr(choice.message, "refusal", None) or choice.finish_reason == "content_filter":
         raise AIError("AI từ chối xử lý nội dung này. Thử diễn đạt lại.")
-    if resp.stop_reason == "max_tokens":
+    if choice.finish_reason == "length":
         raise AIError("Câu trả lời quá dài, bị cắt. Thử với nội dung ngắn hơn.")
-    raw = next((b.text for b in resp.content if b.type == "text"), "")
+    raw = choice.message.content or ""
     try:
         items = json.loads(raw).get("suggestions", [])
     except (ValueError, AttributeError):

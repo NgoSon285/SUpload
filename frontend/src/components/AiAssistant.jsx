@@ -13,7 +13,7 @@ const ACTIONS = {
 const TONES = [{ value: "", label: "Tự nhiên" }, { value: "friendly", label: "Thân thiện" }, { value: "pro", label: "Chuyên nghiệp" },
   { value: "fun", label: "Vui nhộn" }, { value: "short", label: "Ngắn gọn" }];
 
-/** Nút "Trợ lý AI" trong Soạn bài: gợi ý nội dung bằng Claude. onApply(newText) thay nội dung bài. */
+/** Nút "Trợ lý AI" trong Soạn bài: gợi ý nội dung bằng OpenAI. onApply(newText) thay nội dung bài. */
 export function AiAssistant({ text, page, onApply, onOpenSettings }) {
   const [action, setAction] = useState(null);
   const [tone, setTone] = useState("");
@@ -63,7 +63,7 @@ export function AiAssistant({ text, page, onApply, onOpenSettings }) {
               <SegmentedControl size="xs" value={tone} onChange={(t) => { setTone(t); run(action, t); }} data={TONES} disabled={busy} />
             </Group>
           )}
-          {busy && <Group gap="sm" py="lg" justify="center"><Loader size="sm" color="violet" /><Text size="sm" c="dimmed">Claude đang viết…</Text></Group>}
+          {busy && <Group gap="sm" py="lg" justify="center"><Loader size="sm" color="violet" /><Text size="sm" c="dimmed">AI đang viết…</Text></Group>}
           {result?.error && (
             <Alert color={result.needKey ? "violet" : "red"} variant="light">
               <Text size="sm">{result.error}</Text>

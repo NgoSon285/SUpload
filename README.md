@@ -243,15 +243,20 @@ Trang **Lịch đăng → Nhập từ file**:
 
 Bài nhập vào vẫn tuân theo **giới hạn an toàn** của từng Page. Tối đa 500 bài mỗi lần.
 
-### Trợ lý AI (Claude)
+### Trợ lý AI (OpenAI)
 
 Trong **Soạn bài**, nút **✨ Trợ lý AI** có 4 việc: *Viết lại hay hơn*, *Tạo phiên bản khác* (có thể dùng tất cả làm
 “nhiều phiên bản” cho khối Bài viết trong Flow), *Gợi ý hashtag*, *Viết bài từ ý tưởng*. Mỗi lần cho 3 phương án, chọn
 giọng văn (thân thiện, chuyên nghiệp, vui nhộn, ngắn gọn) rồi bấm **Dùng bản này**.
 
-Cần **API key Claude của riêng bạn**: tạo tại <https://console.anthropic.com/settings/keys>, dán vào **Cài đặt → Trợ lý AI**
-(hoặc đặt biến môi trường `ANTHROPIC_API_KEY`). Mỗi lần gợi ý tính một khoản phí nhỏ vào tài khoản đó. Model mặc định
-Claude Opus 5.5 (chất lượng cao nhất); đổi sang Sonnet 5.5 hoặc Haiku 5.5 trong Cài đặt nếu muốn rẻ hơn.
+Cần **API key OpenAI của riêng bạn**: tạo tại <https://platform.openai.com/api-keys>, dán vào **Cài đặt → Trợ lý AI**
+(hoặc đặt biến môi trường `OPENAI_API_KEY`). Tài khoản OpenAI phải có nạp tiền (credit). Mỗi lần gợi ý tính một khoản
+phí nhỏ vào tài khoản đó. Model mặc định `gpt-5.4-mini` (nhanh, rẻ); ô **Model** cho chọn gợi ý hoặc gõ tên model bất kỳ.
+Nếu báo "Không tìm thấy model", hãy đổi sang model mà tài khoản của bạn dùng được (xem tại <https://platform.openai.com/docs/models>).
+
+**Dịch vụ tương thích OpenAI** (Ollama, LM Studio, OpenRouter, Groq…): điền **Địa chỉ API** (vd `http://localhost:11434/v1`
+cho Ollama), tên model của dịch vụ đó, và key của dịch vụ (Ollama nhận key bất kỳ). Model phải hỗ trợ trả JSON theo
+schema (structured outputs).
 AI được dặn không bịa giá, ngày, địa chỉ hay khuyến mãi, nhưng **hãy đọc lại trước khi đăng**.
 
 ### Thư viện nội dung
@@ -391,7 +396,7 @@ Facebook được giả lập trong mọi test, **không đăng bài thật**.
 | `tests/test_pages.py` | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page |
 | `tests/test_maintenance.py`, `tests/test_instance.py`, `tests/test_health.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần, kiểm tra kết nối |
 | `tests/test_system.py` | Tự khởi động cùng Windows, đường dẫn khi đóng gói `.exe` |
-| `tests/test_ai.py` | Trợ lý AI (Claude API giả lập: không gọi mạng, không tốn phí) |
+| `tests/test_ai.py` | Trợ lý AI (OpenAI API giả lập: không gọi mạng, không tốn phí) |
 | `tests/test_insights.py` | Lấy chỉ số tương tác, tổng hợp, giờ hiệu quả |
 | `tests/test_video.py` | Video thường & Reels (tải lên 3 bước, hẹn giờ, đối soát) |
 | `tests/test_import.py`, `tests/test_library.py` | Nhập bài từ CSV/Excel, thư viện nội dung & ảnh |

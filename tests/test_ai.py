@@ -1,115 +1,137 @@
-"""Trợ lý AI (Claude API được giả lập - không gọi mạng, không tốn tiền)."""
+"""Trợ lý AI (OpenAI API được giả lập - không gọi mạng, không tốn tiền)."""
 import json
 from types import SimpleNamespace
 
-import anthropic
 import httpx2 as httpx
+import openai
 import pytest
 
 from supload.integrations import ai
 
 
-class FakeClaude:
-    def __init__(self, suggestions=None, stop_reason="end_turn", raise_exc=None, raw=None):
+def reply(text, finish_reason="stop", refusal=None):
+    msg = SimpleNamespace(content=text, refusal=refusal)
+    return SimpleNamespace(choices=[SimpleNamespace(message=msg, finish_reason=finish_reason)])
+
+
+class FakeOpenAI:
+    def __init__(self):
         self.calls = []
-        self.suggestions = suggestions or ["Phương án 1", "Phương án 2", "Phương án 3"]
-        self.stop_reason, self.raise_exc, self.raw = stop_reason, raise_exc, raw
+        self.suggestions = ["Phương án 1", "Phương án 2", "Phương án 3"]
+        self.finish_reason, self.refusal, self.raise_exc, self.raw = "stop", None, None, None
 
     def __call__(self, client, **kw):
-        self.calls.append({"api_key": client.api_key, **kw})
+        self.calls.append({"api_key": client.api_key, "base_url": str(client.base_url), **kw})
         if self.raise_exc:
             raise self.raise_exc
         text = self.raw if self.raw is not None else json.dumps({"suggestions": self.suggestions}, ensure_ascii=False)
-        return SimpleNamespace(stop_reason=self.stop_reason, content=[SimpleNamespace(type="text", text=text)])
+        return reply(text, self.finish_reason, self.refusal)
 
 
 @pytest.fixture
-def claude(monkeypatch):
-    f = FakeClaude()
+def gpt(monkeypatch):
+    f = FakeOpenAI()
     monkeypatch.setattr(ai, "create", f)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     return f
 
 
-def test_needs_key(connected, claude):
+def test_needs_key(connected, gpt):
     r = connected.post("/api/ai/suggest", json={"action": "improve", "text": "x"})
-    assert r.status_code == 400 and r.get_json()["need_key"] is True and claude.calls == []
+    assert r.status_code == 400 and r.get_json()["need_key"] is True and gpt.calls == []
 
 
-def test_key_is_secret_and_request_shape(connected, claude):
-    connected.post("/api/settings", json={"anthropic_api_key": "sk-ant-SECRET"})
+def test_key_is_secret_and_request_shape(connected, gpt):
+    connected.post("/api/settings", json={"openai_api_key": "sk-SECRET"})
     raw = connected.get("/api/state").get_data(as_text=True)
-    assert "sk-ant-SECRET" not in raw and '"anthropic_api_key_set": true' in raw.replace(":true", ": true")
+    assert "sk-SECRET" not in raw and '"openai_api_key_set": true' in raw.replace(":true", ": true")
     r = connected.post("/api/ai/suggest", json={"action": "improve", "text": "Bánh ngon", "tone": "fun"}).get_json()
-    assert r["suggestions"] == ["Phương án 1", "Phương án 2", "Phương án 3"]
-    c = claude.calls[0]
-    assert c["api_key"] == "sk-ant-SECRET" and c["model"] == "claude-opus-5-5"
-    assert c["fallbacks"] == "default" and c["betas"] == ["server-side-fallback-2026-07-01"]
-    assert c["output_config"]["format"]["type"] == "json_schema" and c["output_config"]["effort"] == "low"
-    prompt = c["messages"][0]["content"]
-    assert "<noi_dung>\nBánh ngon\n</noi_dung>" in prompt and "vui nhộn" in prompt and "Page 111" in prompt
-    assert "temperature" not in c and "thinking" not in c
+    assert r["suggestions"] == ["Phương án 1", "Phương án 2", "Phương án 3"] and r["model"] == "gpt-5.4-mini"
+    c = gpt.calls[0]
+    assert c["api_key"] == "sk-SECRET" and c["model"] == "gpt-5.4-mini" and c["base_url"].startswith("https://api.openai.com")
+    fmt = c["response_format"]
+    assert fmt["type"] == "json_schema" and fmt["json_schema"]["strict"] is True
+    assert c["max_completion_tokens"] == 8000 and "max_tokens" not in c and "temperature" not in c
+    system, user = c["messages"]
+    assert system["role"] == "system" and "không bịa giá" in system["content"]
+    assert "<noi_dung>\nBánh ngon\n</noi_dung>" in user["content"] and "vui nhộn" in user["content"] and "Page 111" in user["content"]
 
 
-def test_env_key_used_when_not_saved(connected, claude, monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-ENV")
+def test_env_key_used_when_not_saved(connected, gpt, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-ENV")
     assert connected.post("/api/ai/suggest", json={"action": "idea", "text": "khai trương"}).status_code == 200
-    assert claude.calls[0]["api_key"] == "sk-ant-ENV"
+    assert gpt.calls[0]["api_key"] == "sk-ENV"
     assert connected.get("/api/state").get_json()["settings"]["ai_env_key"] is True
 
 
-def test_haiku_has_no_server_fallback(connected, claude):
-    connected.post("/api/settings", json={"anthropic_api_key": "k", "ai_model": "claude-haiku-5-5"})
+def test_custom_model_and_compatible_base_url(connected, svc, gpt):
+    connected.post("/api/settings", json={"openai_api_key": "k", "ai_model": " llama3.1 ", "ai_base_url": "http://localhost:11434/v1/"})
+    s = svc.store.load()["settings"]
+    assert s["ai_model"] == "llama3.1" and s["ai_base_url"] == "http://localhost:11434/v1"
     connected.post("/api/ai/suggest", json={"action": "variants", "text": "x"})
-    assert claude.calls[0]["model"] == "claude-haiku-5-5" and "fallbacks" not in claude.calls[0]
+    assert gpt.calls[0]["model"] == "llama3.1" and gpt.calls[0]["base_url"].startswith("http://localhost:11434/v1")
 
 
-def test_unknown_model_setting_falls_back_to_default(connected, svc, claude):
-    connected.post("/api/settings", json={"ai_model": "gpt-5"})
-    assert svc.store.load()["settings"]["ai_model"] == "claude-opus-5-5"
+@pytest.mark.parametrize("model,base", [("", "ftp://x"), ("claude-opus-5-5", "không phải url"), ("x" * 200, "")])
+def test_invalid_model_or_url_falls_back(connected, svc, gpt, model, base):
+    connected.post("/api/settings", json={"ai_model": model, "ai_base_url": base})
+    s = svc.store.load()["settings"]
+    assert s["ai_model"] == "gpt-5.4-mini" and s["ai_base_url"] == ""
 
 
-def test_hashtags_are_normalised(connected, claude):
-    connected.post("/api/settings", json={"anthropic_api_key": "k"})
-    claude.suggestions = ["#banhngon", "tiem banh", "#banhngon", "  "]
+def test_old_claude_settings_are_migrated(tmp_path):
+    from supload.storage import Store
+    (tmp_path / "data.json").write_text(json.dumps({"settings": {"anthropic_api_key": "sk-ant-OLD", "ai_model": "claude-opus-5-5"},
+                                                    "posts": [], "flows": [], "pages": []}), encoding="utf-8")
+    s = Store(tmp_path / "data.json").load()["settings"]
+    assert "anthropic_api_key" not in s and s["ai_model"] == "gpt-5.4-mini" and s["openai_api_key"] == ""
+
+
+def test_hashtags_are_normalised(connected, gpt):
+    connected.post("/api/settings", json={"openai_api_key": "k"})
+    gpt.suggestions = ["#banhngon", "tiem banh", "#banhngon", "  "]
     r = connected.post("/api/ai/suggest", json={"action": "hashtags", "text": "x"}).get_json()
     assert r["suggestions"] == ["#banhngon", "#tiembanh"]
 
 
-@pytest.mark.parametrize("kwargs,msg", [
-    ({"stop_reason": "refusal"}, "từ chối"),
-    ({"stop_reason": "max_tokens"}, "quá dài"),
+@pytest.mark.parametrize("attrs,msg", [
+    ({"refusal": "Tôi không thể giúp"}, "từ chối"),
+    ({"finish_reason": "content_filter"}, "từ chối"),
+    ({"finish_reason": "length"}, "quá dài"),
     ({"raw": "không phải json"}, "không đọc được"),
-    ({"suggestions": ["", " "]}, "không đưa ra gợi ý"),
+    ({"raw": None, "suggestions": ["", " "]}, "không đưa ra gợi ý"),
 ])
-def test_bad_responses(connected, claude, kwargs, msg):
-    connected.post("/api/settings", json={"anthropic_api_key": "k"})
-    for k, v in kwargs.items():
-        setattr(claude, k, v)
+def test_bad_responses(connected, gpt, attrs, msg):
+    connected.post("/api/settings", json={"openai_api_key": "k"})
+    for k, v in attrs.items():
+        setattr(gpt, k, v)
     r = connected.post("/api/ai/suggest", json={"action": "improve", "text": "x"})
     assert r.status_code == 400 and msg in r.get_json()["error"]
 
 
 def _api_error(cls, status):
-    req = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    req = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
     return cls("lỗi", response=httpx.Response(status, request=req), body=None)
 
 
 @pytest.mark.parametrize("exc,msg", [
-    (lambda: _api_error(anthropic.AuthenticationError, 401), "không hợp lệ"),
-    (lambda: _api_error(anthropic.RateLimitError, 429), "giới hạn tốc độ"),
-    (lambda: anthropic.APIConnectionError(request=httpx.Request("POST", "https://api.anthropic.com")), "Không kết nối"),
+    (lambda: _api_error(openai.AuthenticationError, 401), "không hợp lệ"),
+    (lambda: _api_error(openai.NotFoundError, 404), "Không tìm thấy model"),
+    (lambda: _api_error(openai.RateLimitError, 429), "giới hạn tốc độ"),
+    (lambda: _api_error(openai.InternalServerError, 500), "OpenAI API báo lỗi (500)"),
+    (lambda: openai.APIConnectionError(request=httpx.Request("POST", "https://api.openai.com")), "Không kết nối"),
 ])
-def test_api_errors_are_explained(connected, claude, exc, msg):
-    connected.post("/api/settings", json={"anthropic_api_key": "k"})
-    claude.raise_exc = exc()
+def test_api_errors_are_explained(connected, gpt, exc, msg):
+    connected.post("/api/settings", json={"openai_api_key": "k"})
+    gpt.raise_exc = exc()
     r = connected.post("/api/ai/suggest", json={"action": "improve", "text": "x"})
     assert r.status_code == 400 and msg in r.get_json()["error"]
 
 
 @pytest.mark.parametrize("body,msg", [({"action": "zzz", "text": "x"}, "không hợp lệ"), ({"action": "improve", "text": " "}, "viết nội dung"),
                                       ({"action": "improve", "text": "x" * 7000}, "quá dài")])
-def test_input_validation(connected, claude, body, msg):
-    connected.post("/api/settings", json={"anthropic_api_key": "k"})
+def test_input_validation(connected, gpt, body, msg):
+    connected.post("/api/settings", json={"openai_api_key": "k"})
     r = connected.post("/api/ai/suggest", json=body)
-    assert r.status_code == 400 and msg in r.get_json()["error"] and claude.calls == []
+    assert r.status_code == 400 and msg in r.get_json()["error"] and gpt.calls == []

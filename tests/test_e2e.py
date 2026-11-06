@@ -667,23 +667,24 @@ def test_ai_assistant_rewrites_and_adds_hashtags(page, svc, monkeypatch):
     from supload.integrations import ai
 
     def fake(client, **kw):
-        prompt = kw["messages"][0]["content"]
+        prompt = kw["messages"][-1]["content"]
         out = ["#banhngon", "#tiembanh"] if "hashtag" in prompt else ["Bản viết lại A 🎂", "Bản viết lại B"]
-        return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text=_json.dumps({"suggestions": out}))])
+        msg = SimpleNamespace(content=_json.dumps({"suggestions": out}), refusal=None)
+        return SimpleNamespace(choices=[SimpleNamespace(message=msg, finish_reason="stop")])
     monkeypatch.setattr(ai, "create", fake)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     connect(page)
     page.goto(page.base)
     nav(page, "Soạn bài")
     page.get_by_label("Nội dung").fill("bánh kem mới")
     page.get_by_role("button", name="Trợ lý AI").click()
     page.get_by_role("menuitem", name="Viết lại hay hơn").click()
-    page.get_by_text("Chưa có API key Claude", exact=False).wait_for()   # chưa cấu hình key
+    page.get_by_text("Chưa có API key OpenAI", exact=False).wait_for()   # chưa cấu hình key
     page.get_by_role("dialog").get_by_role("button", name="Mở Cài đặt").click()
-    page.get_by_label("API key Claude").fill("sk-ant-test")
+    page.get_by_label("API key OpenAI").fill("sk-test")
     page.get_by_role("button", name="Lưu cài đặt").click()
     page.get_by_text("Đã lưu cài đặt").wait_for()
-    assert "sk-ant-test" not in page.content()
+    assert "sk-test" not in page.content()
 
     nav(page, "Soạn bài")
     page.get_by_role("button", name="Trợ lý AI").click()
