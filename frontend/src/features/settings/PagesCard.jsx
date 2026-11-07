@@ -7,6 +7,7 @@ import { pagesApi } from "../../api/endpoints";
 import { notifyErr, notifyOk } from "../../components";
 import { KIND_LABEL, pageInitial } from "../../lib/page";
 import { when } from "../../lib/time";
+import { loginStatus } from "./AddPageCard";
 
 function HealthLine({ page }) {
   const h = page.health;
@@ -19,7 +20,7 @@ function HealthLine({ page }) {
 }
 
 /** Danh sách Page đã kết nối và thao tác trên từng Page. */
-export function PagesCard({ pages, perPageToday, dailyMax, onChanged }) {
+export function PagesCard({ pages, perPageToday, dailyMax, login, onChanged }) {
   const [results, setResults] = useState({}); // {pageId: {color, text}}
   const [renaming, setRenaming] = useState(null);
   const [name, setName] = useState("");
@@ -28,7 +29,8 @@ export function PagesCard({ pages, perPageToday, dailyMax, onChanged }) {
     setResults((r) => ({ ...r, [p.id]: { color: "orange", text: "Đang kiểm tra…" } }));
     try {
       const j = await pagesApi.test(p.id);
-      setResults((r) => ({ ...r, [p.id]: { color: j.pending ? "orange" : "teal", text: j.text } }));
+      // Page trình duyệt: kiểm tra chạy nền, kết quả lấy từ state.login (tự cập nhật) thay vì câu "Đang kiểm tra…"
+      setResults((r) => ({ ...r, [p.id]: j.pending ? { live: true } : { color: "teal", text: j.text } }));
       onChanged();
     } catch (e) { setResults((r) => ({ ...r, [p.id]: { color: "red", text: e.message } })); }
   };
@@ -83,7 +85,10 @@ export function PagesCard({ pages, perPageToday, dailyMax, onChanged }) {
               </Menu>
             </Group>
           </Group>
-          {results[p.id] && <Alert mt="xs" py={6} variant="light" color={results[p.id].color}><Text size="sm">{results[p.id].text}</Text></Alert>}
+          {(() => {
+            const r = results[p.id]?.live ? (([color, text]) => ({ color, text }))(loginStatus(login) || ["orange", "Đang kiểm tra…"]) : results[p.id];
+            return r && <Alert mt="xs" py={6} variant="light" color={r.color} data-testid="page-test-result"><Text size="sm">{r.text}</Text></Alert>;
+          })()}
         </Paper>
       ))}
       <Text size="xs" c="dimmed">Bài và flow không chọn Page riêng sẽ đăng lên Page mặc định.</Text>

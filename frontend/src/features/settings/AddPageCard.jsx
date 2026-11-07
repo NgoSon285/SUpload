@@ -7,6 +7,10 @@ import { IconAlertTriangle, IconBolt, IconCheck, IconClock, IconListDetails, Ico
 import { pagesApi, settingsApi } from "../../api/endpoints";
 import { notifyErr, notifyOk } from "../../components";
 
+/** Trạng thái đăng nhập của cách Trình duyệt (state.login) -> [màu, chữ, icon]; null nếu chưa có. */
+export const loginStatus = (login) =>
+  LOGIN[login] || (login?.startsWith("error") ? ["red", login.replace(/^error: /, "Lỗi: "), IconAlertTriangle] : null);
+
 const LOGIN = {
   waiting: ["orange", "Đang chờ bạn đăng nhập trong cửa sổ trình duyệt…", IconClock],
   checking: ["orange", "Đang kiểm tra phiên đăng nhập…", IconClock],
@@ -92,7 +96,7 @@ function ApiTab({ settings, existing, onAdded }) {
 function BrowserTab({ login, onAdded }) {
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
-  const status = LOGIN[login] || (login?.startsWith("error") ? ["red", login.replace(/^error: /, "Lỗi: "), IconAlertTriangle] : null);
+  const status = loginStatus(login);
   const add = async () => {
     try { await pagesApi.add({ kind: "browser", url: url.trim(), name: name.trim() }); setUrl(""); setName(""); notifyOk("Đã thêm Page"); onAdded(); }
     catch (e) { notifyErr(e.message); }

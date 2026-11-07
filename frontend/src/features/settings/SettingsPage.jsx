@@ -63,7 +63,7 @@ export default function SettingsPage() {
       <PageHeader title="Cài đặt" desc="Kết nối các Page và tuỳ chỉnh cách đăng bài." />
       <Stack maw={820} gap="lg" pb={90}>
         <Step n={1} title={`Page đã kết nối (${pages.length})`}>
-          <PagesCard pages={pages} perPageToday={state.limits?.per_page} dailyMax={s.daily_max} onChanged={refresh} />
+          <PagesCard pages={pages} login={state.login} perPageToday={state.limits?.per_page} dailyMax={s.daily_max} onChanged={refresh} />
         </Step>
 
         <Step n={2} title="Thêm Page">
