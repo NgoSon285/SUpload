@@ -20,19 +20,24 @@ def add_post():
         fields = clean_body(body, s.config.upload_dir)
         ig_fields = clean_body({**body, "channel": "instagram"}, s.config.upload_dir) if body.get("also_instagram") else None
         with s.store.transaction() as data:
-            page_id = pages_domain.resolve(data, body.get("page"))
-            if ig_fields and not (pages_domain.find(data, page_id) or {}).get("instagram"):
-                raise ValueError("Page này chưa liên kết tài khoản Instagram doanh nghiệp")
-            post = new_post(fields, page=page_id)
-            data["posts"].append(post)
-            if ig_fields:
-                data["posts"].append(new_post(ig_fields, page=page_id))
+            # "pages": đăng cùng nội dung lên nhiều Page (mỗi Page một bài); không có thì dùng "page" như cũ
+            page_ids = list(dict.fromkeys(pages_domain.resolve(data, pid) for pid in (body.get("pages") or [body.get("page")])))
+            created = []
+            for page_id in page_ids:
+                created.append(new_post(fields, page=page_id))
+                if ig_fields:
+                    if (pages_domain.find(data, page_id) or {}).get("instagram"):
+                        created.append(new_post(ig_fields, page=page_id))
+                    elif len(page_ids) == 1:  # nhiều Page: bỏ qua Page chưa liên kết Instagram
+                        raise ValueError("Page này chưa liên kết tài khoản Instagram doanh nghiệp")
+            data["posts"].extend(created)
             sched = fields["scheduled_at"]
-            add_log(data, "info", "Đã thêm bài " + (f"hẹn {sched.replace('T', ' ')}" if sched else "đăng ngay"))
+            add_log(data, "info", "Đã thêm bài " + (f"hẹn {sched.replace('T', ' ')}" if sched else "đăng ngay")
+                    + (f" cho {len(page_ids)} Page" if len(page_ids) > 1 else ""))
     except ValueError as e:
         return error(str(e))
     s.runtime.notify()
-    return jsonify(post=post)
+    return jsonify(post=created[0], posts=created)
 
 
 def _cancel_on_facebook(post: dict, data: dict):

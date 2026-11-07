@@ -386,10 +386,34 @@ def pick(page, testid, option):
     page.get_by_role("option", name=option).click()
 
 
+def test_page_picker_defaults_and_shows_first_three(page, svc, graph):
+    two_pages(page)
+    for i in range(3, 6):
+        page.request.post(page.base + "/api/pages", data={"kind": "api", "fb_page_id": f"{i}{i}{i}", "token": "t", "name": f"Page {i}"})
+    page.goto(page.base)
+    nav(page, "Soạn bài")
+    picker = page.get_by_test_id("page-picker")
+    assert picker.get_by_placeholder("Page mặc định (Tiệm Bánh)").is_visible()  # chưa chọn = Page mặc định
+    picker.get_by_role("button", name="Chọn tất cả", exact=True).click()
+    picker.get_by_text("Đăng lên Page (5/5)").wait_for()
+    assert picker.locator(".mantine-MultiSelect-pill:visible").count() == 3
+    more = picker.locator(".page-pills").evaluate("el => getComputedStyle(el, '::after').content")
+    assert more == '"+2"'
+    picker.get_by_role("button", name="Bỏ chọn tất cả").click()
+    page.get_by_label("Nội dung").fill("Mặc định")
+    page.get_by_role("button", name="Đăng ngay").last.click()
+    page.get_by_text("Đang đăng bài").wait_for()
+    st = api_state(page)
+    default_id = next(p["id"] for p in st["pages"] if p["default"])
+    assert [p["page"] for p in st["posts"]] == [default_id]
+
+
 def test_compose_to_chosen_page_and_filter_queue(page, svc, graph):
     cafe = two_pages(page)
     page.goto(page.base)
     nav(page, "Soạn bài")
+    picker = page.get_by_test_id("page-picker")
+    picker.get_by_role("button", name="Bỏ chọn tất cả").click()
     pick(page, "page-select", "Quán Cà Phê")
     page.get_by_label("Nội dung").fill("Cà phê sáng")
     page.get_by_role("button", name="Đăng ngay").last.click()

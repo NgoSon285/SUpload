@@ -118,6 +118,21 @@ def test_posts_go_to_their_page(client, two_pages, svc, graph):
     assert all(p["page"] in (a, b) for p in state(client)["posts"])
 
 
+def test_one_post_to_many_pages(client, two_pages, svc, graph):
+    a, b = two_pages
+    r = client.post("/api/posts", json={"message": "khai trương", "pages": [a, b, a]}).get_json()
+    assert [p["page"] for p in r["posts"]] == [a, b] and r["posts"][0]["id"] != r["posts"][1]["id"]  # trùng id bị gộp
+    while svc.scheduler.process_one():
+        pass
+    assert sorted(c["path"] for c in graph.by("POST", "/feed")) == ["111/feed", "222/feed"]
+
+
+def test_many_pages_rejects_unknown_page(client, two_pages, svc):
+    a, _ = two_pages
+    r = client.post("/api/posts", json={"message": "x", "pages": [a, "pg_khong_co"]})
+    assert r.status_code == 400 and state(client)["posts"] == []  # không tạo bài nào nếu có Page sai
+
+
 def test_unknown_page_rejected(client, two_pages):
     r = client.post("/api/posts", json={"message": "x", "page": "pg_khong_co"})
     assert r.status_code == 400 and "Không tìm thấy Page" in r.get_json()["error"]

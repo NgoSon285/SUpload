@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert, Button, Card, Checkbox, Chip, Collapse, Grid, Group, Kbd, SegmentedControl, Select, Stack, Text, TextInput, Textarea, ThemeIcon,
+  Alert, Button, Card, Checkbox, Chip, Collapse, Grid, Group, Kbd, MultiSelect, SegmentedControl, Select, Stack, Text, TextInput, Textarea, ThemeIcon,
 } from "@mantine/core";
 import { DateTimePicker } from "@mantine/dates";
 import { useHotkeys, useInterval } from "@mantine/hooks";
@@ -11,7 +11,7 @@ import { IconAlertCircle, IconClock, IconLink, IconMovie, IconPencil, IconPhoto,
 import { useApp } from "../../app/context";
 import { mediaApi, postsApi, stateApi } from "../../api/endpoints";
 import { eventValue } from "../../lib/forms";
-import { configured, pagesOf, targetPage } from "../../lib/page";
+import { configured, defaultPage, pageById, pagesOf, targetPage } from "../../lib/page";
 import { storage } from "../../lib/storage";
 import { dayLabel, hm, presetTimes, rel, toLocalIso, when } from "../../lib/time";
 import { AiAssistant, PageHeader, PhotoPicker, PostPreview, SnippetMenu, VideoPicker, notifyErr, usePasteImages } from "../../components";
@@ -24,6 +24,7 @@ const TYPES = [
 const TITLES = { photo: "Soạn bài viết", video: "Đăng video", reel: "Đăng Reels" };
 const kindOf = (p) => (p.video ? (p.video_kind === "reel" ? "reel" : "video") : "photo");
 
+const MAX_PILLS = 3; // khớp với nth-child trong styles.css (.page-pills)
 const EMPTY = { message: "", link: "", photos: [], page: "", video: "", video_kind: "video" }; // page "" = Page mặc định
 
 const confirmShift = (preview) =>
@@ -49,6 +50,7 @@ export default function ComposePage() {
   const [editingId, setEditingId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [alsoIg, setAlsoIg] = useState(() => storage.get("also-ig", false));
+  const [sel, setSel] = useState(() => storage.get("compose-pages", null)); // bài mới: các Page được tích; null = Page mặc định
   const [, tick] = useState(0);
   useInterval(() => tick((x) => x + 1), 30000, { autoInvoke: true });
 
@@ -86,7 +88,12 @@ export default function ComposePage() {
   const s = state.settings;
   const ok = configured(state);
   const pages = pagesOf(state);
-  const target = targetPage(state, post.page);
+  // bài mới đăng lên các Page được tích (bỏ id của Page đã xoá); sửa bài thì vẫn một Page
+  const selected = (sel || []).filter((id) => pageById(state, id)); // chưa chọn = Page mặc định
+  const targets = editingId || !selected.length ? [targetPage(state, editingId ? post.page : "")].filter(Boolean)
+    : selected.map((id) => pageById(state, id));
+  const target = targets[0];
+  const choosePages = (ids) => { setSel(ids); storage.set("compose-pages", ids); };
   const presets = useMemo(presetTimes, [mode, Math.floor(Date.now() / 60000)]); // eslint-disable-line
   const atValid = at && at > new Date();
   const isEmpty = !post.message.trim() && !post.photos.length && !post.link.trim() && !post.video;
@@ -124,12 +131,14 @@ export default function ComposePage() {
     }
     if (isEmpty) return notifyErr("Bài viết đang trống");
     if (mode === "later" && !atValid) return notifyErr("Chọn thời gian hẹn trong tương lai");
-    const body = { ...post, scheduled_at: mode === "later" ? toLocalIso(at) : null, also_instagram: !editingId && !!igOk && alsoIg };
+    const body = { ...post, scheduled_at: mode === "later" ? toLocalIso(at) : null, also_instagram: !editingId && !!igOk && alsoIg,
+      ...(!editingId && { pages: targets.map((p) => p.id) }) };
     if (!body.video) { delete body.video; delete body.video_kind; }
     setBusy(true);
     try {
       // Giới hạn an toàn có thể dời bài -> báo trước để người dùng quyết định
-      const preview = editingId ? null : (await stateApi.previewPlan([{ scheduled_at: body.scheduled_at, page: post.page }])).items[0];
+      const items = editingId ? [] : (await stateApi.previewPlan(targets.map((p) => ({ scheduled_at: body.scheduled_at, page: p.id })))).items;
+      const preview = items.find((i) => i.shifted) || items[0];
       if (preview?.shifted && !(await confirmShift(preview))) { setBusy(false); return; }
       if (editingId) {
         await postsApi.edit(editingId, body);
@@ -141,7 +150,7 @@ export default function ComposePage() {
         const real = preview?.shifted ? new Date(preview.effective_at) : mode === "later" ? at : null;
         notifications.show({
           color: real ? "teal" : "indigo",
-          title: (real ? "Đã lên lịch" : "Đang đăng bài") + (body.also_instagram ? " (Facebook + Instagram)" : ""),
+          title: (real ? "Đã lên lịch" : "Đang đăng bài") + (body.also_instagram ? " (Facebook + Instagram)" : "") + (targets.length > 1 ? ` · ${targets.length} Page` : ""),
           message: real ? `Bài sẽ được đăng lúc ${hm(real)}, ${dayLabel(real).toLowerCase()}.` : "Bài đã vào hàng đợi và sẽ được đăng ngay.",
         });
         reset();
@@ -155,7 +164,8 @@ export default function ComposePage() {
 
   useHotkeys([["mod+Enter", submit]], []);
   const fbSchedules = target?.kind === "api" && s.fb_schedule;
-  const ig = target?.kind === "api" ? target.instagram : null;
+  const igPages = targets.filter((p) => p.kind === "api" && p.instagram);
+  const ig = igPages[0]?.instagram || null;
   const igOk = ig && (post.photos.length > 0 || !!post.video);
   const onPaste = usePasteImages(async (files) => {
     try { const names = await mediaApi.upload(files); setPost((p) => ({ ...p, photos: [...p.photos, ...names] })); }
@@ -194,7 +204,27 @@ export default function ComposePage() {
                 data={TYPES.map(({ value, label, icon: Icon }) => ({ value, label: <Group gap={8} justify="center" wrap="nowrap"><Icon size={18} />{label}</Group> }))}
               />
 
-              {pages.length > 1 && (
+              {pages.length > 1 && !editingId && (
+                <div data-testid="page-picker">
+                  <Group justify="space-between" mb={6}>
+                    <Text size="sm" fw={500}>Đăng lên Page ({targets.length}/{pages.length})</Text>
+                    <Group gap={4}>
+                      <Button size="compact-xs" variant="subtle" onClick={() => choosePages(pages.map((p) => p.id))}>Chọn tất cả</Button>
+                      <Button size="compact-xs" variant="subtle" color="gray" onClick={() => choosePages([])}>Bỏ chọn tất cả</Button>
+                    </Group>
+                  </Group>
+                  <MultiSelect
+                    data-testid="page-select" searchable hidePickedOptions={false} comboboxProps={{ withinPortal: true }}
+                    placeholder={selected.length ? "" : `Page mặc định (${defaultPage(state)?.name})`} nothingFoundMessage="Không có Page nào"
+                    classNames={{ pillsList: "page-pills" }}  // chỉ hiện 3 Page đầu, còn lại "+N" (styles.css)
+                    styles={{ pillsList: { "--more": `"+${selected.length - MAX_PILLS}"` } }}
+                    value={selected} onChange={choosePages}
+                    data={pages.map((p) => ({ value: p.id, label: p.default ? `${p.name} (mặc định)` : p.name }))}
+                  />
+                  {selected.length > 1 && <Text size="xs" c="dimmed" mt={6}>Mỗi Page nhận một bài riêng; giới hạn an toàn tính riêng từng Page.</Text>}
+                </div>
+              )}
+              {pages.length > 1 && editingId && (
                 <Select
                   label="Đăng lên Page" data-testid="page-select" allowDeselect={false} comboboxProps={{ withinPortal: true }}
                   value={post.page || ""} onChange={(v) => setPost((p) => ({ ...p, page: v || "" }))}
@@ -212,16 +242,16 @@ export default function ComposePage() {
 
               <Group gap="xs" mt={-8}>
                 <SnippetMenu value={post.message} onChange={(v) => setPost((p) => ({ ...p, message: v }))} onOpenLibrary={() => setView("library")} />
-                <AiAssistant text={post.message} page={post.page} onApply={(v) => setPost((p) => ({ ...p, message: v }))} onOpenSettings={() => setView("settings")} />
+                <AiAssistant text={post.message} page={target?.id} onApply={(v) => setPost((p) => ({ ...p, message: v }))} onOpenSettings={() => setView("settings")} />
               </Group>
 
               <div>
                 <Text size="sm" fw={500} mb={6}>{mediaType === "photo" ? "Ảnh" : mediaType === "reel" ? "Video Reels" : "Video"}</Text>
                 {mediaType === "reel" && (
-                  <Alert variant="light" color={target?.kind === "browser" ? "red" : "violet"} py="xs" mb="xs" icon={<IconMovie size={18} />} data-testid="reel-hint">
+                  <Alert variant="light" color={targets.some((p) => p.kind === "browser") ? "red" : "violet"} py="xs" mb="xs" icon={<IconMovie size={18} />} data-testid="reel-hint">
                     <Text size="sm">
-                      {target?.kind === "browser"
-                        ? "Page này đăng qua Trình duyệt: Reels chỉ đăng được với Page kết nối qua Graph API."
+                      {targets.some((p) => p.kind === "browser")
+                        ? "Có Page đăng qua Trình duyệt: Reels chỉ đăng được với Page kết nối qua Graph API."
                         : "Video dọc 9:16, dài 3–90 giây. Facebook cho tối đa 30 Reels qua API mỗi Page trong 24 giờ."}
                     </Text>
                   </Alert>
@@ -243,7 +273,7 @@ export default function ComposePage() {
                 <Checkbox
                   data-testid="also-ig" checked={alsoIg && !!igOk} disabled={!igOk}
                   onChange={(e) => { const v = e.currentTarget.checked; setAlsoIg(v); storage.set("also-ig", v); }}
-                  label={<>Đăng cả lên Instagram <b>@{ig.username}</b> <Text span size="xs" c="dimmed">(thử nghiệm)</Text></>}
+                  label={<>Đăng cả lên Instagram {igPages.length > 1 ? <b>{igPages.map((p) => "@" + p.instagram.username).join(", ")}</b> : <b>@{ig.username}</b>}{targets.length > igPages.length && " (Page chưa liên kết Instagram sẽ bỏ qua)"} <Text span size="xs" c="dimmed">(thử nghiệm)</Text></>}
                   description={igOk ? (mediaType === "photo" ? "Đăng thành bài ảnh (nhiều ảnh = album, tối đa 10)." : "Video được đăng thành Reels trên Instagram.")
                     : "Instagram cần ít nhất một ảnh hoặc video."}
                 />
