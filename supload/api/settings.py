@@ -5,6 +5,7 @@ import threading
 
 from flask import Blueprint, jsonify, request
 
+from ..config import SECRET_KEYS
 from ..domain import health
 from ..domain import pages as pages_domain
 from ..domain.settings import apply_update
@@ -22,6 +23,15 @@ def save_settings():
         add_log(data, "info", "Đã lưu cài đặt")
     services().runtime.notify()
     return jsonify(ok=True)
+
+
+@bp.post("/settings/reveal")
+def reveal_key():
+    """Trả key AI đã lưu khi người dùng bấm nút con mắt (chỉ key AI; không nằm trong /api/state)."""
+    k = request.get_json(force=True).get("key")
+    if k not in SECRET_KEYS or not k.endswith("_api_key"):
+        return error("Không xem được khoá này", 400)
+    return jsonify(value=services().store.load()["settings"].get(k, ""))
 
 
 @bp.post("/test-connection")
@@ -93,7 +103,10 @@ def _browser_job(rt, config, action: str) -> None:
         ok = browser.login_wait() if action == "login" else browser.check_login()
         rt.login = "yes" if ok else "no"
     except Exception as e:  # noqa: BLE001
-        rt.login = f"error: {e}"
+        msg = str(e).splitlines()[0] if str(e) else e.__class__.__name__
+        if "Executable doesn't exist" in msg:  # playwright có nhưng chưa tải Chromium
+            msg = "chưa cài Chromium (chạy: playwright install chromium)"
+        rt.login = f"error: {msg}"
     finally:
         rt.browser_lock.release()
 

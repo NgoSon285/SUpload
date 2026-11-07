@@ -35,7 +35,7 @@ export function AppCard() {
       <Switch
         label="Khởi động cùng Windows" data-testid="autostart"
         description={info.autostart.supported
-          ? "Tự chạy ẩn (không cửa sổ, không mở trình duyệt) mỗi khi đăng nhập Windows, để bài hẹn giờ luôn được đăng. Mở giao diện tại http://127.0.0.1:5000."
+          ? "Tự chạy ẩn (không cửa sổ, không mở trình duyệt) mỗi khi đăng nhập Windows, để bài hẹn giờ luôn được đăng. Mở giao diện tại http://127.0.0.1:5050."
           : "Chỉ hỗ trợ trên Windows."}
         checked={info.autostart.enabled} disabled={!info.autostart.supported} onChange={(e) => toggle(e.currentTarget.checked)}
       />

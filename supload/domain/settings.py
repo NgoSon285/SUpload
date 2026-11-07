@@ -9,9 +9,12 @@ def public_settings(s: dict) -> dict:
 
     out = dict(s)
     for k in SECRET_KEYS:
-        out[k + "_set"] = bool(out.get(k))
+        v = str(out.get(k) or "")
+        out[k + "_set"] = bool(v)
+        out[k + "_tail"] = v[-4:] if len(v) >= 12 else ""  # 4 ký tự cuối để nhận ra key nào; key ngắn thì không lộ
         out[k] = ""
-    out["ai_env_key"] = bool(os.getenv("OPENAI_API_KEY"))
+    from ..integrations.ai import PROVIDERS
+    out["ai_env_keys"] = {p: bool(os.getenv(c["env"])) for p, c in PROVIDERS.items()}
     return out
 
 
@@ -35,8 +38,9 @@ def apply_update(s: dict, body: dict) -> dict:
     s["min_gap"] = _int(s.get("min_gap"), 0, 86400)
     s["daily_max"] = _int(s.get("daily_max"), 0, 500)
     s["keep_done_days"] = _int(s.get("keep_done_days"), 0, 3650)
-    from ..integrations.ai import clean_base_url, clean_model
-    s["ai_model"] = clean_model(s.get("ai_model"))
+    from ..integrations.ai import clean_base_url, clean_model, clean_provider
+    s["ai_provider"] = clean_provider(s.get("ai_provider"))
+    s["ai_model"] = clean_model(s.get("ai_model"), s["ai_provider"])
     s["ai_base_url"] = clean_base_url(s.get("ai_base_url"))
     from .comments import clean_config
     s["comments"] = clean_config(s.get("comments"))

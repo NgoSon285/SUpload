@@ -2,7 +2,7 @@
 import json
 from types import SimpleNamespace
 
-import httpx2 as httpx
+import httpx
 import openai
 import pytest
 
@@ -34,6 +34,8 @@ def gpt(monkeypatch):
     monkeypatch.setattr(ai, "create", f)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     return f
 
 
@@ -46,6 +48,12 @@ def test_key_is_secret_and_request_shape(connected, gpt):
     connected.post("/api/settings", json={"openai_api_key": "sk-SECRET"})
     raw = connected.get("/api/state").get_data(as_text=True)
     assert "sk-SECRET" not in raw and '"openai_api_key_set": true' in raw.replace(":true", ": true")
+    connected.post("/api/settings", json={"deepseek_api_key": "sk-1234567890abcd"})
+    st = connected.get("/api/state").get_json()["settings"]
+    assert st["deepseek_api_key_tail"] == "abcd" and st["openai_api_key_tail"] == ""  # key ngắn: không lộ ký tự nào
+    assert "sk-1234567890abcd" not in connected.get("/api/state").get_data(as_text=True)
+    assert connected.post("/api/settings/reveal", json={"key": "deepseek_api_key"}).get_json()["value"] == "sk-1234567890abcd"
+    assert connected.post("/api/settings/reveal", json={"key": "app_secret"}).status_code == 400  # chỉ key AI
     r = connected.post("/api/ai/suggest", json={"action": "improve", "text": "Bánh ngon", "tone": "fun"}).get_json()
     assert r["suggestions"] == ["Phương án 1", "Phương án 2", "Phương án 3"] and r["model"] == "gpt-5.4-mini"
     c = gpt.calls[0]
@@ -62,7 +70,7 @@ def test_env_key_used_when_not_saved(connected, gpt, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-ENV")
     assert connected.post("/api/ai/suggest", json={"action": "idea", "text": "khai trương"}).status_code == 200
     assert gpt.calls[0]["api_key"] == "sk-ENV"
-    assert connected.get("/api/state").get_json()["settings"]["ai_env_key"] is True
+    assert connected.get("/api/state").get_json()["settings"]["ai_env_keys"] == {"openai": True, "deepseek": False, "gemini": False}
 
 
 def test_custom_model_and_compatible_base_url(connected, svc, gpt):
@@ -127,7 +135,7 @@ def _api_error(cls, status):
     (lambda: _api_error(openai.AuthenticationError, 401), "không hợp lệ"),
     (lambda: _api_error(openai.NotFoundError, 404), "Không tìm thấy model"),
     (lambda: _api_error(openai.RateLimitError, 429), "giới hạn tốc độ"),
-    (lambda: _api_error(openai.InternalServerError, 500), "OpenAI API báo lỗi (500)"),
+    (lambda: _api_error(openai.InternalServerError, 500), "OpenAI (GPT) báo lỗi (500)"),
     (lambda: openai.APIConnectionError(request=httpx.Request("POST", "https://api.openai.com")), "Không kết nối"),
 ])
 def test_api_errors_are_explained(connected, gpt, exc, msg):
@@ -149,3 +157,42 @@ def test_reply_suggestions_for_comment(connected, gpt):
     connected.post("/api/settings", json={"openai_api_key": "k"})
     r = connected.post("/api/ai/suggest", json={"action": "reply", "text": "Bình luận của An: giá sao ạ"})
     assert r.status_code == 200 and "Viết 3 câu trả lời" in gpt.calls[0]["messages"][1]["content"]
+
+
+def test_deepseek_uses_own_key_url_and_json_object(connected, svc, gpt):
+    connected.post("/api/settings", json={"openai_api_key": "sk-OPENAI", "ai_provider": "deepseek", "ai_model": "",
+                                          "deepseek_api_key": "sk-DS"})
+    assert svc.store.load()["settings"]["ai_model"] == "deepseek-flash"  # model trống -> mặc định của DeepSeek
+    raw = connected.get("/api/state").get_data(as_text=True)
+    assert "sk-DS" not in raw and "sk-OPENAI" not in raw
+    r = connected.post("/api/ai/suggest", json={"action": "improve", "text": "x"}).get_json()
+    assert r["provider"] == "deepseek" and r["model"] == "deepseek-flash"
+    c = gpt.calls[0]
+    assert c["api_key"] == "sk-DS" and c["base_url"].startswith("https://api.deepseek.com")
+    assert c["response_format"] == {"type": "json_object"} and "JSON" in c["messages"][0]["content"]
+    assert c["max_tokens"] == 8000 and "max_completion_tokens" not in c
+
+
+def test_gemini_env_key_and_schema(connected, gpt, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "AIza-ENV")
+    connected.post("/api/settings", json={"ai_provider": "gemini", "ai_model": "gemini-3.6-flash"})
+    assert connected.post("/api/ai/suggest", json={"action": "idea", "text": "x"}).status_code == 200
+    c = gpt.calls[0]
+    assert c["api_key"] == "AIza-ENV" and c["base_url"].startswith("https://generativelanguage.googleapis.com/v1beta/openai")
+    assert c["response_format"]["type"] == "json_schema" and c["model"] == "gemini-3.6-flash"
+
+
+def test_needs_key_of_selected_provider(connected, gpt):
+    connected.post("/api/settings", json={"openai_api_key": "k", "ai_provider": "gemini"})
+    r = connected.post("/api/ai/suggest", json={"action": "improve", "text": "x"})
+    assert r.status_code == 400 and r.get_json()["need_key"] is True and "Gemini" in r.get_json()["error"]
+
+
+def test_unknown_provider_falls_back(connected, svc, gpt):
+    connected.post("/api/settings", json={"ai_provider": "zzz"})
+    assert svc.store.load()["settings"]["ai_provider"] == "openai"
+
+
+def test_models_endpoint_lists_providers(connected):
+    p = connected.get("/api/ai/models").get_json()["providers"]
+    assert set(p) == {"openai", "deepseek", "gemini"} and "gpt-5.4-mini" in p["openai"]["models"]

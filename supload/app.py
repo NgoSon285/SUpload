@@ -49,7 +49,7 @@ def main(argv: list[str] | None = None) -> None:
     if "--no-browser" in args:  # chạy ẩn (tự khởi động cùng Windows)
         os.environ["NO_BROWSER"] = "1"
     config = Config()
-    port = int(os.getenv("PORT", "5000"))
+    port = int(os.getenv("PORT", "5050"))
     try:
         instance = SingleInstance(config.base_dir / "supload.lock", port).acquire()
     except AlreadyRunning as e:

@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// `npm run dev`   -> http://localhost:5173 (gọi API của `python app.py` ở cổng 5000)
+// `npm run dev`   -> http://localhost:5173 (gọi API của `python app.py` ở cổng 5050)
 // `npm run build` -> xuất ra ../web để Flask phục vụ trực tiếp
 export default defineConfig({
   plugins: [react()],
@@ -19,6 +19,6 @@ export default defineConfig({
     },
   },
   server: {
-    proxy: { "/api": "http://127.0.0.1:5000", "/uploads": "http://127.0.0.1:5000" },
+    proxy: { "/api": "http://127.0.0.1:5050", "/uploads": "http://127.0.0.1:5050" },
   },
 });

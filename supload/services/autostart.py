@@ -1,6 +1,6 @@
 """Tự khởi động cùng Windows: đặt một script nhỏ vào thư mục Startup của người dùng.
 
-Script chạy SUpload ẩn (không cửa sổ, không mở trình duyệt). Mở giao diện bằng http://127.0.0.1:5000,
+Script chạy SUpload ẩn (không cửa sổ, không mở trình duyệt). Mở giao diện bằng http://127.0.0.1:5050,
 tắt bằng nút "Tắt ứng dụng" trong Cài đặt.
 """
 from __future__ import annotations

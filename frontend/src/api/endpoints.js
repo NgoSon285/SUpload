@@ -100,6 +100,7 @@ export const systemApi = {
 
 export const settingsApi = {
   save: (body) => post("/api/settings", body),
+  revealKey: (key) => post("/api/settings/reveal", { key }),
   testConnection: () => post("/api/test-connection"),
   fetchPages: (body) => post("/api/fb/pages", body),
   selectPage: (id) => post("/api/fb/select-page", { id }),

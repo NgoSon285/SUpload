@@ -3,7 +3,7 @@ import { Affix, Anchor, Autocomplete, Button, Code, Group, NumberInput, Paper, P
 import { IconDatabase } from "@tabler/icons-react";
 
 import { useApp } from "../../app/context";
-import { settingsApi, stateApi } from "../../api/endpoints";
+import { aiApi, settingsApi, stateApi } from "../../api/endpoints";
 import { PageHeader, notifyErr, notifyOk } from "../../components";
 import { eventValue } from "../../lib/forms";
 import { pagesOf } from "../../lib/page";
@@ -23,22 +23,27 @@ export default function SettingsPage() {
   const initial = () => ({
     fb_schedule: s.fb_schedule ?? true, headless: !!s.headless, min_gap: String(s.min_gap ?? 300),
     daily_max: s.daily_max ?? 20, keep_done_days: String(s.keep_done_days ?? 90),
-    openai_api_key: "", ai_model: s.ai_model || "gpt-5.4-mini", ai_base_url: s.ai_base_url || "",
+    ai_provider: s.ai_provider || "openai", ai_key: "", ai_model: s.ai_model || "gpt-5.4-mini", ai_base_url: s.ai_base_url || "",
   });
+  const [providers, setProviders] = useState({});
+  useEffect(() => { aiApi.models().then((r) => setProviders(r.providers)).catch(() => {}); }, []);
   const [f, setF] = useState(initial);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { if (!dirty) setF(initial()); }, [state]); // eslint-disable-line
+  // giữ ô key: key đang xem (bấm con mắt) không tính là sửa, nếu không sẽ bị xoá mỗi lần trạng thái tải lại
+  useEffect(() => { if (!dirty) setF((x) => ({ ...initial(), ai_key: x.ai_key })); }, [state]); // eslint-disable-line
 
   const set = (k) => (v) => { const val = eventValue(v); setF((x) => ({ ...x, [k]: val })); setDirty(true); };
+  const prov = providers[f.ai_provider] || {};
   const gaps = GAPS.some((g) => g.value === f.min_gap) ? GAPS : [...GAPS, { value: f.min_gap, label: `${Math.round(f.min_gap / 60)} phút` }];
 
   const save = async () => {
     try {
-      await settingsApi.save({ ...f, min_gap: Number(f.min_gap), daily_max: Number(f.daily_max) || 0, keep_done_days: Number(f.keep_done_days) });
+      const { ai_key, ...rest } = f;
+      await settingsApi.save({ ...rest, [`${f.ai_provider}_api_key`]: ai_key, min_gap: Number(f.min_gap), daily_max: Number(f.daily_max) || 0, keep_done_days: Number(f.keep_done_days) });
       setDirty(false);
-      setF((x) => ({ ...x, openai_api_key: "" }));
+      setF((x) => ({ ...x, ai_key: "" }));
       await refresh();
       notifyOk("Đã lưu cài đặt");
     } catch (e) { notifyErr(e.message); }
@@ -96,24 +101,34 @@ export default function SettingsPage() {
           )}
         </Step>
 
-        <Step n={5} title="Trợ lý AI (OpenAI)">
+        <Step n={5} title="Trợ lý AI">
           <Text size="sm" c="dimmed">
-            Gợi ý nội dung, hashtag và viết bài từ ý tưởng trong trang Soạn bài. Cần API key OpenAI của riêng bạn
-            (tạo tại <Anchor href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</Anchor>);
+            Gợi ý nội dung, hashtag và viết bài từ ý tưởng trong trang Soạn bài. Chọn nhà cung cấp rồi dán API key của riêng bạn
+            {prov.key_url && <> (tạo tại <Anchor href={prov.key_url} target="_blank">{new URL(prov.key_url).host}</Anchor>)</>};
             mỗi lần gợi ý tính phí nhỏ vào tài khoản đó.
           </Text>
+          <SegmentedControl
+            value={f.ai_provider} maw={460}
+            data={Object.entries(providers).map(([value, p]) => ({ value, label: p.label }))}
+            onChange={(v) => { setF((x) => ({ ...x, ai_provider: v, ai_key: "", ai_model: Object.keys(providers[v].models)[0] })); setDirty(true); }}
+          />
           <PasswordInput
-            label="API key OpenAI" placeholder="sk-…" value={f.openai_api_key} onChange={set("openai_api_key")} autoComplete="new-password" maw={460}
-            description={s.openai_api_key_set ? "Đã lưu, để trống nếu không đổi" : s.ai_env_key ? "Đang dùng biến môi trường OPENAI_API_KEY" : "Chưa có key"}
+            label={`API key ${prov.label || ""}`} placeholder={prov.key_hint} value={f.ai_key} onChange={set("ai_key")} autoComplete="new-password" maw={460}
+            onVisibilityChange={async (shown) => {  // bấm con mắt: điền key đã lưu để xem (không tính là sửa)
+              if (!shown || f.ai_key || !s[`${f.ai_provider}_api_key_set`]) return;
+              try { const { value } = await settingsApi.revealKey(`${f.ai_provider}_api_key`); setF((x) => ({ ...x, ai_key: value })); }
+              catch (e) { notifyErr(e.message); }
+            }}
+            description={s[`${f.ai_provider}_api_key_set`] ? `Đã lưu${s[`${f.ai_provider}_api_key_tail`] ? ` (key kết thúc bằng …${s[`${f.ai_provider}_api_key_tail`]})` : ""}, để trống nếu không đổi` : s.ai_env_keys?.[f.ai_provider] ? `Đang dùng biến môi trường ${prov.env}` : "Chưa có key"}
           />
           <Autocomplete
             label="Model" maw={460} comboboxProps={{ withinPortal: true }} value={f.ai_model} onChange={set("ai_model")}
             description="Chọn gợi ý hoặc gõ tên model khác"
-            data={[{ value: "gpt-5.4-mini", label: "gpt-5.4-mini" }, { value: "gpt-5.4", label: "gpt-5.4" }, { value: "gpt-5-mini", label: "gpt-5-mini" }]}
+            data={Object.keys(prov.models || {})}
           />
           <TextInput
-            label="Địa chỉ API (tuỳ chọn)" placeholder="https://api.openai.com/v1" value={f.ai_base_url} onChange={set("ai_base_url")} maw={460}
-            description="Để trống nếu dùng OpenAI. Điền địa chỉ nếu dùng dịch vụ tương thích OpenAI (vd http://localhost:11434/v1)."
+            label="Địa chỉ API (tuỳ chọn)" placeholder="Mặc định của nhà cung cấp" value={f.ai_base_url} onChange={set("ai_base_url")} maw={460}
+            description="Để trống là dùng địa chỉ của nhà cung cấp đã chọn. Chỉ điền khi dùng dịch vụ tương thích OpenAI khác (vd http://localhost:11434/v1)."
           />
         </Step>
 

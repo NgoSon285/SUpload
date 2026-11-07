@@ -13,7 +13,7 @@ const ACTIONS = {
 const TONES = [{ value: "", label: "Tự nhiên" }, { value: "friendly", label: "Thân thiện" }, { value: "pro", label: "Chuyên nghiệp" },
   { value: "fun", label: "Vui nhộn" }, { value: "short", label: "Ngắn gọn" }];
 
-/** Nút "Trợ lý AI" trong Soạn bài: gợi ý nội dung bằng OpenAI. onApply(newText) thay nội dung bài. */
+/** Nút "Trợ lý AI" trong Soạn bài: gợi ý nội dung bằng AI (nhà cung cấp chọn trong Cài đặt). onApply(newText) thay nội dung bài. */
 export function AiAssistant({ text, page, onApply, onOpenSettings }) {
   const [action, setAction] = useState(null);
   const [tone, setTone] = useState("");

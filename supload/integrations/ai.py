@@ -1,20 +1,49 @@
-"""Gợi ý nội dung bằng OpenAI API (SDK `openai`, Chat Completions + Structured Outputs).
+"""Gợi ý nội dung bằng AI: OpenAI (GPT), DeepSeek, Gemini.
 
-Dùng được cả dịch vụ tương thích OpenAI (đặt `ai_base_url`), ví dụ máy chủ nội bộ hoặc nhà cung cấp khác.
+Cả ba đều có API tương thích OpenAI nên dùng chung SDK `openai` (Chat Completions), chỉ khác địa chỉ API.
+Dùng được cả dịch vụ tương thích OpenAI khác (đặt `ai_base_url`), ví dụ máy chủ nội bộ.
 """
 from __future__ import annotations
 
 import json
+import os
 
 import openai
 
-DEFAULT_MODEL = "gpt-5.4-mini"
-# gợi ý hiện trong Cài đặt; vẫn gõ được tên model khác (vd khi dùng dịch vụ tương thích OpenAI)
-MODELS = {
-    "gpt-5.4-mini": "GPT-5.4 mini (nhanh, rẻ: khuyên dùng)",
-    "gpt-5.4": "GPT-5.4 (chất lượng cao nhất, đắt hơn)",
-    "gpt-5-mini": "GPT-5 mini (đời trước, rẻ)",
+# thêm nhà cung cấp: khai báo ở đây (+ khoá `<id>_api_key` trong config.default_settings và SECRET_KEYS)
+# models: gợi ý hiện trong Cài đặt; vẫn gõ được tên model khác
+PROVIDERS = {
+    "openai": {
+        "label": "OpenAI (GPT)", "base_url": "", "env": "OPENAI_API_KEY",
+        "key_url": "https://platform.openai.com/api-keys", "key_hint": "sk-…", "json_schema": True,
+        "models": {
+            "gpt-5.4-mini": "GPT-5.4 mini (nhanh, rẻ: khuyên dùng)",
+            "gpt-5.4": "GPT-5.4 (chất lượng cao nhất, đắt hơn)",
+            "gpt-5-mini": "GPT-5 mini (đời trước, rẻ)",
+        },
+    },
+    "deepseek": {
+        "label": "DeepSeek", "base_url": "https://api.deepseek.com", "env": "DEEPSEEK_API_KEY",
+        "key_url": "https://platform.deepseek.com/api_keys", "key_hint": "sk-…",
+        "json_schema": False,  # chỉ hỗ trợ json_object
+        "models": {
+            "deepseek-flash": "DeepSeek Flash (nhanh, rẻ: khuyên dùng)",
+            "deepseek-v4-pro": "DeepSeek V4 Pro (chất lượng cao hơn)",
+        },
+    },
+    "gemini": {
+        "label": "Google Gemini", "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "env": "GEMINI_API_KEY", "key_url": "https://aistudio.google.com/apikey", "key_hint": "AIza…", "json_schema": True,
+        "models": {
+            "gemini-3.6-flash": "Gemini 3.6 Flash (ổn định: khuyên dùng)",
+            "gemini-3.8-flash": "Gemini 3.8 Flash (mới nhất)",
+            "gemini-3.5-flash-lite": "Gemini 3.5 Flash-Lite (rẻ nhất)",
+            "gemini-3.1-pro-preview": "Gemini 3.1 Pro (bản xem trước)",
+        },
+    },
 }
+DEFAULT_PROVIDER = "openai"
+DEFAULT_MODEL = "gpt-5.4-mini"
 MAX_MODEL_LEN = 100
 TONES = {"": "", "friendly": "thân thiện, gần gũi", "pro": "chuyên nghiệp, tin cậy", "fun": "vui nhộn, hài hước", "short": "ngắn gọn, súc tích"}
 
@@ -38,6 +67,7 @@ SCHEMA = {
     "additionalProperties": False,
 }
 MAX_INPUT = 6000
+JSON_HINT = 'Trả lời bằng JSON đúng dạng {"suggestions": ["…", "…"]}.'
 
 
 class AIError(RuntimeError):
@@ -49,9 +79,29 @@ def create(client: openai.OpenAI, **kwargs):
     return client.chat.completions.create(**kwargs)
 
 
-def clean_model(model) -> str:
+def clean_provider(provider) -> str:
+    return provider if provider in PROVIDERS else DEFAULT_PROVIDER
+
+
+def default_model(provider) -> str:
+    return next(iter(PROVIDERS[clean_provider(provider)]["models"]))
+
+
+def clean_model(model, provider=DEFAULT_PROVIDER) -> str:
     model = str(model or "").strip()
-    return model if model and len(model) <= MAX_MODEL_LEN else DEFAULT_MODEL
+    return model if model and len(model) <= MAX_MODEL_LEN else default_model(provider)
+
+
+def api_key(s: dict) -> str:
+    """Key của nhà cung cấp đang chọn: key đã lưu trong Cài đặt, nếu trống thì lấy biến môi trường."""
+    provider = clean_provider(s.get("ai_provider"))
+    return s.get(f"{provider}_api_key") or os.getenv(PROVIDERS[provider]["env"], "")
+
+
+def suggest_with(s: dict, action: str, text: str, page_name: str = "", tone: str = "") -> list[str]:
+    """suggest() theo cài đặt hiện tại (nhà cung cấp, key, model, địa chỉ API)."""
+    return suggest(api_key(s), s.get("ai_model"), action, text, page_name=page_name, tone=tone,
+                   base_url=s.get("ai_base_url", ""), provider=s.get("ai_provider"))
 
 
 def clean_base_url(url) -> str:
@@ -70,7 +120,7 @@ def build_prompt(action: str, text: str, page_name: str = "", tone: str = "") ->
 
 
 def suggest(api_key: str | None, model: str, action: str, text: str, page_name: str = "", tone: str = "",
-            base_url: str = "") -> list[str]:
+            base_url: str = "", provider: str = DEFAULT_PROVIDER) -> list[str]:
     """Trả về danh sách gợi ý. Ném AIError với thông báo dễ hiểu nếu có lỗi."""
     if action not in TASKS:
         raise AIError("Thao tác không hợp lệ")
@@ -79,31 +129,41 @@ def suggest(api_key: str | None, model: str, action: str, text: str, page_name: 
         raise AIError("Hãy viết nội dung hoặc ý tưởng trước")
     if len(text) > MAX_INPUT:
         raise AIError(f"Nội dung quá dài (tối đa {MAX_INPUT} ký tự)")
+    provider = clean_provider(provider)
+    cfg, name = PROVIDERS[provider], PROVIDERS[provider]["label"]
     params = dict(
-        model=clean_model(model),
-        max_completion_tokens=8000,  # model suy luận (GPT-5) không nhận max_tokens/temperature
+        model=clean_model(model, provider),
         messages=[{"role": "system", "content": SYSTEM},
                   {"role": "user", "content": build_prompt(action, text, page_name, tone)}],
-        response_format={"type": "json_schema",
-                         "json_schema": {"name": "goi_y", "strict": True, "schema": SCHEMA}},
     )
+    if provider == "openai":
+        params["max_completion_tokens"] = 8000  # model suy luận (GPT-5) không nhận max_tokens/temperature
+    else:
+        params["max_tokens"] = 8000
+    if cfg["json_schema"]:
+        params["response_format"] = {"type": "json_schema",
+                                     "json_schema": {"name": "goi_y", "strict": True, "schema": SCHEMA}}
+    else:  # json_object: phải dặn trong lời nhắn là trả về JSON
+        params["response_format"] = {"type": "json_object"}
+        params["messages"][0] = {"role": "system", "content": SYSTEM + " " + JSON_HINT}
     try:
-        client = openai.OpenAI(api_key=api_key or None, base_url=clean_base_url(base_url) or None, timeout=120, max_retries=2)
+        client = openai.OpenAI(api_key=api_key or None, base_url=clean_base_url(base_url) or cfg["base_url"] or None,
+                               timeout=120, max_retries=2)
         resp = create(client, **params)
     except openai.AuthenticationError:
-        raise AIError("API key OpenAI không hợp lệ: kiểm tra lại trong Cài đặt → Trợ lý AI") from None
+        raise AIError(f"API key {name} không hợp lệ: kiểm tra lại trong Cài đặt → Trợ lý AI") from None
     except openai.PermissionDeniedError:
         raise AIError("API key không có quyền dùng model này") from None
     except openai.NotFoundError:
         raise AIError(f"Không tìm thấy model '{params['model']}': kiểm tra tên model trong Cài đặt") from None
     except openai.RateLimitError:
-        raise AIError("OpenAI đang giới hạn tốc độ hoặc tài khoản hết hạn mức, thử lại sau") from None
+        raise AIError(f"{name} đang giới hạn tốc độ hoặc tài khoản hết hạn mức, thử lại sau") from None
     except openai.APIStatusError as e:
-        raise AIError(f"OpenAI API báo lỗi ({e.status_code}): {e.message}") from None
+        raise AIError(f"{name} báo lỗi ({e.status_code}): {e.message}") from None
     except openai.APIConnectionError:
-        raise AIError("Không kết nối được tới OpenAI API: kiểm tra mạng (hoặc địa chỉ API)") from None
+        raise AIError(f"Không kết nối được tới {name}: kiểm tra mạng (hoặc địa chỉ API)") from None
     except openai.OpenAIError as e:  # thiếu key, cấu hình sai…
-        raise AIError(f"Chưa dùng được OpenAI API: {e}") from None
+        raise AIError(f"Chưa dùng được {name}: {e}") from None
 
     choice = resp.choices[0] if resp.choices else None
     if choice is None:

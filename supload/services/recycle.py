@@ -1,7 +1,6 @@
 """Việc nền: mỗi Page, đủ hạn thì chọn 1 bài hiệu quả và đưa lại vào lịch đăng."""
 from __future__ import annotations
 
-import os
 from datetime import datetime
 
 from ..config import Config
@@ -65,11 +64,9 @@ class Recycler:
         from ..integrations import ai
 
         s = data["settings"]
-        key = s.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
-        if not key:
+        if not ai.api_key(s):
             return None
         try:
-            return ai.suggest(key, s.get("ai_model"), "variants", orig["message"], page_name=page.get("name", ""),
-                              base_url=s.get("ai_base_url", ""))[0]
+            return ai.suggest_with(s, "variants", orig["message"], page_name=page.get("name", ""))[0]
         except ai.AIError:
             return None  # AI lỗi: đăng lại nguyên văn

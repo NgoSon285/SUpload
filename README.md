@@ -5,12 +5,12 @@ và tự đăng lên **Facebook Page** mà bạn quản lý.
 
 Có 2 cách đăng:
 
-| | **Graph API** (khuyên dùng) | **Trình duyệt** |
-|---|---|---|
-| Cách hoạt động | Kênh chính thức Facebook cấp cho chủ Page | Tự thao tác trên facebook.com như người dùng |
-| Độ ổn định | Cao | Có thể hỏng khi Facebook đổi giao diện |
-| Cần chuẩn bị | Tạo một Facebook App (miễn phí, ~10 phút) | Đăng nhập Facebook một lần |
-| Mật khẩu | Không cần | Không lưu, bạn tự đăng nhập trong cửa sổ trình duyệt |
+|                | **Graph API** (khuyên dùng)               | **Trình duyệt**                                      |
+| -------------- | ----------------------------------------- | ---------------------------------------------------- |
+| Cách hoạt động | Kênh chính thức Facebook cấp cho chủ Page | Tự thao tác trên facebook.com như người dùng         |
+| Độ ổn định     | Cao                                       | Có thể hỏng khi Facebook đổi giao diện               |
+| Cần chuẩn bị   | Tạo một Facebook App (miễn phí, ~10 phút) | Đăng nhập Facebook một lần                           |
+| Mật khẩu       | Không cần                                 | Không lưu, bạn tự đăng nhập trong cửa sổ trình duyệt |
 
 ---
 
@@ -19,7 +19,7 @@ Có 2 cách đăng:
 - **Python 3.10 trở lên**: tải tại <https://www.python.org/downloads/>.
   Trên Windows, khi cài nhớ tích **“Add python.exe to PATH”**.
 - Tài khoản Facebook là **quản trị viên (admin) của Page** muốn đăng.
-- *(Khuyên)* Tạo một **Page thử nghiệm** để chạy thử trước, vì bài đăng lên Page là công khai.
+- _(Khuyên)_ Tạo một **Page thử nghiệm** để chạy thử trước, vì bài đăng lên Page là công khai.
 - Không cần Node.js: giao diện đã được build sẵn trong thư mục `web/`.
 
 Kiểm tra Python đã cài:
@@ -80,21 +80,21 @@ Trình duyệt sẽ tự mở <http://127.0.0.1:5000>. Nếu không tự mở, b
 - **Windows**: lần sau chỉ cần bấm đúp `start.bat` (tự dùng môi trường ảo `.venv` nếu có).
 - **macOS / Linux**: lần sau chạy `source .venv/bin/activate` rồi `python app.py`.
 - **Khi nào phải để ứng dụng chạy?**
-  - Cách **Graph API** + bật *Hẹn giờ trên Facebook* (mặc định): bài hẹn từ 12 phút tới 30 ngày được gửi lên Facebook
+  - Cách **Graph API** + bật _Hẹn giờ trên Facebook_ (mặc định): bài hẹn từ 12 phút tới 30 ngày được gửi lên Facebook
     ngay, **Facebook tự đăng kể cả khi bạn tắt máy**. Chỉ cần mở ứng dụng lúc tạo/sửa lịch (và thỉnh thoảng để
-    ứng dụng đối soát trạng thái *Đã đăng*).
-  - Bài *Đăng ngay*, bài còn dưới 12 phút, bài xa hơn 30 ngày, hoặc cách **Trình duyệt**: ứng dụng tự đăng khi tới giờ,
+    ứng dụng đối soát trạng thái _Đã đăng_).
+  - Bài _Đăng ngay_, bài còn dưới 12 phút, bài xa hơn 30 ngày, hoặc cách **Trình duyệt**: ứng dụng tự đăng khi tới giờ,
     nên cần đang chạy lúc đó. Tắt ứng dụng thì bài chưa tới giờ vẫn được giữ và đăng khi bạn mở lại.
 - Dừng ứng dụng: nhấn `Ctrl + C` trong cửa sổ dòng lệnh.
 
 ### Cách không cần cài Python: SUpload.exe (Windows)
 
-1. Tải file `SUpload-windows.zip` (mục *Actions → Build Windows → Artifacts* trên GitHub của dự án, hoặc tự build
+1. Tải file `SUpload-windows.zip` (mục _Actions → Build Windows → Artifacts_ trên GitHub của dự án, hoặc tự build
    bằng `packaging\build_windows.bat`), giải nén vào một thư mục cố định, ví dụ `D:\SUpload`.
-2. Bấm đúp `SUpload.exe`. Lần đầu Windows có thể hiện *“Windows protected your PC”* vì file chưa được ký số:
+2. Bấm đúp `SUpload.exe`. Lần đầu Windows có thể hiện _“Windows protected your PC”_ vì file chưa được ký số:
    bấm **More info → Run anyway**.
 3. Dữ liệu (`data.json`, `uploads/`, `backups/`) nằm ngay trong thư mục đó; chép cả thư mục là mang được sang máy khác.
-4. **Khởi động cùng Windows:** *Cài đặt → Ứng dụng → Khởi động cùng Windows*. Mỗi lần đăng nhập Windows, SUpload tự
+4. **Khởi động cùng Windows:** _Cài đặt → Ứng dụng → Khởi động cùng Windows_. Mỗi lần đăng nhập Windows, SUpload tự
    chạy ẩn (không cửa sổ, không mở trình duyệt); mở giao diện bằng <http://127.0.0.1:5000>, tắt bằng nút **Tắt ứng dụng**.
 
 Bản `.exe` không có cách đăng **Trình duyệt** (cần Playwright + Chromium, rất nặng); dùng Page qua Graph API, hoặc chạy
@@ -102,12 +102,12 @@ từ mã nguồn bằng Python nếu cần cách Trình duyệt.
 
 **Tự build `.exe`** trên máy Windows có Python 3.10+: bấm đúp `packaging\build_windows.bat`
 → kết quả ở `dist\SUpload\SUpload.exe` và `dist\SUpload-windows.zip`. Trên GitHub, workflow
-*Build Windows* (`.github/workflows/build-windows.yml`) chạy test, build, chạy thử bản đóng gói và xuất file zip
-mỗi khi bấm *Run workflow* hoặc đẩy một tag `v*`.
+_Build Windows_ (`.github/workflows/build-windows.yml`) chạy test, build, chạy thử bản đóng gói và xuất file zip
+mỗi khi bấm _Run workflow_ hoặc đẩy một tag `v*`.
 
 ## 5. Kết nối Page
 
-Lần đầu mở, ứng dụng tự chuyển tới trang **Cài đặt**. Bạn kết nối được **nhiều Page** (mục *Thêm Page*), mỗi Page
+Lần đầu mở, ứng dụng tự chuyển tới trang **Cài đặt**. Bạn kết nối được **nhiều Page** (mục _Thêm Page_), mỗi Page
 đăng theo cách riêng (Graph API hoặc Trình duyệt). Page đầu tiên là **Page mặc định**: bài và flow không chọn Page
 riêng sẽ đăng lên Page này.
 
@@ -119,7 +119,7 @@ riêng sẽ đăng lên Page này.
    Nếu được hỏi, đăng ký làm nhà phát triển (miễn phí).
 2. Bấm **Create App / Tạo ứng dụng**. Khi được hỏi trường hợp sử dụng, chọn **Other / Khác**, sau đó loại ứng dụng **Business**.
    (Giao diện của Facebook có thể đổi tên nút theo thời gian; mục tiêu là có một App loại Business.)
-3. Vào **App settings → Basic**, chép **App ID** và **App Secret** (bấm *Show*).
+3. Vào **App settings → Basic**, chép **App ID** và **App Secret** (bấm _Show_).
 
 > Để App ở chế độ **Development** là đủ: bạn là admin của App nên dùng được với Page của chính bạn,
 > không cần gửi Facebook duyệt.
@@ -140,7 +140,7 @@ riêng sẽ đăng lên Page này.
 1. Trang **Cài đặt → Thêm Page → Qua Graph API**.
 2. Dán **App ID**, **App Secret**, **User Access Token**.
 3. Bấm **Lấy danh sách Page** → bấm **Thêm** ở từng Page muốn dùng.
-4. Ở mục *Page đã kết nối*, bấm **Kiểm tra** trên từng Page: thấy “Kết nối tốt tới Page …” là xong.
+4. Ở mục _Page đã kết nối_, bấm **Kiểm tra** trên từng Page: thấy “Kết nối tốt tới Page …” là xong.
 
 Ứng dụng tự đổi sang **Page Token dài hạn** (thường không hết hạn, trừ khi bạn đổi mật khẩu Facebook
 hoặc gỡ quyền của App). User Token bạn dán vào không được lưu lại.
@@ -151,20 +151,21 @@ hoặc gỡ quyền của App). User Token bạn dán vào không được lưu 
 2. Bấm **Mở trình duyệt để đăng nhập**. Một cửa sổ Chromium mở ra, bạn tự đăng nhập Facebook (kể cả mã 2FA).
    Ứng dụng tự nhận biết khi đăng nhập xong và đóng cửa sổ. Mọi Page cách này dùng chung lần đăng nhập đó.
 3. Nhập địa chỉ Page, ví dụ `https://www.facebook.com/TenPageCuaBan`, rồi bấm **Thêm Page**. Lặp lại cho Page khác.
-4. Để tắt “Chạy ẩn trình duyệt” (mục *Cách đăng*) trong vài lần đầu để quan sát.
+4. Để tắt “Chạy ẩn trình duyệt” (mục _Cách đăng_) trong vài lần đầu để quan sát.
 
 ### Quản lý các Page
 
 Mục **Page đã kết nối** liệt kê mọi Page kèm số bài đã đăng hôm nay. Nút **Kiểm tra** thử kết nối; menu **⋯** để
-*Đặt làm mặc định*, *Đổi tên hiển thị* hoặc *Xoá Page* (chỉ xoá được khi Page không còn bài chưa đăng).
+_Đặt làm mặc định_, _Đổi tên hiển thị_ hoặc _Xoá Page_ (chỉ xoá được khi Page không còn bài chưa đăng).
 Khi có từ 2 Page trở lên:
-- **Soạn bài** có ô *Đăng lên Page*; **Flow** có ô chọn Page đích ở thanh trên cùng của trình dựng.
+
+- **Soạn bài** có ô _Đăng lên Page_; **Flow** có ô chọn Page đích ở thanh trên cùng của trình dựng.
 - **Lịch đăng** ghi tên Page trên từng bài và lọc được theo Page.
 - **Giới hạn an toàn tính riêng cho từng Page** (Facebook giới hạn theo từng Page).
 
 **Kiểm tra kết nối tự động:** ứng dụng thử kết nối từng Page qua API mỗi 6 giờ, và cập nhật ngay mỗi lần đăng
 thành công/thất bại. Nếu một Page mất kết nối (token hết hạn, thiếu quyền, bị Facebook chặn tạm…), mọi trang hiện
-**dải cảnh báo đỏ** kèm cách xử lý, và mục *Page đã kết nối* ghi rõ lỗi. Sửa xong (vd thêm lại Page với token mới)
+**dải cảnh báo đỏ** kèm cách xử lý, và mục _Page đã kết nối_ ghi rõ lỗi. Sửa xong (vd thêm lại Page với token mới)
 thì bấm **Kiểm tra** để xác nhận. Page qua trình duyệt chỉ được kiểm tra khi bạn bấm (vì phải mở trình duyệt).
 
 > Nâng cấp từ bản cũ (một Page): Page đang kết nối tự trở thành Page đầu tiên và là Page mặc định; bài đang chờ
@@ -177,13 +178,13 @@ thì bấm **Kiểm tra** để xác nhận. Page qua trình duyệt chỉ đư�
 
 Trang **Cài đặt → Giới hạn an toàn** giúp Page không bị Facebook hạn chế vì đăng quá dày:
 
-| Tuỳ chọn | Mặc định | Ý nghĩa |
-|---|---|---|
-| Số bài tối đa mỗi ngày | 20 | Tính cả bài đã đăng và bài đã hẹn trên Facebook trong ngày. `0` = không giới hạn |
-| Giãn cách tối thiểu giữa 2 bài | 5 phút | Áp cho mọi bài, kể cả bài hẹn trên Facebook |
+| Tuỳ chọn                       | Mặc định | Ý nghĩa                                                                          |
+| ------------------------------ | -------- | -------------------------------------------------------------------------------- |
+| Số bài tối đa mỗi ngày         | 20       | Tính cả bài đã đăng và bài đã hẹn trên Facebook trong ngày. `0` = không giới hạn |
+| Giãn cách tối thiểu giữa 2 bài | 5 phút   | Áp cho mọi bài, kể cả bài hẹn trên Facebook                                      |
 
 Bài vượt giới hạn **không bị bỏ**, mà được tự dời sang thời điểm hợp lệ kế tiếp (giãn cách → lùi vài phút;
-đủ bài trong ngày → sang ngày hôm sau cùng giờ). Lịch đăng ghi rõ *“Dời sang … vì …”*; khi soạn bài hoặc chạy flow,
+đủ bài trong ngày → sang ngày hôm sau cùng giờ). Lịch đăng ghi rõ _“Dời sang … vì …”_; khi soạn bài hoặc chạy flow,
 ứng dụng báo trước nếu có bài bị dời.
 
 ## 6. Đăng bài đầu tiên
@@ -192,16 +193,16 @@ Bài vượt giới hạn **không bị bỏ**, mà được tự dời sang th�
 2. Chọn **Đăng ngay** hoặc **Hẹn giờ** (có sẵn các mốc: Sau 1 giờ, 20:00 tối nay, 8:00 sáng mai…).
 3. Bấm **Đăng ngay / Lên lịch** (hoặc `Ctrl + Enter`).
 4. Xem trạng thái ở trang **Lịch đăng**:
-   - *Đang chờ → Đang đăng → Đã đăng*, hoặc *Lỗi* (kèm lý do, có nút **Đăng lại**).
-   - *Đang chờ → **Đã hẹn trên Facebook** → Đã đăng*: bài hẹn giờ đã được giao cho Facebook. Ứng dụng tự hỏi lại
-     Facebook sau giờ hẹn để chuyển sang *Đã đăng* (hoặc báo *Lỗi* nếu quá 1 giờ mà Facebook chưa đăng).
-   - **Sửa / Xoá** bài *Đã hẹn trên Facebook* sẽ **huỷ bài hẹn trên Facebook** trước. Nếu không huỷ được (mất mạng…),
+   - _Đang chờ → Đang đăng → Đã đăng_, hoặc _Lỗi_ (kèm lý do, có nút **Đăng lại**).
+   - _Đang chờ → **Đã hẹn trên Facebook** → Đã đăng_: bài hẹn giờ đã được giao cho Facebook. Ứng dụng tự hỏi lại
+     Facebook sau giờ hẹn để chuyển sang _Đã đăng_ (hoặc báo _Lỗi_ nếu quá 1 giờ mà Facebook chưa đăng).
+   - **Sửa / Xoá** bài _Đã hẹn trên Facebook_ sẽ **huỷ bài hẹn trên Facebook** trước. Nếu không huỷ được (mất mạng…),
      ứng dụng không xoá để tránh đăng trùng và hỏi bạn có muốn tự xoá trên Facebook không.
-5. Mở Page trên Facebook để kiểm tra bài (bài hẹn giờ nằm trong mục *Bài viết đã lên lịch* của Page).
+5. Mở Page trên Facebook để kiểm tra bài (bài hẹn giờ nằm trong mục _Bài viết đã lên lịch_ của Page).
 
 **Video & Reels:** bấm mục **Đăng Reels** ở menu bên trái, hoặc chọn **Bài viết / Video / Reels** ở đầu trang Soạn bài,
 rồi kéo thả một file MP4/MOV/WEBM (tối đa 1 GB).
-Reels cần video dọc 9:16, dài 3–90 giây. Cả hai hẹn giờ trên Facebook được như bài thường. Một bài chỉ có ảnh *hoặc* video.
+Reels cần video dọc 9:16, dài 3–90 giây. Cả hai hẹn giờ trên Facebook được như bài thường. Một bài chỉ có ảnh _hoặc_ video.
 Reels chỉ đăng qua Graph API (chưa hỗ trợ cách Trình duyệt). Facebook giới hạn 30 Reels đăng qua API mỗi Page trong 24 giờ.
 
 **Thử thật trên một Page phụ trước khi dùng cho Page chính:** dùng lệnh `kiemtra`. Lệnh đăng thử 1 video hoặc Reel,
@@ -220,8 +221,9 @@ python fb_poster.py kiemtra --video reel_doc.mp4 --reel --page "Tên Page phụ"
 - Số liệu của video vừa đăng sẽ là 0 (chưa ai xem), miễn là bước đó báo **[OK]** là API hoạt động.
 - Kết quả cũng được ghi vào `post_log.jsonl`. Nếu bước nào báo **[LỖI]**, gửi nguyên dòng lỗi đó để sửa.
 
-**Xem dạng Lịch:** ở trang **Lịch đăng**, chuyển *Danh sách → Lịch* để xem theo **Tháng** hoặc **Tuần**.
-- **Kéo một bài sang ngày khác** để dời lịch (giữ nguyên giờ). Bài *Đã hẹn trên Facebook* được huỷ và hẹn lại tự động.
+**Xem dạng Lịch:** ở trang **Lịch đăng**, chuyển _Danh sách → Lịch_ để xem theo **Tháng** hoặc **Tuần**.
+
+- **Kéo một bài sang ngày khác** để dời lịch (giữ nguyên giờ). Bài _Đã hẹn trên Facebook_ được huỷ và hẹn lại tự động.
   Không kéo được về ngày đã qua.
 - Bấm **+** (hoặc nhấp đúp) vào một ô ngày để soạn bài cho ngày đó; bấm vào bài để sửa.
 - Màu theo trạng thái: xanh tím = đang chờ, xanh lơ = đã hẹn trên Facebook, xanh lá = đã đăng, đỏ = lỗi.
@@ -232,27 +234,28 @@ Trang **Lịch đăng → Nhập từ file**:
 
 1. Tải **File mẫu Excel** (hoặc CSV), mỗi dòng là một bài:
 
-   | Cột | Bắt buộc | Ghi chú |
-   |---|---|---|
-   | Nội dung | ✔ | Có thể viết nhiều đoạn trong một ô (Alt+Enter trong Excel) |
-   | Link | | `https://…` |
-   | Ảnh | | Link ảnh `https://…` (ứng dụng tự tải về) hoặc tên ảnh đã có trong thư viện; nhiều ảnh cách nhau bởi dấu phẩy |
-   | Thời gian | | `01/12/2026 20:00` (hoặc `2026-12-01 20:00`, hoặc ô ngày giờ của Excel). Để trống = đăng ngay; chỉ có ngày = 9:00 sáng |
-   | Page | | Tên Page (hoặc Page ID). Để trống = Page mặc định |
+   | Cột       | Bắt buộc | Ghi chú                                                                                                                |
+   | --------- | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+   | Nội dung  | ✔        | Có thể viết nhiều đoạn trong một ô (Alt+Enter trong Excel)                                                             |
+   | Link      |          | `https://…`                                                                                                            |
+   | Ảnh       |          | Link ảnh `https://…` (ứng dụng tự tải về) hoặc tên ảnh đã có trong thư viện; nhiều ảnh cách nhau bởi dấu phẩy          |
+   | Thời gian |          | `01/12/2026 20:00` (hoặc `2026-12-01 20:00`, hoặc ô ngày giờ của Excel). Để trống = đăng ngay; chỉ có ngày = 9:00 sáng |
+   | Page      |          | Tên Page (hoặc Page ID). Để trống = Page mặc định                                                                      |
 
    Tên cột viết có dấu hay không dấu, tiếng Việt hay tiếng Anh đều được (`noi dung`, `message`…). CSV dùng dấu phẩy hoặc chấm phẩy.
+
 2. Kéo thả file vào hộp thoại → xem trước từng dòng; dòng lỗi tô đỏ kèm lý do (sai thời gian, Page không tồn tại…).
 3. Bấm **Nhập N bài**. Có dòng lỗi thì sửa file rồi chọn lại, hoặc **Nhập các dòng hợp lệ, bỏ qua dòng lỗi**.
 
 Bài nhập vào vẫn tuân theo **giới hạn an toàn** của từng Page. Tối đa 500 bài mỗi lần.
 
 **Video / Reels từ file:** thêm cột **Video** (link `.mp4` hoặc tên video đã có trong Thư viện) và cột **Loại**
-(`Bài viết`, `Video` hoặc `Reels`). Video dạng link được tải về khi bấm Nhập. Một dòng chỉ có ảnh *hoặc* video.
+(`Bài viết`, `Video` hoặc `Reels`). Video dạng link được tải về khi bấm Nhập. Một dòng chỉ có ảnh _hoặc_ video.
 
 ### Trợ lý AI (OpenAI)
 
-Trong **Soạn bài**, nút **✨ Trợ lý AI** có 4 việc: *Viết lại hay hơn*, *Tạo phiên bản khác* (có thể dùng tất cả làm
-“nhiều phiên bản” cho khối Bài viết trong Flow), *Gợi ý hashtag*, *Viết bài từ ý tưởng*. Mỗi lần cho 3 phương án, chọn
+Trong **Soạn bài**, nút **✨ Trợ lý AI** có 4 việc: _Viết lại hay hơn_, _Tạo phiên bản khác_ (có thể dùng tất cả làm
+“nhiều phiên bản” cho khối Bài viết trong Flow), _Gợi ý hashtag_, _Viết bài từ ý tưởng_. Mỗi lần cho 3 phương án, chọn
 giọng văn (thân thiện, chuyên nghiệp, vui nhộn, ngắn gọn) rồi bấm **Dùng bản này**.
 
 Cần **API key OpenAI của riêng bạn**: tạo tại <https://platform.openai.com/api-keys>, dán vào **Cài đặt → Trợ lý AI**
@@ -269,11 +272,13 @@ AI được dặn không bịa giá, ngày, địa chỉ hay khuyến mãi, như
 
 Trang **Bình luận** gom bình luận trên các bài trong 7 ngày gần đây của mọi Page (qua Graph API). Ứng dụng tự đọc bình luận mới
 mỗi 3 phút (bấm **Đồng bộ ngay** để đọc liền). Với mỗi bình luận bạn có thể:
+
 - **Trả lời** công khai, hoặc tick **Nhắn riêng qua Messenger** (Facebook chỉ cho nhắn riêng **1 lần** mỗi bình luận, trong **7 ngày**).
 - **AI gợi ý**: 3 câu trả lời mẫu dựa trên bình luận và nội dung bài (cần API key OpenAI).
 - **Ẩn / Hiện lại** bình luận; **Mở trên Facebook**.
 
 Bấm **Tự động** để đặt quy tắc cho bình luận mới:
+
 - **Ẩn bình luận có số điện thoại** (0912…, +84…, có dấu cách/chấm ở giữa vẫn nhận ra), ẩn luôn hoặc tự hiện lại sau 1 giờ – 7 ngày.
 - **Ẩn bình luận chứa từ** (vd tên đối thủ, từ thô tục).
 - **Trả lời theo từ khoá**: bình luận có “giá”, “ib”… → trả lời công khai và/hoặc nhắn riêng. Dùng `{ten}` để gọi tên khách,
@@ -286,8 +291,9 @@ Bấm **Tự động** để đặt quy tắc cho bình luận mới:
 ### Đăng chéo Instagram (thử nghiệm)
 
 Nếu Page đã liên kết **tài khoản Instagram doanh nghiệp/nhà sáng tạo**, bấm **Kiểm tra** ở Cài đặt → Page sẽ hiện nhãn
-*Instagram @tên*. Khi đó trang Soạn bài có ô **Đăng cả lên Instagram**: ứng dụng tạo thêm một bài riêng cho Instagram
-(nhãn *Instagram* trong Lịch đăng, giới hạn an toàn tính riêng).
+_Instagram @tên_. Khi đó trang Soạn bài có ô **Đăng cả lên Instagram**: ứng dụng tạo thêm một bài riêng cho Instagram
+(nhãn _Instagram_ trong Lịch đăng, giới hạn an toàn tính riêng).
+
 - Ảnh → bài ảnh (nhiều ảnh = album, tối đa 10). Video/Reels → Reels. Instagram **bắt buộc có ảnh hoặc video**; link không bấm được.
 - API Instagram chỉ nhận ảnh qua link public, nên ảnh được tải lên Facebook ở chế độ ẩn để lấy link rồi xoá sau khi đăng.
   Video được tải thẳng lên. Instagram **không có hẹn giờ qua API**: bài hẹn giờ do ứng dụng tự đăng khi tới giờ (cần để máy chạy).
@@ -298,7 +304,8 @@ Nếu Page đã liên kết **tài khoản Instagram doanh nghiệp/nhà sáng t
 ### Thư viện nội dung
 
 Trang **Thư viện** lưu những thứ dùng lại nhiều lần:
-- **Đoạn nội dung**: *Bộ hashtag*, *Chữ ký* (địa chỉ, hotline…), *Mẫu bài*. Khi soạn bài bấm **Chèn từ thư viện**:
+
+- **Đoạn nội dung**: _Bộ hashtag_, _Chữ ký_ (địa chỉ, hotline…), _Mẫu bài_. Khi soạn bài bấm **Chèn từ thư viện**:
   hashtag/chữ ký được thêm vào cuối bài; mẫu bài điền vào khung trống. Mục hay dùng hiện lên đầu.
 - **Ảnh & video**: mọi file đã tải lên, kèm số bài/flow đang dùng. Xoá được file không còn dùng.
   Khi soạn bài, bấm **Chọn ảnh đã tải** để dùng lại ảnh cũ thay vì tải lên lần nữa.
@@ -313,29 +320,29 @@ Bạn tạo được **nhiều flow**, mỗi flow là một kịch bản dùng l
 Mở trang **Flow chiến dịch** sẽ thấy danh sách flow dạng thẻ. Mỗi thẻ cho biết số khối, số bài dự kiến,
 số bài đang chờ / đã đăng / lỗi, lần sửa và lần chạy gần nhất.
 
-| Việc cần làm | Cách làm |
-|---|---|
-| Tạo flow | **Tạo flow** → đặt tên, mô tả → chọn *Flow trống* hoặc *Mẫu chiến dịch* → **Tạo và mở** |
-| Sửa nội dung flow | Bấm **Mở** trên thẻ (tự lưu khi sửa, nút **← Tất cả flow** để quay lại) |
-| Đổi tên / mô tả | Menu **⋯** trên thẻ → *Đổi tên & mô tả* (hoặc menu **Flow** trong trình dựng) |
-| Nhân bản | Menu **⋯** → *Nhân bản*: tạo bản sao để biến tấu mà không ảnh hưởng bản gốc |
-| Xoá | Menu **⋯** → *Xoá*. Nếu flow còn bài chưa đăng trong Lịch đăng, bạn chọn được có xoá luôn các bài đó không |
-| Sao lưu / chia sẻ | Menu **⋯** → *Xuất file* (`.supload-flow.json`); **Nhập file** để thêm lại |
-| Tìm nhanh | Ô tìm theo tên/mô tả; sắp xếp *Mới sửa*, *Tên A–Z*, *Mới chạy* |
+| Việc cần làm      | Cách làm                                                                                                   |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- |
+| Tạo flow          | **Tạo flow** → đặt tên, mô tả → chọn _Flow trống_ hoặc _Mẫu chiến dịch_ → **Tạo và mở**                    |
+| Sửa nội dung flow | Bấm **Mở** trên thẻ (tự lưu khi sửa, nút **← Tất cả flow** để quay lại)                                    |
+| Đổi tên / mô tả   | Menu **⋯** trên thẻ → _Đổi tên & mô tả_ (hoặc menu **Flow** trong trình dựng)                              |
+| Nhân bản          | Menu **⋯** → _Nhân bản_: tạo bản sao để biến tấu mà không ảnh hưởng bản gốc                                |
+| Xoá               | Menu **⋯** → _Xoá_. Nếu flow còn bài chưa đăng trong Lịch đăng, bạn chọn được có xoá luôn các bài đó không |
+| Sao lưu / chia sẻ | Menu **⋯** → _Xuất file_ (`.supload-flow.json`); **Nhập file** để thêm lại                                 |
+| Tìm nhanh         | Ô tìm theo tên/mô tả; sắp xếp _Mới sửa_, _Tên A–Z_, _Mới chạy_                                             |
 
 > File xuất chỉ chứa tên ảnh, không chứa ảnh. Nhập trên máy khác thì cần copy cả thư mục `uploads/`.
 
 ### Dựng flow
 
-| Nhóm | Khối | Dùng để |
-|---|---|---|
-| Khởi đầu | **Bắt đầu** | Chạy ngay khi bấm *Chạy flow*, hoặc từ một thời điểm cụ thể. |
-| Nội dung | **Bài viết** | Một bài: chọn *Loại bài* là Bài viết (ảnh), **Video** hoặc **Reels**. Bật *Nhiều phiên bản* (cách nhau bằng dòng `---`) để mỗi lần chọn ngẫu nhiên 1 bản. |
-| | **Nhiều bài** | Dán nhiều bài (tách theo dòng trống / dòng `---` / mỗi dòng), thả nhiều ảnh, chọn khoảng cách giữa các bài, xáo trộn, giới hạn số bài. |
-| | **Định dạng** | Thêm phần đầu/cuối (hashtag, chữ ký, hotline) cho mọi bài phía sau. |
-| Thời gian | **Chờ** | Chờ cố định, ngẫu nhiên trong khoảng, tới giờ cố định hằng ngày, hoặc tới thứ trong tuần. |
-| | **Khung giờ** | Chỉ đăng vào ngày/giờ cho phép (vd T2–T6, 08:00–21:00); bài ngoài khung tự lùi sang khung kế. |
-| | **Lặp lại** | Chạy các khối phía sau N lần, mỗi lần cách nhau X. |
+| Nhóm      | Khối          | Dùng để                                                                                                                                                   |
+| --------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Khởi đầu  | **Bắt đầu**   | Chạy ngay khi bấm _Chạy flow_, hoặc từ một thời điểm cụ thể.                                                                                              |
+| Nội dung  | **Bài viết**  | Một bài: chọn _Loại bài_ là Bài viết (ảnh), **Video** hoặc **Reels**. Bật _Nhiều phiên bản_ (cách nhau bằng dòng `---`) để mỗi lần chọn ngẫu nhiên 1 bản. |
+|           | **Nhiều bài** | Dán nhiều bài (tách theo dòng trống / dòng `---` / mỗi dòng), thả nhiều ảnh, chọn khoảng cách giữa các bài, xáo trộn, giới hạn số bài.                    |
+|           | **Định dạng** | Thêm phần đầu/cuối (hashtag, chữ ký, hotline) cho mọi bài phía sau.                                                                                       |
+| Thời gian | **Chờ**       | Chờ cố định, ngẫu nhiên trong khoảng, tới giờ cố định hằng ngày, hoặc tới thứ trong tuần.                                                                 |
+|           | **Khung giờ** | Chỉ đăng vào ngày/giờ cho phép (vd T2–T6, 08:00–21:00); bài ngoài khung tự lùi sang khung kế.                                                             |
+|           | **Lặp lại**   | Chạy các khối phía sau N lần, mỗi lần cách nhau X.                                                                                                        |
 
 Cách dùng:
 
@@ -346,6 +353,7 @@ Cách dùng:
 5. Bấm **Chạy flow**: toàn bộ bài được đưa vào **Lịch đăng**, ở đó bạn vẫn sửa/xoá từng bài được.
 
 Mẹo:
+
 - Viết `{Chào|Xin chào} {bạn|mọi người}` để chọn ngẫu nhiên một phương án.
 - Lựa chọn ngẫu nhiên được cố định theo flow, nên **Lịch dự kiến chính là lịch sẽ chạy**. Bấm nút 🎲 để xáo lại.
 - Bài nối ngay sau bài khác mà không có khối **Chờ** ở giữa sẽ đăng cùng lúc; hãy chèn khối Chờ để giãn ra.
@@ -354,11 +362,12 @@ Mẹo:
 ### Thống kê tương tác
 
 Trang **Thống kê** cho biết các bài đăng qua **Graph API** đang được tương tác thế nào (bài qua Trình duyệt không có số liệu):
+
 - Ứng dụng tự lấy **cảm xúc, bình luận, chia sẻ, tiếp cận** của bài khoảng 10 phút sau khi đăng, rồi cập nhật mỗi 6 giờ trong 14 ngày.
   Bấm **Cập nhật số liệu** để lấy lại ngay.
 - **Giờ hiệu quả nhất**: khung giờ có từ 2 bài trở lên và tương tác trung bình cao hơn mức chung. Dùng nó để đặt khối
   **Khung giờ** trong Flow.
-- Biểu đồ theo giờ và theo thứ (rê chuột để xem số liệu, hoặc bật *Xem dạng bảng số liệu*), danh sách bài nổi bật.
+- Biểu đồ theo giờ và theo thứ (rê chuột để xem số liệu, hoặc bật _Xem dạng bảng số liệu_), danh sách bài nổi bật.
 - **Tiếp cận / lượt xem** cần thêm quyền `read_insights` khi tạo User Token; thiếu quyền này các số liệu khác vẫn hiện đủ.
   Với bài thường là số người xem (`post_total_media_view_unique`), với video/Reels là lượt xem (`total_video_views`).
   Từ 06/2026 Meta đã khai tử `post_impressions_unique` và `total_video_impressions*`; ứng dụng đã chuyển sang chỉ số mới.
@@ -366,7 +375,7 @@ Trang **Thống kê** cho biết các bài đăng qua **Graph API** đang đư�
 - **Reels**: Facebook giới hạn **30 Reels đăng qua API mỗi Page trong 24 giờ**. Video nên dọc 9:16, dài 3–90 giây.
 
 **Xuất báo cáo Excel:** bấm **Xuất Excel** ở trang Thống kê để tải file `.xlsx` theo khoảng ngày và Page đang xem, gồm các
-trang *Tổng quan*, *Bài viết* (từng bài kèm số liệu và link), *Theo giờ*, *Theo thứ*, *Bình luận*. Tiện gửi sếp hoặc khách hàng.
+trang _Tổng quan_, _Bài viết_ (từng bài kèm số liệu và link), _Theo giờ_, _Theo thứ_, _Bình luận_. Tiện gửi sếp hoặc khách hàng.
 
 **Tự đăng lại bài hiệu quả** (thẻ cuối trang Thống kê): bật lên thì mỗi tuần ứng dụng chọn 1–7 bài (tuỳ chọn) có tương tác từ
 mức trung bình của Page trở lên, đã đăng lâu hơn 14/30/60/90 ngày, rồi đưa lại vào lịch vào **giờ hiệu quả nhất** của Page
@@ -376,19 +385,20 @@ cạnh từng bài nổi bật mở bài đó trong Soạn bài để chỉnh tr
 
 ## 9. Dữ liệu được lưu ở đâu
 
-| File / thư mục | Nội dung |
-|---|---|
-| `data.json` | Cài đặt, **token**, lịch đăng, flow, nhật ký |
-| `uploads/` | Ảnh bạn đã tải lên |
-| `backups/` | Bản sao lưu tự động của `data.json` (giữ 14 bản gần nhất) |
-| `fb_profile/` | Phiên đăng nhập Facebook (chỉ khi dùng cách Trình duyệt) |
-| `screenshots/` | Ảnh chụp khi đăng lỗi (cách Trình duyệt) |
+| File / thư mục | Nội dung                                                  |
+| -------------- | --------------------------------------------------------- |
+| `data.json`    | Cài đặt, **token**, lịch đăng, flow, nhật ký              |
+| `uploads/`     | Ảnh bạn đã tải lên                                        |
+| `backups/`     | Bản sao lưu tự động của `data.json` (giữ 14 bản gần nhất) |
+| `fb_profile/`  | Phiên đăng nhập Facebook (chỉ khi dùng cách Trình duyệt)  |
+| `screenshots/` | Ảnh chụp khi đăng lỗi (cách Trình duyệt)                  |
 
 Mặc định các thư mục này nằm cạnh `app.py`. Muốn để chỗ khác (ổ khác, thư mục đồng bộ…), đặt biến môi trường
 `SUPLOAD_HOME` trước khi chạy, ví dụ Windows `set SUPLOAD_HOME=D:\SUploadData`, macOS/Linux `export SUPLOAD_HOME=~/SUploadData`.
 
-**Sao lưu & dọn dẹp tự động** (mỗi ngày một lần khi ứng dụng chạy; hoặc bấm *Sao lưu & dọn dẹp ngay* trong
+**Sao lưu & dọn dẹp tự động** (mỗi ngày một lần khi ứng dụng chạy; hoặc bấm _Sao lưu & dọn dẹp ngay_ trong
 **Cài đặt → Dữ liệu & sao lưu**):
+
 - Sao lưu `data.json` vào `backups/data-NămThángNgày-GiờPhútGiây.json` (trước khi dọn).
 - Xoá khỏi danh sách các bài **đã đăng** quá 90 ngày (đổi được: 30 ngày, 1 năm, hoặc giữ mãi). Bài lỗi/đang chờ không bị đụng tới.
 - Xoá ảnh trong `uploads/` không còn bài hay flow nào dùng, sau 7 ngày (để không xoá nhầm ảnh trong bản nháp).
@@ -404,22 +414,22 @@ Mặc định các thư mục này nằm cạnh `app.py`. Muốn để chỗ kh�
 
 ## 10. Xử lý lỗi thường gặp
 
-| Hiện tượng | Cách xử lý |
-|---|---|
-| `python` không được nhận diện | Cài lại Python, tích “Add to PATH”; hoặc dùng `py` (Windows) / `python3` (macOS, Linux). |
-| “SUpload đã chạy ở cửa sổ khác” | Đã có một cửa sổ đang chạy: dùng giao diện đó (vừa được mở lại). Muốn khởi động lại thì tắt cửa sổ cũ bằng `Ctrl + C` trước. |
-| `Address already in use` / cổng 5000 bận | Chạy ở cổng khác: Windows `set PORT=5050` rồi `python app.py`; macOS/Linux `PORT=5050 python app.py`. |
-| Trang trắng, báo “Chưa có giao diện” | Thư mục `web/` bị thiếu: tải lại mã nguồn, hoặc build lại (mục 12). |
-| Lỗi `[190] ...` | Token hết hạn/không hợp lệ: lấy User Token mới ở Graph API Explorer và làm lại **Bước 3**. |
-| Lỗi `[200] ...` hoặc `[10] ...` | Thiếu quyền: tạo lại token với đủ 3 quyền và nhớ **chọn đúng Page** khi cấp quyền. |
-| Lỗi `[368] ...` | Facebook tạm chặn vì đăng quá dày/nội dung giống spam: giãn lịch đăng, đa dạng nội dung. |
-| “Không có Page nào” khi lấy danh sách | Tài khoản chưa là admin của Page, hoặc khi cấp quyền chưa chọn Page đó. |
-| Bài hẹn giờ không được đăng | Bài *Đang chờ* (chưa *Đã hẹn trên Facebook*) cần ứng dụng đang chạy lúc tới giờ; kiểm tra giờ của máy tính có đúng không. |
-| Bài bị “Dời sang …” | Do **Giới hạn an toàn** (số bài/ngày, giãn cách). Chỉnh trong Cài đặt nếu muốn. |
-| “Không huỷ được bài hẹn trên Facebook” | Kiểm tra mạng rồi thử lại; hoặc chọn *Vẫn xoá khỏi danh sách* rồi tự xoá bài hẹn trong mục *Bài viết đã lên lịch* của Page. |
-| Bài bị đánh dấu Lỗi “Ứng dụng bị tắt khi đang đăng” | Kiểm tra Page xem bài đã lên chưa rồi mới bấm **Đăng lại** để tránh trùng. |
-| Cách Trình duyệt: `chưa cài playwright` | Chạy `pip install -r requirements.txt` rồi `playwright install chromium`. |
-| Cách Trình duyệt: không tìm thấy nút | Xem ảnh trong `screenshots/`; tắt chạy ẩn để quan sát; sửa `RE_*` trong `supload/integrations/browser.py`. |
+| Hiện tượng                                                    | Cách xử lý                                                                                                                    |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `python` không được nhận diện                                 | Cài lại Python, tích “Add to PATH”; hoặc dùng `py` (Windows) / `python3` (macOS, Linux).                                      |
+| “SUpload đã chạy ở cửa sổ khác”                               | Đã có một cửa sổ đang chạy: dùng giao diện đó (vừa được mở lại). Muốn khởi động lại thì tắt cửa sổ cũ bằng `Ctrl + C` trước.  |
+| `Address already in use` / cổng 5000 bận                      | Chạy ở cổng khác: Windows `set PORT=5050` rồi `python app.py`; macOS/Linux `PORT=5050 python app.py`.                         |
+| Trang trắng, báo “Chưa có giao diện”                          | Thư mục `web/` bị thiếu: tải lại mã nguồn, hoặc build lại (mục 12).                                                           |
+| Lỗi `[190] ...`                                               | Token hết hạn/không hợp lệ: lấy User Token mới ở Graph API Explorer và làm lại **Bước 3**.                                    |
+| Lỗi `[200] ...` hoặc `[10] ...`                               | Thiếu quyền: tạo lại token với đủ 3 quyền và nhớ **chọn đúng Page** khi cấp quyền.                                            |
+| Lỗi `[368] ...`                                               | Facebook tạm chặn vì đăng quá dày/nội dung giống spam: giãn lịch đăng, đa dạng nội dung.                                      |
+| “Không có Page nào” khi lấy danh sách                         | Tài khoản chưa là admin của Page, hoặc khi cấp quyền chưa chọn Page đó.                                                       |
+| Bài hẹn giờ không được đăng                                   | Bài _Đang chờ_ (chưa _Đã hẹn trên Facebook_) cần ứng dụng đang chạy lúc tới giờ; kiểm tra giờ của máy tính có đúng không.     |
+| Bài bị “Dời sang …”                                           | Do **Giới hạn an toàn** (số bài/ngày, giãn cách). Chỉnh trong Cài đặt nếu muốn.                                               |
+| “Không huỷ được bài hẹn trên Facebook”                        | Kiểm tra mạng rồi thử lại; hoặc chọn _Vẫn xoá khỏi danh sách_ rồi tự xoá bài hẹn trong mục _Bài viết đã lên lịch_ của Page.   |
+| Bài bị đánh dấu Lỗi “Ứng dụng bị tắt khi đang đăng”           | Kiểm tra Page xem bài đã lên chưa rồi mới bấm **Đăng lại** để tránh trùng.                                                    |
+| Cách Trình duyệt: `chưa cài playwright` / `chưa cài Chromium` | Chạy app trong `.venv` (`source .venv/bin/activate`), rồi `pip install -r requirements.txt` và `playwright install chromium`. |
+| Cách Trình duyệt: không tìm thấy nút                          | Xem ảnh trong `screenshots/`; tắt chạy ẩn để quan sát; sửa `RE_*` trong `supload/integrations/browser.py`.                    |
 
 Mọi hoạt động và lỗi đều được ghi ở trang **Nhật ký**.
 
@@ -432,20 +442,20 @@ python -m pytest
 
 Facebook được giả lập trong mọi test, **không đăng bài thật**.
 
-| File | Kiểm tra |
-|---|---|
-| `tests/test_planner.py` | Giới hạn an toàn (logic thuần) |
-| `tests/test_facebook.py` | Lớp Graph API: đăng, hẹn giờ, huỷ, kiểm tra trạng thái |
-| `tests/test_fb_scheduling.py` | Vòng đời bài hẹn trên Facebook, đối soát, giới hạn an toàn trong luồng nền |
-| `tests/test_app.py` | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt |
-| `tests/test_pages.py` | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page |
-| `tests/test_maintenance.py`, `tests/test_instance.py`, `tests/test_health.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần, kiểm tra kết nối |
-| `tests/test_system.py` | Tự khởi động cùng Windows, đường dẫn khi đóng gói `.exe` |
-| `tests/test_ai.py` | Trợ lý AI (OpenAI API giả lập: không gọi mạng, không tốn phí) |
-| `tests/test_insights.py` | Lấy chỉ số tương tác, tổng hợp, giờ hiệu quả |
-| `tests/test_video.py` | Video thường & Reels (tải lên 3 bước, hẹn giờ, đối soát) |
-| `tests/test_import.py`, `tests/test_library.py` | Nhập bài từ CSV/Excel, thư viện nội dung & ảnh |
-| `tests/test_e2e.py` | Giao diện thật bằng trình duyệt tự động (kể cả kéo thả trên Lịch) (cần `playwright install chromium`; tự bỏ qua nếu chưa cài) |
+| File                                                                          | Kiểm tra                                                                                                                      |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `tests/test_planner.py`                                                       | Giới hạn an toàn (logic thuần)                                                                                                |
+| `tests/test_facebook.py`                                                      | Lớp Graph API: đăng, hẹn giờ, huỷ, kiểm tra trạng thái                                                                        |
+| `tests/test_fb_scheduling.py`                                                 | Vòng đời bài hẹn trên Facebook, đối soát, giới hạn an toàn trong luồng nền                                                    |
+| `tests/test_app.py`                                                           | API, luồng đăng nền, quản lý flow, token không lộ ra trình duyệt                                                              |
+| `tests/test_pages.py`                                                         | Nhiều Page: chuyển dữ liệu cũ, đăng đúng Page, giới hạn theo Page                                                             |
+| `tests/test_maintenance.py`, `tests/test_instance.py`, `tests/test_health.py` | Sao lưu & dọn dẹp, chặn chạy 2 lần, kiểm tra kết nối                                                                          |
+| `tests/test_system.py`                                                        | Tự khởi động cùng Windows, đường dẫn khi đóng gói `.exe`                                                                      |
+| `tests/test_ai.py`                                                            | Trợ lý AI (OpenAI API giả lập: không gọi mạng, không tốn phí)                                                                 |
+| `tests/test_insights.py`                                                      | Lấy chỉ số tương tác, tổng hợp, giờ hiệu quả                                                                                  |
+| `tests/test_video.py`                                                         | Video thường & Reels (tải lên 3 bước, hẹn giờ, đối soát)                                                                      |
+| `tests/test_import.py`, `tests/test_library.py`                               | Nhập bài từ CSV/Excel, thư viện nội dung & ảnh                                                                                |
+| `tests/test_e2e.py`                                                           | Giao diện thật bằng trình duyệt tự động (kể cả kéo thả trên Lịch) (cần `playwright install chromium`; tự bỏ qua nếu chưa cài) |
 
 Kiểm thử bộ tính lịch của Flow (cần Node.js 18+):
 
