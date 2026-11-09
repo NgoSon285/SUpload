@@ -869,3 +869,47 @@ def test_compose_also_instagram(page, svc, graph, tmp_path):
     nav(page, "Cài đặt")
     page.get_by_text("Instagram @tiembanh").wait_for()
     assert page.errors == []
+
+
+def test_affiliate_post_gets_first_comment(page, svc, graph):
+    connect(page)
+    page.goto(page.base)
+    nav(page, "Soạn bài")
+    page.get_by_label("Nội dung").fill("Áo thun cotton")
+    page.get_by_test_id("affiliate").check()
+    page.get_by_role("button", name="Đăng ngay").last.click()
+    page.get_by_text("Nhập link sản phẩm affiliate").wait_for()  # bật affiliate mà chưa có link
+    page.get_by_test_id("affiliate-link").fill("https://s.shopee.vn/abc")
+    page.get_by_role("button", name="Đăng ngay").last.click()
+    page.get_by_text("Đang đăng bài").wait_for()
+    assert api_state(page)["posts"][0]["affiliate_link"] == "https://s.shopee.vn/abc"
+    while svc.scheduler.process_one():
+        pass
+    assert graph.by("POST", "/comments")[0]["data"]["message"] == "👉 Link sản phẩm: https://s.shopee.vn/abc"
+
+
+def test_change_page_access_token(page, svc, graph):
+    connect(page)
+    page.goto(page.base)
+    nav(page, "Cài đặt")
+    page.get_by_role("button", name="Thao tác với Page Tiệm Bánh").click()
+    page.get_by_role("menuitem", name="Đổi Access Token").click()
+    page.get_by_test_id("new-token").fill("USER_SHORT")
+    page.get_by_role("button", name="Lưu & kiểm tra").click()
+    page.get_by_text("Đã đổi Access Token").wait_for()
+    assert svc.store.load()["pages"][0]["token"] == "PAGE_TOKEN_1"
+
+
+def test_comment_on_published_post_from_queue(page, svc, graph):
+    connect(page)
+    page.request.post(page.base + "/api/posts", data={"message": "Áo thun mới"})
+    svc.scheduler.process_one()
+    page.goto(page.base)
+    nav(page, "Lịch đăng")
+    page.get_by_text("Đã đăng (1)").click()  # tab mặc định là Sắp đăng
+    page.get_by_role("button", name="Bình luận vào bài").click()
+    page.get_by_test_id("comment-text").fill("Link nè: https://s.shopee.vn/x")
+    page.get_by_role("button", name="Bình luận", exact=True).click()
+    page.get_by_text("Đã bình luận vào bài").first.wait_for()
+    page.get_by_test_id("page-comments").wait_for()
+    assert graph.by("POST", "/comments")[0]["data"]["message"] == "Link nè: https://s.shopee.vn/x"

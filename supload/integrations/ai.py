@@ -58,6 +58,8 @@ TASKS = {
     "variants": "Viết 3 phiên bản khác nhau của bài đăng dưới đây: cùng nội dung và thông tin, khác cách mở bài và diễn đạt, để đăng luân phiên không bị trùng lặp.",
     "hashtags": "Gợi ý 8 đến 12 hashtag phù hợp với bài đăng dưới đây (ưu tiên hashtag tiếng Việt không dấu và hashtag phổ biến). Mỗi phần tử là MỘT hashtag bắt đầu bằng #.",
     "reply": "Dưới đây là một bình luận của khách trên Page (có thể kèm nội dung bài viết). Viết 3 câu trả lời ngắn (1–3 câu), lịch sự, xưng hô phù hợp, mời khách nhắn tin nếu cần tư vấn thêm. Không hứa hẹn giá hay khuyến mãi không có trong nội dung.",
+    "first_comment": "Dưới đây là một bài đăng của Page. Viết 3 bình luận ngắn (1–2 câu) để chính Page đăng làm bình luận đầu tiên dưới bài, khơi gợi người xem tương tác (đặt câu hỏi, mời chia sẻ ý kiến). Không lặp lại nguyên văn bài, không chèn link.",
+    "first_comment_link": "Dưới đây là một bài đăng giới thiệu sản phẩm của Page. Viết 3 bình luận ngắn (1–2 câu) để chính Page đăng làm bình luận đầu tiên dưới bài; ngay dưới bình luận sẽ có link sản phẩm, hãy mời người xem bấm vào link bên dưới để xem chi tiết hoặc mua. Không tự chèn link, không bịa giá hay khuyến mãi.",
     "idea": "Từ ý tưởng dưới đây, viết 3 bài đăng Facebook hoàn chỉnh, mỗi bài một hướng tiếp cận khác nhau.",
 }
 SCHEMA = {

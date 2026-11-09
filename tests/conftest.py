@@ -38,6 +38,7 @@ class FakeGraph:
         self.post_comments = {}        # post_id -> [bình luận]
         self.comments_error = None
         self.fail_reply = None
+        self.page_tokens = {}          # Page Access Token -> id Page (me/accounts báo lỗi, me trả id Page)
         self._ids = itertools.count(1)
 
     def __call__(self, method, path, base=None, **kwargs):
@@ -51,6 +52,11 @@ class FakeGraph:
         params = dict(kwargs.get("params") or {})
         params.pop("access_token", None)
         self.calls.append({"method": method, "path": path, "base": base, "data": data, "params": params, "files": list((kwargs.get("files") or {}).keys())})
+        token = (kwargs.get("params") or {}).get("access_token")
+        if token in self.page_tokens and path == "me/accounts":
+            raise facebook.FBError("[100] (#100) Tried accessing nonexisting field (accounts)", 100)
+        if token in self.page_tokens and path == "me":
+            return {"id": self.page_tokens[token]}
         if self.fail_on and self.fail_on in data.get("message", ""):
             raise facebook.FBError("[1] Lỗi giả lập", 1)
         if path == "oauth/access_token":

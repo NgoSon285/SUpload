@@ -59,6 +59,25 @@ def list_pages(user_token: str) -> list[dict]:
     return call("GET", "me/accounts", params={"access_token": user_token, "fields": "id,name,access_token"}).get("data", [])
 
 
+def page_token_for(token: str, fb_page_id: str, app_id: str = "", app_secret: str = "") -> str:
+    """Page token của đúng Page fb_page_id từ token người dùng dán vào:
+    - User Access Token: đổi sang token dài hạn (nếu có App ID/Secret) rồi lấy Page token qua me/accounts;
+    - Page Access Token: kiểm tra token thuộc đúng Page rồi dùng luôn."""
+    try:
+        user_token = exchange_long_lived_user_token(app_id, app_secret, token) if app_id and app_secret else token
+        pages = list_pages(user_token)
+    except FBError:
+        pages = None  # không phải User token (Page token không có me/accounts)
+    if pages is not None:
+        match = next((p for p in pages if p.get("id") == fb_page_id), None)
+        if not match:
+            raise FBError(f"Tài khoản của token này không quản lý Page {fb_page_id} (hoặc token thiếu quyền pages_show_list)")
+        return match["access_token"]
+    if call("GET", "me", params={"access_token": token, "fields": "id"}).get("id") != fb_page_id:
+        raise FBError(f"Token không thuộc Page {fb_page_id}")
+    return token
+
+
 def page_info(page_id: str, token: str) -> dict:
     """Tên Page và tài khoản Instagram doanh nghiệp liên kết (nếu có)."""
     return call("GET", page_id, params={"access_token": token, "fields": "name,instagram_business_account{id,username}"})

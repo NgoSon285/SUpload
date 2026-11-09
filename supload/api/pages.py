@@ -7,6 +7,7 @@ from datetime import datetime
 
 from ..domain import health
 from ..domain import pages as pages_domain
+from ..domain.posts import retry_first_comments
 from ..integrations import facebook
 from ..storage import add_log
 from . import error, services
@@ -61,6 +62,34 @@ def edit_page(page_id):
             health.reset(data, page_id)
         out = _list(data)
     return jsonify(pages=out)
+
+
+@bp.post("/<page_id>/token")
+def change_token(page_id):
+    """Đổi token của Page Graph API (User hoặc Page Access Token), lưu rồi kiểm tra kết nối ngay."""
+    token = str(request.get_json(force=True).get("token") or "").strip()
+    if not token:
+        return error("Dán Access Token mới")
+    data = services().store.load()
+    page = pages_domain.find(data, page_id)
+    if not page:
+        return error("Không tìm thấy Page", 404)
+    if page["kind"] != "api":
+        return error("Chỉ Page kết nối qua Graph API mới có Access Token")
+    s = data["settings"]
+    try:
+        page_token = facebook.page_token_for(token, page["fb_page_id"], s.get("app_id", ""), s.get("app_secret", ""))
+    except facebook.FBError as e:
+        return error(health.describe(e.code, str(e)))
+    with services().store.transaction() as data:
+        p = pages_domain.find(data, page_id)
+        p["token"] = page_token
+        health.reset(data, page_id)
+        retried = retry_first_comments(data["posts"], page_id)
+        add_log(data, "info", f"Đã đổi Access Token của Page: {p['name']}"
+                + (f" · thử lại bình luận đầu tiên cho {retried} bài" if retried else ""))
+    services().runtime.notify()
+    return test_page(page_id)
 
 
 @bp.delete("/<page_id>")

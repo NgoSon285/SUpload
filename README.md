@@ -130,7 +130,7 @@ riêng sẽ đăng lên Page này.
 2. Ở ô **Meta App**, chọn App vừa tạo. Ở ô **User or Page**, chọn **User Token**.
 3. Ở **Permissions**, thêm 3 quyền: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`
    (thêm `read_insights` nếu muốn xem lượt tiếp cận trong trang Thống kê; thêm `pages_read_user_content`,
-   `pages_manage_engagement`, `pages_messaging` để dùng trang Bình luận; `instagram_basic`, `instagram_content_publish`
+   `pages_manage_engagement`, `pages_messaging` để dùng trang Bình luận; `pages_manage_engagement` để tự bình luận đầu tiên / link affiliate; `instagram_basic`, `instagram_content_publish`
    để đăng chéo Instagram).
 4. Bấm **Generate Access Token**, đăng nhập và **chọn mọi Page muốn quản lý** trong hộp thoại cấp quyền.
 5. Chép chuỗi token vừa tạo.
@@ -157,6 +157,8 @@ hoặc gỡ quyền của App). User Token bạn dán vào không được lưu 
 
 Mục **Page đã kết nối** liệt kê mọi Page kèm số bài đã đăng hôm nay. Nút **Kiểm tra** thử kết nối; menu **⋯** để
 _Đặt làm mặc định_, _Đổi tên hiển thị_ hoặc _Xoá Page_ (chỉ xoá được khi Page không còn bài chưa đăng).
+Page qua Graph API có thêm _Đổi Access Token_: dán **User Access Token** (ứng dụng tự lấy Page token của đúng Page đó,
+token dài hạn nếu đã nhập App ID/App Secret) hoặc **Page Access Token**, rồi bấm **Lưu & kiểm tra**.
 Khi có từ 2 Page trở lên:
 
 - **Soạn bài** có ô _Đăng lên Page_; **Flow** có ô chọn Page đích ở thanh trên cùng của trình dựng.
@@ -267,6 +269,24 @@ Nếu báo "Không tìm thấy model", hãy đổi sang model mà tài khoản c
 cho Ollama), tên model của dịch vụ đó, và key của dịch vụ (Ollama nhận key bất kỳ). Model phải hỗ trợ trả JSON theo
 schema (structured outputs).
 AI được dặn không bịa giá, ngày, địa chỉ hay khuyến mãi, nhưng **hãy đọc lại trước khi đăng**.
+
+### Bình luận đầu tiên và bài affiliate
+
+Trong **Soạn bài** (bài viết, video, Reels) có thể tích:
+
+- **Tự bình luận đầu tiên bằng AI**: bài lên Facebook xong, AI (nhà cung cấp chọn trong Cài đặt → Trợ lý AI) viết 1 câu
+  khơi gợi tương tác và ứng dụng bình luận ngay dưới bài, bằng tên Page.
+- **Bài đăng affiliate** + **Link sản phẩm affiliate**: bình luận link sản phẩm dưới bài. Bật cả hai thì bình luận là câu
+  AI viết (mời bấm link) và link ở dòng dưới; AI lỗi thì vẫn bình luận link (`👉 Link sản phẩm: …`).
+
+Bài hẹn giờ trên Facebook được bình luận khi ứng dụng thấy bài đã lên. Lỗi thì thử lại tối đa 3 lần, cách nhau 10 phút;
+trạng thái hiện dưới bài trong **Lịch đăng** (rê chuột để xem nội dung bình luận). Chỉ áp dụng cho Page kết nối qua
+Graph API (không cho Instagram và Page đăng qua Trình duyệt). Token cần thêm quyền **`pages_manage_engagement`** (khác `pages_manage_posts` dùng để đăng bài);
+đổi token xong, các bài chưa bình luận được sẽ tự thử lại.
+
+**Bình luận vào bài đã đăng**: trong **Lịch đăng** → tab **Đã đăng**, bấm 💬 _Bình luận vào bài_ trên bài (bài viết,
+video, Reels), tự viết hoặc bấm **AI gợi ý** để chọn 1 trong 3 câu rồi sửa → **Bình luận**. Bình luận đăng bằng tên Page
+(cần quyền `pages_manage_engagement`); số lần Page đã bình luận hiện dưới bài.
 
 ### Ảnh sản phẩm (Shopee, TikTok Shop)
 
@@ -430,7 +450,7 @@ Mặc định các thư mục này nằm cạnh `app.py`. Muốn để chỗ kh�
 | “SUpload đã chạy ở cửa sổ khác”                               | Đã có một cửa sổ đang chạy: dùng giao diện đó (vừa được mở lại). Muốn khởi động lại thì tắt cửa sổ cũ bằng `Ctrl + C` trước.  |
 | `Address already in use` / cổng 5000 bận                      | Chạy ở cổng khác: Windows `set PORT=5050` rồi `python app.py`; macOS/Linux `PORT=5050 python app.py`.                         |
 | Trang trắng, báo “Chưa có giao diện”                          | Thư mục `web/` bị thiếu: tải lại mã nguồn, hoặc build lại (mục 12).                                                           |
-| Lỗi `[190] ...`                                               | Token hết hạn/không hợp lệ: lấy User Token mới ở Graph API Explorer và làm lại **Bước 3**.                                    |
+| Lỗi `[190] ...`                                               | Token hết hạn/không hợp lệ: lấy User Token mới ở Graph API Explorer, rồi menu **⋯** của Page → _Đổi Access Token_.                                    |
 | Lỗi `[200] ...` hoặc `[10] ...`                               | Thiếu quyền: tạo lại token với đủ 3 quyền và nhớ **chọn đúng Page** khi cấp quyền.                                            |
 | Lỗi `[368] ...`                                               | Facebook tạm chặn vì đăng quá dày/nội dung giống spam: giãn lịch đăng, đa dạng nội dung.                                      |
 | “Không có Page nào” khi lấy danh sách                         | Tài khoản chưa là admin của Page, hoặc khi cấp quyền chưa chọn Page đó.                                                       |

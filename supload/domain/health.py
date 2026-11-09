@@ -23,6 +23,15 @@ def describe(code: int | None, message: str) -> str:
     return FRIENDLY.get(code, message)
 
 
+COMMENT_PERMISSION = ("Token thiếu quyền bình luận dưới bài: tạo lại token có thêm quyền pages_manage_engagement "
+                      "rồi vào Cài đặt → menu ⋯ của Page → Đổi Access Token")
+
+
+def describe_comment(code: int | None, message: str) -> str:
+    """Lỗi khi Page bình luận: mã 10/200 là thiếu quyền bình luận (pages_manage_engagement), không phải quyền đăng bài."""
+    return f"{COMMENT_PERMISSION} (Facebook: {message[:160]})" if code in (10, 200) else describe(code, message)
+
+
 def is_connection_error(code: int | None) -> bool:
     return code in CONNECTION_CODES
 

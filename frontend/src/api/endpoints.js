@@ -35,6 +35,7 @@ export const postsApi = {
   edit: (id, body) => put(`/api/posts/${id}`, body),
   remove: (id, { force = false } = {}) => del(`/api/posts/${id}${force ? "?force=1" : ""}`),
   retry: (id) => post(`/api/posts/${id}/retry`),
+  comment: (id, message) => post(`/api/posts/${id}/comment`, { message }),
   clearDone: () => post("/api/clear-done"),
 };
 
@@ -53,6 +54,7 @@ export const pagesApi = {
   remove: (id) => del(`/api/pages/${id}`),
   setDefault: (id) => post(`/api/pages/${id}/default`),
   test: (id) => post(`/api/pages/${id}/test`),
+  changeToken: (id, token) => post(`/api/pages/${id}/token`, { token }),
 };
 
 export const importApi = {

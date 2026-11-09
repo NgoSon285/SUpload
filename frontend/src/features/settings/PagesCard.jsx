@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ActionIcon, Alert, Avatar, Badge, Button, Group, Menu, Modal, Paper, Stack, Text, TextInput } from "@mantine/core";
+import { ActionIcon, Alert, Avatar, Badge, Button, Group, Menu, Modal, Paper, PasswordInput, Stack, Text, TextInput } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { IconDots, IconPencil, IconPlugConnected, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconDots, IconKey, IconPencil, IconPlugConnected, IconStar, IconTrash } from "@tabler/icons-react";
 
 import { pagesApi } from "../../api/endpoints";
 import { notifyErr, notifyOk } from "../../components";
@@ -20,10 +20,13 @@ function HealthLine({ page }) {
 }
 
 /** Danh sách Page đã kết nối và thao tác trên từng Page. */
-export function PagesCard({ pages, perPageToday, dailyMax, login, onChanged }) {
+export function PagesCard({ pages, perPageToday, dailyMax, login, longLived, onChanged }) {
   const [results, setResults] = useState({}); // {pageId: {color, text}}
   const [renaming, setRenaming] = useState(null);
   const [name, setName] = useState("");
+  const [tokenFor, setTokenFor] = useState(null); // Page đang đổi Access Token
+  const [token, setToken] = useState("");
+  const [savingToken, setSavingToken] = useState(false);
 
   const test = async (p) => {
     setResults((r) => ({ ...r, [p.id]: { color: "orange", text: "Đang kiểm tra…" } }));
@@ -44,6 +47,16 @@ export function PagesCard({ pages, perPageToday, dailyMax, login, onChanged }) {
       catch (e) { notifyErr(e.message, "Chưa xoá được Page"); }
     },
   });
+  const saveToken = async () => {  // máy chủ đổi User token -> Page token nếu cần, lưu rồi kiểm tra kết nối
+    setSavingToken(true);
+    try {
+      const j = await pagesApi.changeToken(tokenFor.id, token.trim());
+      setResults((r) => ({ ...r, [tokenFor.id]: { color: "teal", text: j.text } }));
+      notifyOk("Đã đổi Access Token");
+      setTokenFor(null); setToken(""); onChanged();
+    } catch (e) { notifyErr(e.message, "Chưa đổi được token"); }
+    setSavingToken(false);
+  };
   const saveName = async () => {
     try { await pagesApi.edit(renaming.id, { name }); setRenaming(null); onChanged(); }
     catch (e) { notifyErr(e.message); }
@@ -79,6 +92,7 @@ export function PagesCard({ pages, perPageToday, dailyMax, login, onChanged }) {
                 <Menu.Dropdown>
                   {!p.default && <Menu.Item leftSection={<IconStar size={16} />} onClick={() => setDefault(p)}>Đặt làm mặc định</Menu.Item>}
                   <Menu.Item leftSection={<IconPencil size={16} />} onClick={() => { setRenaming(p); setName(p.name); }}>Đổi tên hiển thị</Menu.Item>
+                  {p.kind === "api" && <Menu.Item leftSection={<IconKey size={16} />} onClick={() => { setTokenFor(p); setToken(""); }}>Đổi Access Token</Menu.Item>}
                   <Menu.Divider />
                   <Menu.Item color="red" leftSection={<IconTrash size={16} />} onClick={() => remove(p)}>Xoá Page</Menu.Item>
                 </Menu.Dropdown>
@@ -92,6 +106,24 @@ export function PagesCard({ pages, perPageToday, dailyMax, login, onChanged }) {
         </Paper>
       ))}
       <Text size="xs" c="dimmed">Bài và flow không chọn Page riêng sẽ đăng lên Page mặc định.</Text>
+
+      <Modal opened={!!tokenFor} onClose={() => setTokenFor(null)} title={<Text fw={600}>Đổi Access Token · {tokenFor?.name}</Text>} centered radius="lg">
+        <Stack>
+          <PasswordInput
+            label="Access Token mới" placeholder="EAA…" value={token} onChange={(e) => setToken(e.currentTarget.value)} data-autofocus data-testid="new-token"
+            description="Dán User Access Token (ứng dụng tự lấy Page token của Page này) hoặc Page Access Token."
+          />
+          {!longLived && (
+            <Alert variant="light" color="orange" py="xs">
+              <Text size="xs">Chưa có App ID / App Secret (mục Thêm Page → Qua Graph API): User token sẽ không đổi được sang token dài hạn, Page token có thể hết hạn sau vài giờ.</Text>
+            </Alert>
+          )}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setTokenFor(null)}>Huỷ</Button>
+            <Button onClick={saveToken} loading={savingToken} disabled={!token.trim()}>Lưu & kiểm tra</Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal opened={!!renaming} onClose={() => setRenaming(null)} title={<Text fw={600}>Đổi tên hiển thị</Text>} centered radius="lg">
         <Stack>

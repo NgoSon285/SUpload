@@ -13,6 +13,7 @@ import { ImportModal } from "./ImportModal";
 import { EmptyState, PageHeader, notifyErr, notifyOk } from "../../components";
 import { defaultPage, pagesOf } from "../../lib/page";
 import { dayLabel } from "../../lib/time";
+import { CommentModal } from "./CommentModal";
 import { PostRow } from "./PostRow";
 import { isUpcoming, upcomingTime } from "./status";
 
@@ -44,6 +45,9 @@ export default function QueuePage() {
   const def = defaultPage(state);
   const pageOfPost = (p) => p.page || def?.id;
   const pageName = (p) => (multi ? pages.find((x) => x.id === pageOfPost(p))?.name || "Page đã xoá" : null);
+  // bình luận được: bài đã lên Facebook, Page kết nối qua Graph API (khớp kiểm tra phía máy chủ)
+  const canComment = (p) => p.status === "done" && !!p.fb_id && p.channel !== "instagram"
+    && pages.find((x) => x.id === pageOfPost(p))?.kind === "api";
   const posts = pageFilter === "all" ? state.posts : state.posts.filter((p) => pageOfPost(p) === pageFilter);
   const limits = state.limits || {};
   const todayCount = pageFilter === "all" ? limits.today : limits.per_page?.[pageFilter] ?? 0;
@@ -94,8 +98,10 @@ export default function QueuePage() {
     refresh();
   };
 
+  const [commentFor, setCommentFor] = useState(null); // bài đang mở hộp bình luận
   const onAction = (a, p) => {
     if (a === "del") remove(p);
+    else if (a === "comment") setCommentFor(p);
     else if (a === "retry") postsApi.retry(p.id).then(() => { notifyOk("Đang đăng lại…"); refresh(); }, (e) => notifyErr(e.message));
     else { setDraftPost({ post: p, mode: a === "edit" ? "edit" : "dup" }); setView("compose"); }
   };
@@ -171,6 +177,8 @@ export default function QueuePage() {
         {layout === "list" && filter === "done" && counts.done > 0 && <Button variant="subtle" color="gray" leftSection={<IconTrash size={16} />} onClick={clearDone}>Dọn bài đã đăng</Button>}
       </Group>
 
+      <CommentModal post={commentFor} pageName={commentFor && pages.find((x) => x.id === pageOfPost(commentFor))?.name}
+        onClose={() => setCommentFor(null)} onDone={refresh} />
       <ImportModal
         opened={importing} onClose={() => setImporting(false)} onDone={refresh}
         pageName={(id) => (pages.find((p) => p.id === id) || def)?.name || ""}
@@ -188,7 +196,7 @@ export default function QueuePage() {
           {groups.map((g) => (
             <div key={g.label}>
               <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={8} ml={4}>{g.label} · {g.items.length}</Text>
-              <Stack gap={8}>{g.items.map((p) => <PostRow key={p.id} p={p} pageName={pageName(p)} onAction={onAction} />)}</Stack>
+              <Stack gap={8}>{g.items.map((p) => <PostRow key={p.id} p={p} pageName={pageName(p)} canComment={canComment(p)} onAction={onAction} />)}</Stack>
             </div>
           ))}
         </Stack>

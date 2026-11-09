@@ -25,7 +25,8 @@ const TITLES = { photo: "Soạn bài viết", video: "Đăng video", reel: "Đă
 const kindOf = (p) => (p.video ? (p.video_kind === "reel" ? "reel" : "video") : "photo");
 
 const MAX_PILLS = 3; // khớp với nth-child trong styles.css (.page-pills)
-const EMPTY = { message: "", link: "", photos: [], page: "", video: "", video_kind: "video" }; // page "" = Page mặc định
+// page "" = Page mặc định; ai_comment / affiliate: bình luận đầu tiên sau khi bài lên
+const EMPTY = { message: "", link: "", photos: [], page: "", video: "", video_kind: "video", ai_comment: false, affiliate: false, affiliate_link: "" };
 
 const confirmShift = (preview) =>
   new Promise((resolve) => modals.openConfirmModal({
@@ -63,7 +64,8 @@ export default function ComposePage() {
       setDraftPost(null);
       return;
     }
-    setPost({ message: p.message || "", link: p.link || "", photos: [...(p.photos || [])], page: p.page || "", video: p.video || "", video_kind: p.video_kind || "video" });
+    setPost({ message: p.message || "", link: p.link || "", photos: [...(p.photos || [])], page: p.page || "", video: p.video || "", video_kind: p.video_kind || "video",
+      ai_comment: !!p.ai_comment, affiliate: !!p.affiliate_link, affiliate_link: p.affiliate_link || "" });
     setMediaTypeState(p.video ? (p.video_kind === "reel" ? "reel" : "video") : "photo");
     setShowLink(!!p.link);
     if (draftPost.mode === "schedule") {  // từ Lịch: soạn bài mới cho một ngày
@@ -131,9 +133,12 @@ export default function ComposePage() {
     }
     if (isEmpty) return notifyErr("Bài viết đang trống");
     if (mode === "later" && !atValid) return notifyErr("Chọn thời gian hẹn trong tương lai");
+    if (post.affiliate && !post.affiliate_link.trim()) return notifyErr("Nhập link sản phẩm affiliate");
     const body = { ...post, scheduled_at: mode === "later" ? toLocalIso(at) : null, also_instagram: !editingId && !!igOk && alsoIg,
       ...(!editingId && { pages: targets.map((p) => p.id) }) };
     if (!body.video) { delete body.video; delete body.video_kind; }
+    body.affiliate_link = post.affiliate ? post.affiliate_link.trim() : "";
+    delete body.affiliate;
     setBusy(true);
     try {
       // Giới hạn an toàn có thể dời bài -> báo trước để người dùng quyết định
@@ -268,6 +273,29 @@ export default function ComposePage() {
                   <TextInput label="Link" placeholder="https://..." leftSection={<IconLink size={16} />} value={post.link} onChange={set("link")} />
                 )}
               </div>
+
+              <Stack gap="xs" data-testid="first-comment">
+                <Checkbox
+                  data-testid="ai-comment" checked={!!post.ai_comment} onChange={(e) => { const v = e.currentTarget.checked; setPost((p) => ({ ...p, ai_comment: v })); }}
+                  label="Tự bình luận đầu tiên bằng AI"
+                  description="Bài lên Facebook xong, ứng dụng nhờ AI viết 1 bình luận khơi gợi tương tác và đăng ngay dưới bài (cần API key AI)."
+                />
+                <Checkbox
+                  data-testid="affiliate" checked={!!post.affiliate} onChange={(e) => { const v = e.currentTarget.checked; setPost((p) => ({ ...p, affiliate: v })); }}
+                  label="Bài đăng affiliate"
+                  description="Bình luận link sản phẩm ngay dưới bài (áp dụng cho bài viết, video và Reels)."
+                />
+                {post.affiliate && (
+                  <TextInput
+                    label="Link sản phẩm affiliate" placeholder="https://s.shopee.vn/..." leftSection={<IconLink size={16} />} withAsterisk
+                    value={post.affiliate_link} onChange={set("affiliate_link")} data-testid="affiliate-link"
+                    description={post.ai_comment ? "Bình luận = câu AI viết + link ở dòng dưới." : "Bình luận: 👉 Link sản phẩm: <link>"}
+                  />
+                )}
+                {(post.ai_comment || post.affiliate) && targets.some((p) => p.kind === "browser") && (
+                  <Text size="xs" c="orange">Page đăng qua Trình duyệt không tự bình luận được (chỉ Page kết nối qua Graph API).</Text>
+                )}
+              </Stack>
 
               {ig && !editingId && (
                 <Checkbox

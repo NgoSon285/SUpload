@@ -3,10 +3,12 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
 
+from ..domain import health
 from ..domain import pages as pages_domain
 from ..domain.posts import DONE, EDITABLE, RUNNING, SCHEDULED, clean_body, label, new_post, reset_to_pending
 from ..integrations.facebook import FBError
 from ..storage import add_log, find
+from ..utils import now_iso
 from . import error, services
 
 bp = Blueprint("posts", __name__, url_prefix="/api")
@@ -103,6 +105,40 @@ def retry(post_id):
             reset_to_pending(post, scheduled_at=None)
     s.runtime.notify()
     return jsonify(ok=True)
+
+
+MAX_COMMENT = 8000
+
+
+@bp.post("/posts/<post_id>/comment")
+def comment_post(post_id):
+    """Page bình luận vào bài đã lên Facebook (bài viết, video, Reels)."""
+    s = services()
+    message = str(request.get_json(force=True).get("message") or "").strip()
+    if not message:
+        return error("Viết nội dung bình luận")
+    if len(message) > MAX_COMMENT:
+        return error(f"Bình luận quá dài (tối đa {MAX_COMMENT} ký tự)")
+    data = s.store.load()
+    post = find(data["posts"], post_id)
+    if not post:
+        return error("Không tìm thấy bài", 404)
+    if post["status"] != DONE or not post.get("fb_id") or post.get("channel") == "instagram":
+        return error("Chỉ bình luận được vào bài đã lên Facebook")
+    page = pages_domain.page_of(data, post)
+    if (page or {}).get("kind") != "api":
+        return error("Chỉ Page kết nối qua Graph API mới bình luận được")
+    try:
+        res = s.publisher.poster(page).reply_comment(post["fb_id"], message)
+    except FBError as e:
+        return error(health.describe_comment(e.code, str(e)))
+    comment = {"id": res.get("id", ""), "text": message, "at": now_iso()}
+    with s.store.transaction() as data:
+        p = find(data["posts"], post_id)
+        if p:
+            p.setdefault("page_comments", []).append(comment)
+        add_log(data, "ok", f"Đã bình luận vào bài: {label(post)}")
+    return jsonify(comment=comment)
 
 
 @bp.post("/clear-done")

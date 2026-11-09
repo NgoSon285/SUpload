@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from ..config import ALLOWED_VIDEO_EXT
@@ -15,6 +15,9 @@ CHANNELS = ("facebook", "instagram")
 PENDING, RUNNING, SCHEDULED, DONE, ERROR = "pending", "running", "scheduled", "done", "error"
 ACTIVE = (PENDING, RUNNING, SCHEDULED)  # chưa kết thúc
 EDITABLE = (PENDING, ERROR, SCHEDULED)
+# bình luận đầu tiên sau khi bài lên (AI và/hoặc link affiliate): thử tối đa 3 lần, cách nhau 10 phút
+FIRST_COMMENT_TRIES, FIRST_COMMENT_RETRY = 3, timedelta(minutes=10)
+MAX_AFFILIATE_LINK = 500
 
 
 def clean_body(body: dict, upload_dir: Path) -> dict:
@@ -49,7 +52,45 @@ def clean_body(body: dict, upload_dir: Path) -> dict:
         out["channel"] = channel
     if video:
         out.update(video=video, video_kind=video_kind)
+    affiliate = (body.get("affiliate_link") or "").strip()
+    if affiliate and (not affiliate.startswith(("http://", "https://")) or len(affiliate) > MAX_AFFILIATE_LINK):
+        raise ValueError("Link sản phẩm affiliate không hợp lệ")
+    if channel == "facebook":  # Instagram không bình luận tự động
+        if body.get("ai_comment"):
+            out["ai_comment"] = True
+        if affiliate:
+            out["affiliate_link"] = affiliate
     return out
+
+
+def first_comment_due(post: dict, now: datetime) -> bool:
+    """Bài đã lên Facebook, có yêu cầu bình luận đầu tiên, chưa bình luận được và còn lượt thử."""
+    if post.get("status") != DONE or not post.get("fb_id") or post.get("channel") == "instagram":
+        return False
+    if not (post.get("ai_comment") or post.get("affiliate_link")):
+        return False
+    fc = post.get("first_comment") or {}
+    if fc.get("id") or fc.get("tries", 0) >= FIRST_COMMENT_TRIES:
+        return False
+    return not fc.get("tried_at") or now - datetime.fromisoformat(fc["tried_at"]) >= FIRST_COMMENT_RETRY
+
+
+def retry_first_comments(posts: list[dict], page_id: str) -> int:
+    """Token của Page vừa đổi: cho các bài chưa bình luận đầu tiên được của Page đó thử lại từ đầu."""
+    n = 0
+    for p in posts:
+        fc = p.get("first_comment") or {}
+        if p.get("page") == page_id and fc.get("error") and not fc.get("id"):
+            p["first_comment"] = {"error": fc["error"]}  # bỏ số lượt thử + giờ thử, giữ lỗi cũ để hiển thị tới khi thử lại
+            n += 1
+    return n
+
+
+def first_comment_text(ai_text: str, link: str) -> str:
+    """Câu AI viết (nếu có) rồi đến link affiliate ở dòng dưới."""
+    if link:
+        return f"{ai_text}\n👉 {link}" if ai_text else f"👉 Link sản phẩm: {link}"
+    return ai_text
 
 
 def new_post(fields: dict, **extra) -> dict:
@@ -65,7 +106,7 @@ def reset_to_pending(post: dict, **fields) -> None:
         post.pop("video", None)
         post.pop("video_kind", None)
     post.update(fields, status=PENDING, error="")
-    for k in ("fb_id", "fb_scheduled_at", "last_check_at"):
+    for k in ("fb_id", "fb_scheduled_at", "last_check_at", "first_comment"):
         post.pop(k, None)
 
 

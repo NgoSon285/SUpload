@@ -19,7 +19,7 @@ from datetime import datetime
 from ..domain import health, insights, planner
 from ..domain.pages import limit_key, page_of, set_instagram
 from ..integrations.facebook import FBError
-from ..domain.posts import ERROR, PENDING, RUNNING, label
+from ..domain.posts import ERROR, FIRST_COMMENT_TRIES, PENDING, RUNNING, first_comment_due, first_comment_text, label
 from ..storage import Store, add_log, find
 from ..utils import now_iso
 from . import comments as comment_sync
@@ -81,6 +81,9 @@ class Scheduler:
                     comment_sync.state(data, page["id"])["last_at"] = now.isoformat(timespec="seconds")
                 elif kind == "unhide":
                     post["unhide_at"] = None
+                elif kind == "first_comment":  # tính lượt thử ngay, lỗi giữa chừng cũng không thử dồn dập
+                    fc = post.setdefault("first_comment", {})
+                    fc.update(tries=fc.get("tries", 0) + 1, tried_at=now.isoformat(timespec="seconds"))
                 elif kind in ("publish", "handoff"):
                     post["status"] = RUNNING  # giữ chỗ, tránh xử lý trùng
         if not job:
@@ -90,6 +93,7 @@ class Scheduler:
             {"check": self._do_check, "handoff": self._do_handoff, "publish": self._do_publish,
              "health": self._do_health, "stats": self._do_stats,
              "comments": self._do_comments, "recycle": self._do_recycle, "unhide": self._do_unhide,
+             "first_comment": self._do_first_comment,
              "maintenance": self._do_maintenance}[kind](post, page, settings, now, when)
         finally:
             self.runtime.worker = "Đang rảnh"
@@ -111,6 +115,9 @@ class Scheduler:
             post = find(posts, pid)
             if self.publisher.can_hand_off(when, page_of(data, post), settings, now, post):
                 return "handoff", post, when
+        for p in posts:
+            if first_comment_due(p, now) and (page_of(data, p) or {}).get("kind") == "api":
+                return "first_comment", p, None
         for c in comment_sync.unhide_due(data, now):
             return "unhide", c, None
         for pg in data["pages"]:
@@ -183,6 +190,36 @@ class Scheduler:
             self._finish(post["id"], fields, "error", f"Bài hẹn giờ có vấn đề: {fields['error']}")
         else:
             self._finish(post["id"], fields, None, None)
+
+    def _do_first_comment(self, post: dict, page, settings: dict, now: datetime, when) -> None:
+        """Bình luận đầu tiên dưới bài vừa lên: câu do AI viết và/hoặc link sản phẩm affiliate."""
+        from ..integrations import ai
+
+        self.runtime.worker = "Đang bình luận đầu tiên: " + label(post)[:30]
+        link, fc = post.get("affiliate_link", ""), post["first_comment"]
+        try:
+            ai_text = ""
+            if post.get("ai_comment"):
+                try:
+                    if not ai.api_key(settings):
+                        raise ai.AIError("Chưa có API key AI (Cài đặt → Trợ lý AI)")
+                    kind = "video" if post.get("video") else "ảnh" if post.get("photos") else "bài viết"
+                    ai_text = ai.suggest_with(settings, "first_comment_link" if link else "first_comment",
+                                              post.get("message") or f"(Bài {kind} không có chú thích)", page_name=page["name"])[0]
+                except ai.AIError:
+                    if not link:
+                        raise
+                    # AI lỗi nhưng có link: vẫn bình luận link
+            text = first_comment_text(ai_text, link)
+            res = self.publisher.poster(page).reply_comment(post["fb_id"], text)
+            self._finish(post["id"], {"first_comment": {**fc, "id": res.get("id", ""), "text": text, "at": now_iso(), "error": ""}},
+                         "ok", f"Đã bình luận đầu tiên: {label(post)}", page)
+        except Exception as e:  # noqa: BLE001
+            msg = health.describe_comment(e.code, str(e)) if isinstance(e, FBError) else str(e)
+            last = fc.get("tries", 0) >= FIRST_COMMENT_TRIES
+            # không truyền page/lỗi: bình luận lỗi không có nghĩa Page mất kết nối (đăng bài vẫn được)
+            self._finish(post["id"], {"first_comment": {**fc, "error": msg}}, "error",
+                         f"Chưa bình luận đầu tiên được{' (đã thử ' + str(FIRST_COMMENT_TRIES) + ' lần)' if last else ''}: {msg}")
 
     def _do_health(self, post, page, settings: dict, now: datetime, when) -> None:
         self.runtime.worker = f"Đang kiểm tra kết nối Page {page['name']}…"

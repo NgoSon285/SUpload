@@ -1,13 +1,27 @@
 import { ActionIcon, Alert, Badge, Card, Group, Image, Stack, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import {
   IconAlertTriangle, IconBrandFacebook, IconCheck, IconClock, IconCopy, IconLink, IconPencil, IconPhoto, IconRefresh,
-  IconSend, IconSitemap, IconTrash, IconArrowForward, IconMovie,
+  IconSend, IconSitemap, IconTrash, IconArrowForward, IconMovie, IconMessageCircle, IconMessagePlus,
 } from "@tabler/icons-react";
 
 import { imgUrl } from "../../api/client";
 import { hm, rel, when } from "../../lib/time";
 import { StatsLine } from "../insights/InsightsPage";
 import { STATUS, upcomingTime } from "./status";
+
+/** Bình luận đầu tiên (AI / link affiliate) của bài: sẽ bình luận, đã bình luận, hay lỗi. */
+function FirstCommentLine({ p }) {
+  const fc = p.first_comment || {};
+  const what = p.affiliate_link ? (p.ai_comment ? "AI + link affiliate" : "link affiliate") : "AI";
+  const [color, text] = fc.id ? ["teal", `Đã bình luận đầu tiên (${what})`]
+    : fc.error ? ["orange", `Chưa bình luận đầu tiên được (lần ${fc.tries || 1}): ${fc.error}`]
+    : ["dimmed", `Sẽ bình luận đầu tiên sau khi đăng (${what})`];
+  return (
+    <Tooltip label={fc.text} disabled={!fc.text} multiline maw={360} withinPortal>
+      <Group gap={4} fz="xs" c={color} wrap="nowrap" data-testid="first-comment-line"><IconMessageCircle size={14} /><Text span size="xs" lineClamp={1}>{text}</Text></Group>
+    </Tooltip>
+  );
+}
 
 function TimeLine({ p }) {
   if (p.status === "done") return <><IconCheck size={14} />Đã đăng {p.done_at ? when(p.done_at) : ""}</>;
@@ -18,7 +32,7 @@ function TimeLine({ p }) {
   return <><IconClock size={14} />{hm(t)} · {rel(t)}{p.fb_handoff ? " · sẽ hẹn trên Facebook" : ""}</>;
 }
 
-export function PostRow({ p, pageName, onAction }) {
+export function PostRow({ p, pageName, canComment, onAction }) {
   const st = STATUS[p.status] || STATUS.pending;
   const act = (a, Icon, label, color = "gray") => (
     <Tooltip label={label} withArrow>
@@ -61,11 +75,18 @@ export function PostRow({ p, pageName, onAction }) {
               <IconArrowForward size={14} />Dời sang {when(p.effective_at)} vì {p.shift_reason}
             </Group>
           )}
+          {(p.ai_comment || p.affiliate_link) && <FirstCommentLine p={p} />}
+          {p.page_comments?.length > 0 && (
+            <Tooltip label={p.page_comments.at(-1).text} multiline maw={360} withinPortal>
+              <Group gap={4} fz="xs" c="indigo" data-testid="page-comments"><IconMessageCircle size={14} />Page đã bình luận {p.page_comments.length} lần</Group>
+            </Tooltip>
+          )}
           {p.error && <Alert color="red" variant="light" p="xs" mt={4} icon={<IconAlertTriangle size={16} />}><Text size="xs">{p.error}</Text></Alert>}
         </Stack>
         {p.status !== "running" && (
           <Group gap={2} wrap="nowrap">
             {p.status === "error" && act("retry", IconRefresh, "Đăng lại ngay", "indigo")}
+            {canComment && act("comment", IconMessagePlus, "Bình luận vào bài", "indigo")}
             {p.status !== "done" && act("edit", IconPencil, "Sửa")}
             {act("dup", IconCopy, "Dùng lại nội dung")}
             {act("del", IconTrash, "Xoá", "red")}
