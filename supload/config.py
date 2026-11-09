@@ -42,6 +42,8 @@ def default_settings() -> dict:
         "gemini_api_key": "",
         "ai_model": "gpt-5.4-mini",
         "ai_base_url": "",
+        # ảnh sản phẩm Shopee/TikTok: thư mục lưu (bắt buộc cấu hình trước, api/review.py)
+        "review_dir": "",
         # tự đăng lại bài hiệu quả (domain/recycle.py)
         "recycle": {"enabled": False, "after_days": 30, "per_week": 1, "rewrite": False},
         # bình luận: đồng bộ + quy tắc tự động (domain/comments.py)

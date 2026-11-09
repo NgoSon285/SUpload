@@ -268,6 +268,16 @@ cho Ollama), tên model của dịch vụ đó, và key của dịch vụ (Ollam
 schema (structured outputs).
 AI được dặn không bịa giá, ngày, địa chỉ hay khuyến mãi, nhưng **hãy đọc lại trước khi đăng**.
 
+### Ảnh sản phẩm (Shopee, TikTok Shop)
+
+Trang **Ảnh sản phẩm** dùng để lấy ảnh sản phẩm về máy làm bài review, mỗi sản phẩm một thư mục.
+
+1. **Thư mục lưu ảnh**: bấm **Chọn thư mục…** (hộp chọn của hệ điều hành) hoặc dán đường dẫn đầy đủ (vd
+   `/Users/ten/Pictures/Review` hoặc `D:\Review`) rồi **Lưu**. Bắt buộc làm trước; chưa có thư mục thì ứng dụng tự tạo.
+2. Dán link sản phẩm, **mỗi dòng một link** → **Lấy ảnh**.
+
+Phần lấy ảnh đang phát triển: hiện nút **Lấy ảnh** chỉ báo "Đang phát triển".
+
 ### Bình luận: hộp bình luận và tự động xử lý
 
 Trang **Bình luận** gom bình luận trên các bài trong 7 ngày gần đây của mọi Page (qua Graph API). Ứng dụng tự đọc bình luận mới

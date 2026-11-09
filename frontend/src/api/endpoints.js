@@ -87,6 +87,12 @@ export const commentsApi = {
   saveConfig: (cfg) => api("/api/comments/config", { method: "PUT", body: cfg }),
 };
 
+export const reviewApi = {
+  setDir: (dir) => put("/api/review/dir", { dir }),
+  pickDir: () => post("/api/review/pick"),
+  open: (path) => post("/api/review/open", { path }),
+};
+
 export const aiApi = {
   models: () => api("/api/ai/models"),
   suggest: (body) => post("/api/ai/suggest", body),

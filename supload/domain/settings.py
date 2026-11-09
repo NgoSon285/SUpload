@@ -46,6 +46,7 @@ def apply_update(s: dict, body: dict) -> dict:
     s["comments"] = clean_config(s.get("comments"))
     from .recycle import clean_config as clean_recycle
     s["recycle"] = clean_recycle(s.get("recycle"))
+    s["review_dir"] = str(s.get("review_dir") or "").strip()
     s["headless"] = bool(s.get("headless"))
     s["fb_schedule"] = bool(s.get("fb_schedule"))
     return s

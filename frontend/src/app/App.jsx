@@ -6,7 +6,7 @@ import {
 import { useDisclosure, useInterval } from "@mantine/hooks";
 import {
   IconPencil, IconMovie, IconMessageCircle, IconCalendarEvent, IconSitemap, IconListDetails, IconAdjustments, IconSun, IconMoon,
-  IconDeviceDesktop, IconSend, IconBooks, IconChartBar,
+  IconDeviceDesktop, IconSend, IconBooks, IconChartBar, IconPhotoDown,
 } from "@tabler/icons-react";
 
 import { stateApi } from "../api/endpoints";
@@ -17,6 +17,7 @@ import InsightsPage from "../features/insights/InsightsPage";
 import LibraryPage from "../features/library/LibraryPage";
 import LogPage from "../features/log/LogPage";
 import QueuePage from "../features/queue/QueuePage";
+import ReviewPage from "../features/review/ReviewPage";
 import SettingsPage from "../features/settings/SettingsPage";
 import { HealthBanner } from "../components";
 import { configured, defaultPage, KIND_LABEL, pageInitial, pagesOf } from "../lib/page";
@@ -31,6 +32,7 @@ const VIEWS = [
   { id: "flow", label: "Flow chiến dịch", icon: IconSitemap },
   { id: "insights", label: "Thống kê", icon: IconChartBar },
   { id: "library", label: "Thư viện", icon: IconBooks },
+  { id: "review", label: "Ảnh sản phẩm", icon: IconPhotoDown },
   { id: "log", label: "Nhật ký", icon: IconListDetails },
   { id: "settings", label: "Cài đặt", icon: IconAdjustments },
 ];
@@ -174,7 +176,7 @@ export default function App() {
               <HealthBanner pages={pagesOf(state)} onFix={() => setView("settings")} />
             </div>
           )}
-          {!state ? null : view === "compose" ? <ComposePage /> : view === "queue" ? <QueuePage /> : view === "comments" ? <CommentsPage /> : view === "flow" ? <FlowPage /> : view === "insights" ? <InsightsPage /> : view === "library" ? <LibraryPage /> : view === "log" ? <LogPage /> : <SettingsPage />}
+          {!state ? null : view === "compose" ? <ComposePage /> : view === "queue" ? <QueuePage /> : view === "comments" ? <CommentsPage /> : view === "flow" ? <FlowPage /> : view === "insights" ? <InsightsPage /> : view === "library" ? <LibraryPage /> : view === "review" ? <ReviewPage /> : view === "log" ? <LogPage /> : <SettingsPage />}
         </AppShell.Main>
       </AppShell>
     </AppContext.Provider>
